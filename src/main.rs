@@ -155,6 +155,26 @@ fn get_deb_author() -> CargoResult<String> {
     Ok(format!("{} <{}>", name, email))
 }
 
+/// Write a Description field with proper formatting.
+fn write_description<W: IoWrite>(out: &mut W, summary: &str, longdesc: Option<&String>, boilerplate: Option<&String>) -> CargoResult<()> {
+    assert!(!summary.contains('\n'));
+    try!(writeln!(out, "Description: {}", summary));
+    for (n, ref s) in longdesc.iter().chain(boilerplate.iter()).enumerate() {
+        if n != 0 {
+            try!(writeln!(out, " ."));
+        }
+        for line in s.trim().lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                try!(writeln!(out, " ."));
+            } else {
+                try!(writeln!(out, " {}", line));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn real_main() -> CargoResult<()> {
     let matches = App::new("debcargo")
         .author(crate_authors!())
@@ -250,52 +270,60 @@ fn real_main() -> CargoResult<()> {
             assert!(!homepage.contains('\n'));
             try!(writeln!(control, "Homepage: {}", homepage));
         }
+        let mut lib = false;
+        let mut bins = Vec::new();
         for target in manifest.targets() {
             match target.kind() {
                 &TargetKind::Lib(_) => {
-                    try!(writeln!(control, "\nPackage: {}", deb_name(target.name())));
-                    try!(writeln!(control, "Architecture: all"));
-                    try!(writeln!(control, "Depends:\n {}", deps.join(",\n ")));
-                    try!(writeln!(control, "Description: Source of the Rust \"{}\" crate", target.name()));
-                    try!(writeln!(control, " This package contains the source for the Rust \"{}\" crate,", target.name()));
-                    try!(writeln!(control, " packaged for use with cargo, debcargo, and dh_cargo."));
-                    if let Some(ref description) = meta.description {
-                        try!(writeln!(control, " ."));
-                        for line in description.trim().lines() {
-                            let line = line.trim();
-                            if line.is_empty() {
-                                try!(writeln!(control, " ."));
-                            } else {
-                                try!(writeln!(control, " {}", line));
-                            }
-                        }
-                    }
+                    lib = true;
                 }
                 &TargetKind::Bin => {
-                    try!(writeln!(control, "\nPackage: {}", target.name()));
-                    try!(writeln!(control, "Architecture: any"));
-                    try!(writeln!(control, "Depends: ${{shlibs:Depends}}, ${{misc:Depends}}"));
-                    let description = meta.description.clone().unwrap_or(format!("Rust {} binary", target.name()));
-                    let pieces: Vec<_> = description.splitn(2, ". ").collect();
-                    let (summary, description) = if pieces.len() > 1 {
-                        (pieces[0].to_string(), pieces[1].trim())
-                    } else {
-                        (pieces[0].trim().to_string(), "")
-                    };
-                    try!(writeln!(control, "Description: {}", summary));
-                    if !description.is_empty() {
-                        for line in description.lines() {
-                            let line = line.trim();
-                            if line.is_empty() {
-                                try!(writeln!(control, " ."));
-                            } else {
-                                try!(writeln!(control, " {}", line));
-                            }
-                        }
-                    }
+                    bins.push(target.name());
                 }
                 _ => continue,
             }
+        }
+        bins.sort();
+        let (summary, description) = if let Some(ref description) = meta.description {
+            let description = description.trim();
+            let delimiter = if description.contains('\n') { "\n" } else { ". " };
+            let pieces: Vec<_> = description.splitn(2, delimiter).collect();
+            if pieces.len() > 1 {
+                (Some(pieces[0].trim_right_matches('.').to_string()), Some(pieces[1].trim().to_string()))
+            } else {
+                (Some(pieces[0].trim().trim_right_matches('.').to_string()), None)
+            }
+        } else {
+            (None, None)
+        };
+        if lib {
+            try!(writeln!(control, "\nPackage: {}", deb_name(crate_name)));
+            try!(writeln!(control, "Architecture: all"));
+            try!(writeln!(control, "Depends:\n {}", deps.join(",\n ")));
+            let summary = match summary {
+                None => format!("Source of the Rust \"{}\" crate", crate_name),
+                Some(ref s) => format!("{} - Source", s),
+            };
+            let boilerplate = format!(
+                concat!("This package contains the source for the Rust \"{}\" crate,\n",
+                        "packaged for use with cargo, debcargo, and dh_cargo."),
+                crate_name);
+            try!(write_description(&mut control, &summary, description.as_ref(), Some(&boilerplate)));
+        }
+        if !bins.is_empty() {
+            try!(writeln!(control, "\nPackage: {}", crate_name.replace('_', "-")));
+            try!(writeln!(control, "Architecture: any"));
+            try!(writeln!(control, "Depends: ${{shlibs:Depends}}, ${{misc:Depends}}"));
+            let summary = match summary {
+                None => format!("Binaries built from the Rust \"{}\" crate", crate_name),
+                Some(ref s) => s.to_string(),
+            };
+            let boilerplate = if bins.len() > 1 || bins[0] != crate_name {
+                Some(format!("This package contains the following binaries built from the\nRust \"{}\" crate:\n- {}", crate_name, bins.join("\n- ")))
+            } else {
+                None
+            };
+            try!(write_description(&mut control, &summary, description.as_ref(), boilerplate.as_ref()));
         }
 
         let mut copyright = std::io::BufWriter::new(try!(file("copyright")));
