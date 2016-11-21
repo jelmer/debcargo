@@ -167,6 +167,8 @@ fn write_description<W: IoWrite>(out: &mut W, summary: &str, longdesc: Option<&S
             let line = line.trim();
             if line.is_empty() {
                 try!(writeln!(out, " ."));
+            } else if line.starts_with("- ") {
+                try!(writeln!(out, "  {}", line));
             } else {
                 try!(writeln!(out, " {}", line));
             }
