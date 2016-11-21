@@ -200,9 +200,11 @@ fn real_main() -> CargoResult<()> {
 	let mut registry = cargo::sources::RegistrySource::remote(&crates_io, &config);
     let dependency = try!(cargo::core::Dependency::parse_no_deprecated(&crate_name, version.as_ref().map(String::as_str), &crates_io));
     let summaries = try!(registry.query(&dependency));
-    let pkgid = try!(summaries.iter().map(cargo::core::Summary::package_id).max()
+    let summary = try!(summaries.iter().max_by_key(|s| s.package_id())
                      .ok_or_else(|| human(format!("Couldn't find any package matching {} {}",
                                                   dependency.name(), dependency.version_req()))));
+    let pkgid = summary.package_id();
+    let checksum = try!(summary.checksum().ok_or_else(|| human(format!("Could not get crate checksum"))));
     let package = try!(registry.download(&pkgid));
     let registry_name = format!("{}-{:016x}", crates_io.url().host_str().unwrap_or(""), hash(&crates_io).swap_bytes());
     let crate_filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
@@ -233,6 +235,9 @@ fn real_main() -> CargoResult<()> {
 
     {
         let file = |name| create.open(tempdir.path().join(name));
+
+        let mut cargo_checksum_json = try!(file("cargo-checksum.json"));
+        try!(writeln!(cargo_checksum_json, r#"{{"package":"{}","files":{{}}}}"#, checksum));
 
         let mut changelog = try!(file("changelog"));
         try!(write!(changelog,
