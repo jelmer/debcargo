@@ -269,6 +269,7 @@ fn real_main() -> CargoResult<()> {
         try!(writeln!(control, "Section: libdevel"));
         try!(writeln!(control, "Priority: optional"));
         try!(writeln!(control, "Maintainer: {}", RUST_MAINT));
+        try!(writeln!(control, "Uploaders: {}", deb_author));
         try!(writeln!(control, "Build-Depends:\n {}", build_deps.join(",\n ")));
         try!(writeln!(control, "Standards-Version: 3.9.8"));
         if let Some(ref homepage) = meta.homepage {
