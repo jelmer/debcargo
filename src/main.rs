@@ -292,7 +292,10 @@ fn real_main() -> CargoResult<()> {
             try!(writeln!(control, "Homepage: {}", homepage));
         }
         let (summary, description) = if let Some(ref description) = meta.description {
-            let description = description.trim();
+            let mut description = description.trim();
+            for article in ["a ", "A ", "an ", "An ", "the ", "The "].iter() {
+                description = description.trim_left_matches(article);
+            }
             let p1 = description.find('\n');
             let p2 = description.find(". ");
             match p1.iter().chain(p2.iter()).min() {
