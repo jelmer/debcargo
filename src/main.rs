@@ -322,7 +322,7 @@ fn real_main() -> CargoResult<()> {
             };
             let boilerplate = format!(
                 concat!("This package contains the source for the Rust \"{}\" crate,\n",
-                        "packaged for use with cargo, debcargo, and dh_cargo."),
+                        "packaged for use with cargo, debcargo, and dh-cargo."),
                 crate_name);
             try!(write_description(&mut control, &summary, description.as_ref(), Some(&boilerplate)));
         }
