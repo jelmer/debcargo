@@ -212,6 +212,23 @@ fn real_main() -> CargoResult<()> {
     let crate_filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
     let lock = try!(config.registry_cache_path().join(&registry_name).open_ro(&crate_filename, &config, &crate_filename));
 
+    let manifest = package.manifest();
+
+    let mut lib = false;
+    let mut bins = Vec::new();
+    for target in manifest.targets() {
+        match target.kind() {
+            &TargetKind::Lib(_) => {
+                lib = true;
+            }
+            &TargetKind::Bin => {
+                bins.push(target.name());
+            }
+            _ => continue,
+        }
+    }
+    bins.sort();
+
     let debsrcname = format!("rust-{}", pkgid.name().replace('_', "-"));
     let debver = deb_version(pkgid.version());
     let debsrcdir = Path::new(&format!("{}-{}", debsrcname, debver)).to_owned();
@@ -253,8 +270,6 @@ fn real_main() -> CargoResult<()> {
         let mut compat = try!(file("compat"));
         try!(writeln!(compat, "10"));
 
-        let manifest = package.manifest();
-
         let mut deps = vec!["${misc:Depends}".to_string()];
         let mut build_deps = vec!["debhelper (>= 10)".to_string(), "dh-cargo".to_string()];
         for dep in manifest.dependencies() {
@@ -278,20 +293,6 @@ fn real_main() -> CargoResult<()> {
             assert!(!homepage.contains('\n'));
             try!(writeln!(control, "Homepage: {}", homepage));
         }
-        let mut lib = false;
-        let mut bins = Vec::new();
-        for target in manifest.targets() {
-            match target.kind() {
-                &TargetKind::Lib(_) => {
-                    lib = true;
-                }
-                &TargetKind::Bin => {
-                    bins.push(target.name());
-                }
-                _ => continue,
-            }
-        }
-        bins.sort();
         let (summary, description) = if let Some(ref description) = meta.description {
             let description = description.trim();
             let p1 = description.find('\n');
