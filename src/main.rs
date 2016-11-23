@@ -2,6 +2,7 @@ extern crate cargo;
 #[macro_use] extern crate clap;
 extern crate chrono;
 extern crate flate2;
+extern crate itertools;
 extern crate semver;
 extern crate semver_parser;
 extern crate tar;
@@ -10,6 +11,7 @@ extern crate tempdir;
 use cargo::core::{Dependency, Registry, Source, TargetKind};
 use cargo::util::{CargoResult, human};
 use clap::{App, AppSettings, SubCommand};
+use itertools::Itertools;
 use semver::Version;
 use std::fmt;
 use std::fmt::Write as FmtWrite;
@@ -270,15 +272,7 @@ fn real_main() -> CargoResult<()> {
         let mut compat = try!(file("compat"));
         try!(writeln!(compat, "10"));
 
-        let mut deps = vec!["${misc:Depends}".to_string()];
-        let mut build_deps = vec!["debhelper (>= 10)".to_string(), "dh-cargo".to_string()];
-        for dep in manifest.dependencies() {
-            let translated = deb_dep(dep);
-            if dep.kind() != cargo::core::dependency::Kind::Development {
-                deps.push(translated.clone());
-            }
-            build_deps.push(translated);
-        }
+        let deps: Vec<String> = manifest.dependencies().iter().filter(|dep| dep.kind() != cargo::core::dependency::Kind::Development).map(deb_dep).collect();
 
         let meta = manifest.metadata();
         let mut control = std::io::BufWriter::new(try!(file("control")));
@@ -290,7 +284,8 @@ fn real_main() -> CargoResult<()> {
         try!(writeln!(control, "Priority: optional"));
         try!(writeln!(control, "Maintainer: {}", RUST_MAINT));
         try!(writeln!(control, "Uploaders: {}", deb_author));
-        try!(writeln!(control, "Build-Depends:\n {}", build_deps.join(",\n ")));
+        let build_deps = if !bins.is_empty() { deps.iter() } else { [].iter() };
+        try!(writeln!(control, "Build-Depends:\n {}", vec!["debhelper (>= 10)".to_string(), "dh-cargo".to_string()].iter().chain(build_deps).join(",\n ")));
         try!(writeln!(control, "Standards-Version: 3.9.8"));
         if let Some(ref homepage) = meta.homepage {
             assert!(!homepage.contains('\n'));
@@ -318,7 +313,7 @@ fn real_main() -> CargoResult<()> {
         if lib {
             try!(writeln!(control, "\nPackage: {}", deb_name(crate_name)));
             try!(writeln!(control, "Architecture: all"));
-            try!(writeln!(control, "Depends:\n {}", deps.join(",\n ")));
+            try!(writeln!(control, "Depends:\n {}", vec!["${misc:Depends}".to_string()].iter().chain(deps.iter()).join(",\n ")));
             let summary = match summary {
                 None => format!("Source of the Rust \"{}\" crate", crate_name),
                 Some(ref s) => format!("{} - Source", s),
