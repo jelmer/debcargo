@@ -294,12 +294,19 @@ fn real_main() -> CargoResult<()> {
         bins.sort();
         let (summary, description) = if let Some(ref description) = meta.description {
             let description = description.trim();
-            let delimiter = if description.contains('\n') { "\n" } else { ". " };
-            let pieces: Vec<_> = description.splitn(2, delimiter).collect();
-            if pieces.len() > 1 {
-                (Some(pieces[0].trim_right_matches('.').to_string()), Some(pieces[1].trim().to_string()))
-            } else {
-                (Some(pieces[0].trim().trim_right_matches('.').to_string()), None)
+            let p1 = description.find('\n');
+            let p2 = description.find(". ");
+            match p1.iter().chain(p2.iter()).min() {
+                Some(&p) => {
+                    let s = description[..p].trim_right_matches('.').to_string();
+                    let d = description[p+1..].trim();
+                    if d.is_empty() {
+                        (Some(s), None)
+                    } else {
+                        (Some(s), Some(d.to_string()))
+                    }
+                }
+                None => (Some(description.trim_right_matches('.').to_string()), None),
             }
         } else {
             (None, None)
