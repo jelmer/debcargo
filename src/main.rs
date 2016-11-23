@@ -341,6 +341,7 @@ fn real_main() -> CargoResult<()> {
         }
 
         let mut copyright = std::io::BufWriter::new(try!(file("copyright")));
+        try!(writeln!(copyright, "Downloaded from the crate \"{}\" on crates.io via Cargo.\n", crate_name));
         if !meta.authors.is_empty() {
             try!(writeln!(copyright, "Upstream authors:"));
             for author in meta.authors.iter() {
