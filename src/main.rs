@@ -341,6 +341,13 @@ fn real_main() -> CargoResult<()> {
         }
 
         let mut copyright = std::io::BufWriter::new(try!(file("copyright")));
+        if !meta.authors.is_empty() {
+            try!(writeln!(copyright, "Upstream authors:"));
+            for author in meta.authors.iter() {
+                try!(writeln!(copyright, "- {}", author));
+            }
+            try!(writeln!(copyright, ""));
+        }
         if let Some(ref license_file_name) = meta.license_file {
             let license_file = package.manifest_path().with_file_name(license_file_name);
             let mut text = Vec::new();
