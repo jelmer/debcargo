@@ -283,6 +283,9 @@ fn real_main() -> CargoResult<()> {
         let meta = manifest.metadata();
         let mut control = std::io::BufWriter::new(try!(file("control")));
         try!(writeln!(control, "Source: {}", debsrcname));
+        if crate_name.contains('_') {
+            try!(writeln!(control, "X-Cargo-Crate: {}", crate_name));
+        }
         try!(writeln!(control, "Section: libdevel"));
         try!(writeln!(control, "Priority: optional"));
         try!(writeln!(control, "Maintainer: {}", RUST_MAINT));
