@@ -1,6 +1,7 @@
 extern crate cargo;
 #[macro_use] extern crate clap;
 extern crate chrono;
+#[macro_use] extern crate error_chain;
 extern crate flate2;
 extern crate itertools;
 extern crate semver;
@@ -9,7 +10,6 @@ extern crate tar;
 extern crate tempdir;
 
 use cargo::core::{Dependency, Registry, Source, TargetKind};
-use cargo::util::{CargoResult, human};
 use clap::{App, AppSettings, SubCommand};
 use itertools::Itertools;
 use semver::Version;
@@ -20,6 +20,13 @@ use std::io::Read;
 use std::io::Write as IoWrite;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
+
+error_chain! {
+    foreign_links {
+        std::io::Error, Io;
+        Box<cargo::CargoError>, Cargo;
+    }
+}
 
 const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>";
 
@@ -134,13 +141,13 @@ fn deb_dep(dep: &Dependency) -> String {
 
 /// Retrieve one of a series of environment variables, and provide a friendly error message for
 /// non-UTF-8 values.
-fn get_envs(keys: &[&str]) -> CargoResult<Option<String>> {
+fn get_envs(keys: &[&str]) -> Result<Option<String>> {
     use std::env::VarError;
     for key in keys {
         match std::env::var(key) {
             Ok(val) => { return Ok(Some(val)); }
             Err(VarError::NotUnicode(_)) => {
-                return Err(human(format!("Environment variable ${} not valid UTF-8", key)));
+                try!(Err(format!("Environment variable ${} not valid UTF-8", key)));
             }
             Err(VarError::NotPresent) => {},
         }
@@ -149,16 +156,16 @@ fn get_envs(keys: &[&str]) -> CargoResult<Option<String>> {
 }
 
 /// Determine a name and email address from environment variables.
-fn get_deb_author() -> CargoResult<String> {
+fn get_deb_author() -> Result<String> {
     let name = try!(try!(get_envs(&["DEBFULLNAME", "NAME"]))
-                    .ok_or_else(|| human("Unable to determine your name; please set $DEBFULLNAME or $NAME")));
+                    .ok_or("Unable to determine your name; please set $DEBFULLNAME or $NAME"));
     let email = try!(try!(get_envs(&["DEBEMAIL", "EMAIL"]))
-                     .ok_or_else(|| human("Unable to determine your email; please set $DEBEMAIL or $EMAIL")));
+                     .ok_or("Unable to determine your email; please set $DEBEMAIL or $EMAIL"));
     Ok(format!("{} <{}>", name, email))
 }
 
 /// Write a Description field with proper formatting.
-fn write_description<W: IoWrite>(out: &mut W, summary: &str, longdesc: Option<&String>, boilerplate: Option<&String>) -> CargoResult<()> {
+fn write_description<W: IoWrite>(out: &mut W, summary: &str, longdesc: Option<&String>, boilerplate: Option<&String>) -> Result<()> {
     assert!(!summary.contains('\n'));
     try!(writeln!(out, "Description: {}", summary));
     for (n, ref s) in longdesc.iter().chain(boilerplate.iter()).enumerate() {
@@ -179,7 +186,7 @@ fn write_description<W: IoWrite>(out: &mut W, summary: &str, longdesc: Option<&S
     Ok(())
 }
 
-fn real_main() -> CargoResult<()> {
+fn real_main() -> Result<()> {
     let matches = App::new("debcargo")
         .author(crate_authors!())
         .version(crate_version!())
@@ -205,10 +212,10 @@ fn real_main() -> CargoResult<()> {
     let dependency = try!(cargo::core::Dependency::parse_no_deprecated(&crate_name, version.as_ref().map(String::as_str), &crates_io));
     let summaries = try!(registry.query(&dependency));
     let summary = try!(summaries.iter().max_by_key(|s| s.package_id())
-                     .ok_or_else(|| human(format!("Couldn't find any package matching {} {}",
-                                                  dependency.name(), dependency.version_req()))));
+                     .ok_or_else(|| format!("Couldn't find any package matching {} {}",
+                                            dependency.name(), dependency.version_req())));
     let pkgid = summary.package_id();
-    let checksum = try!(summary.checksum().ok_or_else(|| human(format!("Could not get crate checksum"))));
+    let checksum = try!(summary.checksum().ok_or("Could not get crate checksum"));
     let package = try!(registry.download(&pkgid));
     let registry_name = format!("{}-{:016x}", crates_io.url().host_str().unwrap_or(""), hash(&crates_io).swap_bytes());
     let crate_filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
@@ -236,16 +243,16 @@ fn real_main() -> CargoResult<()> {
     let debsrcdir = Path::new(&format!("{}-{}", debsrcname, debver)).to_owned();
     let orig_tar_gz = Path::new(&format!("{}_{}.orig.tar.gz", debsrcname, debver)).to_owned();
     if orig_tar_gz.exists() {
-        try!(Err(human(format!("File already exists: {}", orig_tar_gz.display()))));
+        try!(Err(format!("File already exists: {}", orig_tar_gz.display())));
     }
     std::fs::copy(lock.path(), &orig_tar_gz).unwrap();
 
     let mut archive = tar::Archive::new(try!(flate2::read::GzDecoder::new(lock.file())));
     let tempdir = try!(tempdir::TempDir::new_in(".", "debcargo"));
     try!(archive.unpack(tempdir.path()));
-    let entries = try!(try!(tempdir.path().read_dir()).collect::<Result<Vec<_>, _>>());
+    let entries = try!(try!(tempdir.path().read_dir()).collect::<std::io::Result<Vec<_>>>());
     if entries.len() != 1 || !try!(entries[0].file_type()).is_dir() {
-        try!(Err(human(format!("{} did not unpack to a single top-level directory", crate_filename))));
+        try!(Err(format!("{} did not unpack to a single top-level directory", crate_filename)));
     }
     try!(std::fs::rename(entries[0].path(), &debsrcdir));
 
@@ -376,12 +383,12 @@ fn real_main() -> CargoResult<()> {
                     "mpl-2.0" => include_str!("licenses/MPL-2.0"),
                     "unlicense" => include_str!("licenses/Unlicense"),
                     "zlib" => include_str!("licenses/Zlib"),
-                    license => try!(Err(human(format!("Unrecognized crate license: {} (parsed from {})", license, licenses)))),
+                    license => try!(Err(format!("Unrecognized crate license: {} (parsed from {})", license, licenses))),
                 };
                 try!(write!(copyright, "\n\n{}", text));
             }
         } else {
-            try!(Err(human("Crate has no license or license_file")));
+            try!(Err("Crate has no license or license_file"));
         }
 
         try!(std::fs::create_dir(tempdir.path().join("source")));
