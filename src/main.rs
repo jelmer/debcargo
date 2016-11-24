@@ -11,6 +11,7 @@ extern crate tempdir;
 
 use cargo::core::{Dependency, Registry, Source, TargetKind};
 use clap::{App, AppSettings, SubCommand};
+use error_chain::ResultExt;
 use itertools::Itertools;
 use semver::Version;
 use std::fmt::{self, Write as FmtWrite};
@@ -145,8 +146,8 @@ fn get_envs(keys: &[&str]) -> Result<Option<String>> {
     for key in keys {
         match std::env::var(key) {
             Ok(val) => { return Ok(Some(val)); }
-            Err(VarError::NotUnicode(_)) => {
-                try!(Err(format!("Environment variable ${} not valid UTF-8", key)));
+            Err(e@VarError::NotUnicode(_)) => {
+                return Err(e).chain_err(|| format!("Environment variable ${} not valid UTF-8", key));
             }
             Err(VarError::NotPresent) => {},
         }
