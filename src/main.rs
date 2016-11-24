@@ -435,7 +435,7 @@ fn real_main() -> Result<()> {
                     "zlib" => include_str!("licenses/Zlib"),
                     license => try!(Err(format!("Unrecognized crate license: {} (parsed from {})", license, licenses))),
                 };
-                try!(write!(copyright, "\n\n{}", text));
+                try!(write!(copyright, "\n{:->79}\n\n{}", "", text));
             }
         } else {
             try!(Err("Crate has no license or license_file"));
