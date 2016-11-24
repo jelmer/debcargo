@@ -300,6 +300,33 @@ fn real_main() -> Result<()> {
     let mut copyright_notices: Vec<_> = copyright_notices.iter().collect();
     copyright_notices.sort();
 
+    let features = summary.features();
+    let mut default_deps = HashSet::new();
+    let mut defaults = Vec::new();
+    defaults.push("default");
+    while let Some(feature) = defaults.pop() {
+        match features.get(feature) {
+            Some(l) => {
+                for f in l {
+                    defaults.push(f);
+                }
+            }
+            None => { default_deps.insert(feature); }
+        }
+    }
+    let mut deps = Vec::new();
+    let mut suggests = Vec::new();
+    for dep in manifest.dependencies().iter() {
+        if dep.kind() == cargo::core::dependency::Kind::Development {
+            continue;
+        }
+        if dep.is_optional() && !default_deps.contains(dep.name()) {
+            suggests.push(deb_dep(dep));
+        } else {
+            deps.push(deb_dep(dep));
+        }
+    }
+
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
     let mut create_exec = create.clone();
@@ -322,8 +349,6 @@ fn real_main() -> Result<()> {
 
         let mut compat = try!(file("compat"));
         try!(writeln!(compat, "10"));
-
-        let deps: Vec<String> = manifest.dependencies().iter().filter(|dep| dep.kind() != cargo::core::dependency::Kind::Development).map(deb_dep).collect();
 
         let meta = manifest.metadata();
         let mut control = io::BufWriter::new(try!(file("control")));
@@ -368,6 +393,9 @@ fn real_main() -> Result<()> {
             try!(writeln!(control, "\nPackage: {}", deb_name(crate_name)));
             try!(writeln!(control, "Architecture: all"));
             try!(writeln!(control, "Depends:\n {}", vec!["${misc:Depends}".to_string()].iter().chain(deps.iter()).join(",\n ")));
+            if !suggests.is_empty() {
+                try!(writeln!(control, "Suggests:\n {}", suggests.join(",\n ")));
+            }
             let summary = match summary {
                 None => format!("Source of the Rust \"{}\" crate", crate_name),
                 Some(ref s) => format!("{} - Source", s),
