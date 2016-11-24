@@ -4,20 +4,23 @@ extern crate chrono;
 #[macro_use] extern crate error_chain;
 extern crate flate2;
 extern crate itertools;
+extern crate regex;
 extern crate semver;
 extern crate semver_parser;
 extern crate tar;
 extern crate tempdir;
+extern crate walkdir;
 
 use cargo::core::{Dependency, Registry, Source, TargetKind};
 use clap::{App, AppSettings, SubCommand};
 use error_chain::ResultExt;
 use itertools::Itertools;
+use regex::Regex;
 use semver::Version;
 use std::fmt::{self, Write as FmtWrite};
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::{self, Read, Write as IoWrite};
+use std::io::{self, BufRead, Read, Write as IoWrite};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 
@@ -25,6 +28,8 @@ error_chain! {
     foreign_links {
         io::Error, Io;
         Box<cargo::CargoError>, Cargo;
+        regex::Error, Regex;
+        walkdir::Error, WalkDir;
     }
 }
 
@@ -267,6 +272,33 @@ fn real_main() -> Result<()> {
     }
     try!(fs::rename(entries[0].path(), &debsrcdir));
 
+    let mut copyright_notices = std::collections::HashSet::new();
+    let copyright_notice_re = try!(Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b\d{4}\b.*$"));
+    for entry in walkdir::WalkDir::new(&debsrcdir) {
+        let entry = try!(entry);
+        if entry.file_type().is_file() {
+            let copying_file = entry.file_name().to_string_lossy().starts_with("COPYING");
+            let file = try!(fs::File::open(entry.path()));
+            let reader = io::BufReader::new(file);
+            for line in reader.lines() {
+                if let Ok(line) = line {
+                    if let Some((start, end)) = copyright_notice_re.find(&line) {
+                        let notice = line[start..end].trim_right().trim_right_matches(". See the COPYRIGHT").to_string();
+                        // Skip the copyright notices from the GPL/LGPL itself.
+                        if copying_file && notice.contains("Free Software Foundation, Inc.") {
+                            continue;
+                        }
+                        copyright_notices.insert(notice);
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+    let mut copyright_notices: Vec<_> = copyright_notices.iter().collect();
+    copyright_notices.sort();
+
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
     let mut create_exec = create.clone();
@@ -367,6 +399,13 @@ fn real_main() -> Result<()> {
             try!(writeln!(copyright, "Upstream authors:"));
             for author in meta.authors.iter() {
                 try!(writeln!(copyright, "- {}", author));
+            }
+            try!(writeln!(copyright, ""));
+        }
+        if !copyright_notices.is_empty() {
+            try!(writeln!(copyright, "Copyright notices:"));
+            for notice in copyright_notices.iter() {
+                try!(writeln!(copyright, "- {}", notice));
             }
             try!(writeln!(copyright, ""));
         }
