@@ -17,6 +17,7 @@ use error_chain::ResultExt;
 use itertools::Itertools;
 use regex::Regex;
 use semver::Version;
+use std::collections::HashSet;
 use std::fmt::{self, Write as FmtWrite};
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -272,7 +273,7 @@ fn real_main() -> Result<()> {
     }
     try!(fs::rename(entries[0].path(), &debsrcdir));
 
-    let mut copyright_notices = std::collections::HashSet::new();
+    let mut copyright_notices = HashSet::new();
     let copyright_notice_re = try!(Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b\d{4}\b.*$"));
     for entry in walkdir::WalkDir::new(&debsrcdir) {
         let entry = try!(entry);
