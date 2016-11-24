@@ -13,17 +13,16 @@ use cargo::core::{Dependency, Registry, Source, TargetKind};
 use clap::{App, AppSettings, SubCommand};
 use itertools::Itertools;
 use semver::Version;
-use std::fmt;
-use std::fmt::Write as FmtWrite;
+use std::fmt::{self, Write as FmtWrite};
+use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::Read;
-use std::io::Write as IoWrite;
+use std::io::{self, Read, Write as IoWrite};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 
 error_chain! {
     foreign_links {
-        std::io::Error, Io;
+        io::Error, Io;
         Box<cargo::CargoError>, Cargo;
     }
 }
@@ -88,7 +87,7 @@ fn deb_dep(dep: &Dependency) -> String {
         // Debian dependency cannot properly handle pre-release crates.  Don't package pre-release
         // crates or crates that depend on pre-release crates.
         if !p.pre.is_empty() {
-            writeln!(std::io::stderr(), "Warning: dependency on prerelease version: {} {:?}", dep.name(), p).unwrap();
+            writeln!(io::stderr(), "Warning: dependency on prerelease version: {} {:?}", dep.name(), p).unwrap();
         }
         let mmp = match (p.minor, p.patch) {
             (None, None) => M(p.major),
@@ -245,18 +244,18 @@ fn real_main() -> Result<()> {
     if orig_tar_gz.exists() {
         try!(Err(format!("File already exists: {}", orig_tar_gz.display())));
     }
-    std::fs::copy(lock.path(), &orig_tar_gz).unwrap();
+    fs::copy(lock.path(), &orig_tar_gz).unwrap();
 
     let mut archive = tar::Archive::new(try!(flate2::read::GzDecoder::new(lock.file())));
     let tempdir = try!(tempdir::TempDir::new_in(".", "debcargo"));
     try!(archive.unpack(tempdir.path()));
-    let entries = try!(try!(tempdir.path().read_dir()).collect::<std::io::Result<Vec<_>>>());
+    let entries = try!(try!(tempdir.path().read_dir()).collect::<io::Result<Vec<_>>>());
     if entries.len() != 1 || !try!(entries[0].file_type()).is_dir() {
         try!(Err(format!("{} did not unpack to a single top-level directory", crate_filename)));
     }
-    try!(std::fs::rename(entries[0].path(), &debsrcdir));
+    try!(fs::rename(entries[0].path(), &debsrcdir));
 
-    let mut create = std::fs::OpenOptions::new();
+    let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
     let mut create_exec = create.clone();
     create_exec.mode(0o777);
@@ -282,7 +281,7 @@ fn real_main() -> Result<()> {
         let deps: Vec<String> = manifest.dependencies().iter().filter(|dep| dep.kind() != cargo::core::dependency::Kind::Development).map(deb_dep).collect();
 
         let meta = manifest.metadata();
-        let mut control = std::io::BufWriter::new(try!(file("control")));
+        let mut control = io::BufWriter::new(try!(file("control")));
         try!(writeln!(control, "Source: {}", debsrcname));
         if crate_name.contains('_') {
             try!(writeln!(control, "X-Cargo-Crate: {}", crate_name));
@@ -350,7 +349,7 @@ fn real_main() -> Result<()> {
             try!(write_description(&mut control, &summary, description.as_ref(), boilerplate.as_ref()));
         }
 
-        let mut copyright = std::io::BufWriter::new(try!(file("copyright")));
+        let mut copyright = io::BufWriter::new(try!(file("copyright")));
         try!(writeln!(copyright, "Downloaded from the crate \"{}\" on crates.io via Cargo.\n", crate_name));
         if !meta.authors.is_empty() {
             try!(writeln!(copyright, "Upstream authors:"));
@@ -362,7 +361,7 @@ fn real_main() -> Result<()> {
         if let Some(ref license_file_name) = meta.license_file {
             let license_file = package.manifest_path().with_file_name(license_file_name);
             let mut text = Vec::new();
-            try!(try!(std::fs::File::open(license_file)).read_to_end(&mut text));
+            try!(try!(fs::File::open(license_file)).read_to_end(&mut text));
             try!(copyright.write_all(&text));
         } else if let Some(ref licenses) = meta.license {
             try!(writeln!(copyright, "License: {}", licenses));
@@ -391,7 +390,7 @@ fn real_main() -> Result<()> {
             try!(Err("Crate has no license or license_file"));
         }
 
-        try!(std::fs::create_dir(tempdir.path().join("source")));
+        try!(fs::create_dir(tempdir.path().join("source")));
         let mut source_format = try!(file("source/format"));
         try!(writeln!(source_format, "3.0 (quilt)"));
 
@@ -401,7 +400,7 @@ fn real_main() -> Result<()> {
                                    "\tdh $@ --buildsystem cargo\n")));
     }
 
-    try!(std::fs::rename(tempdir.path(), debsrcdir.join("debian")));
+    try!(fs::rename(tempdir.path(), debsrcdir.join("debian")));
     tempdir.into_path();
 
     Ok(())
