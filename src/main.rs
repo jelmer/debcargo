@@ -249,7 +249,18 @@ fn real_main() -> Result<()> {
 
     let mut archive = tar::Archive::new(try!(flate2::read::GzDecoder::new(lock.file())));
     let tempdir = try!(tempdir::TempDir::new_in(".", "debcargo"));
-    try!(archive.unpack(tempdir.path()));
+    for entry in try!(archive.entries()) {
+        let mut entry = try!(entry);
+        // Filter out static libraries, to avoid needing to patch all the winapi crates to remove
+        // import libraries.
+        match try!(entry.path()).extension() {
+            Some(ext) if ext == "a" => continue,
+            _ => {}
+        }
+        if !try!(entry.unpack_in(tempdir.path())) {
+            try!(Err("Crate contained path traversals via '..'"));
+        }
+    }
     let entries = try!(try!(tempdir.path().read_dir()).collect::<io::Result<Vec<_>>>());
     if entries.len() != 1 || !try!(entries[0].file_type()).is_dir() {
         try!(Err(format!("{} did not unpack to a single top-level directory", crate_filename)));
