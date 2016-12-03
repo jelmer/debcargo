@@ -13,7 +13,6 @@ extern crate walkdir;
 
 use cargo::core::{Dependency, Registry, Source, TargetKind};
 use clap::{App, AppSettings, SubCommand};
-use error_chain::ResultExt;
 use itertools::Itertools;
 use regex::Regex;
 use semver::Version;
@@ -27,10 +26,10 @@ use std::path::Path;
 
 error_chain! {
     foreign_links {
-        io::Error, Io;
-        Box<cargo::CargoError>, Cargo;
-        regex::Error, Regex;
-        walkdir::Error, WalkDir;
+        Io(io::Error);
+        Cargo(Box<cargo::CargoError>);
+        Regex(regex::Error);
+        WalkDir(walkdir::Error);
     }
 }
 
@@ -265,7 +264,7 @@ fn real_main() -> Result<()> {
     let debsrcdir = Path::new(&format!("{}-{}", debsrcname, debver)).to_owned();
     let orig_tar_gz = Path::new(&format!("{}_{}.orig.tar.gz", debsrcname, debver)).to_owned();
     if orig_tar_gz.exists() {
-        try!(Err(format!("File already exists: {}", orig_tar_gz.display())));
+        bail!(format!("File already exists: {}", orig_tar_gz.display()));
     }
     fs::copy(lock.path(), &orig_tar_gz).unwrap();
 
@@ -280,12 +279,12 @@ fn real_main() -> Result<()> {
             _ => {}
         }
         if !try!(entry.unpack_in(tempdir.path())) {
-            try!(Err("Crate contained path traversals via '..'"));
+            bail!("Crate contained path traversals via '..'");
         }
     }
     let entries = try!(try!(tempdir.path().read_dir()).collect::<io::Result<Vec<_>>>());
     if entries.len() != 1 || !try!(entries[0].file_type()).is_dir() {
-        try!(Err(format!("{} did not unpack to a single top-level directory", crate_filename)));
+        bail!(format!("{} did not unpack to a single top-level directory", crate_filename));
     }
     try!(fs::rename(entries[0].path(), &debsrcdir));
 
@@ -351,7 +350,7 @@ fn real_main() -> Result<()> {
         }
         if dep.kind() != cargo::core::dependency::Kind::Build {
             if all_deps.insert(dep.name(), dep).is_some() {
-                try!(Err(format!("Duplicate dependency for {}", dep.name())));
+                bail!(format!("Duplicate dependency for {}", dep.name()));
             }
         }
         if !dep.is_optional() || default_deps.contains(dep.name()) {
@@ -478,7 +477,7 @@ fn real_main() -> Result<()> {
                     } else if dev_deps.contains(dep_name) {
                         continue;
                     } else {
-                        try!(Err(format!("Feature {} depended on non-existent dep {}", feature, dep_name)));
+                        bail!(format!("Feature {} depended on non-existent dep {}", feature, dep_name));
                     };
                 }
                 try!(writeln!(control, "Depends:\n {}", feature_deps.into_iter().join(",\n ")));
@@ -549,12 +548,12 @@ fn real_main() -> Result<()> {
                     "mpl-2.0" => include_str!("licenses/MPL-2.0"),
                     "unlicense" => include_str!("licenses/Unlicense"),
                     "zlib" => include_str!("licenses/Zlib"),
-                    license => try!(Err(format!("Unrecognized crate license: {} (parsed from {})", license, licenses))),
+                    license => bail!(format!("Unrecognized crate license: {} (parsed from {})", license, licenses)),
                 };
                 try!(write!(copyright, "\n{:->79}\n\n{}", "", text));
             }
         } else {
-            try!(Err("Crate has no license or license_file"));
+            bail!("Crate has no license or license_file");
         }
 
         try!(fs::create_dir(tempdir.path().join("source")));
