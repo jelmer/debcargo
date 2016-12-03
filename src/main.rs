@@ -373,8 +373,8 @@ fn real_main() -> Result<()> {
             }
             let p1 = description.find('\n');
             let p2 = description.find(". ");
-            match p1.iter().chain(p2.iter()).min() {
-                Some(&p) => {
+            match p1.into_iter().chain(p2.into_iter()).min() {
+                Some(p) => {
                     let s = description[..p].trim_right_matches('.').to_string();
                     let d = description[p+1..].trim();
                     if d.is_empty() {
