@@ -211,15 +211,21 @@ fn real_main() -> Result<()> {
         .author(crate_authors!())
         .version(crate_version!())
         .global_setting(AppSettings::ColoredHelp)
+        .global_setting(AppSettings::UnifiedHelpMessage)
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommand(SubCommand::with_name("package")
             .about("Package a crate from crates.io")
             .arg_from_usage("<crate> 'Name of the crate to package'")
             .arg_from_usage("[version] 'Version of the crate to package; may include dependency operators'")
+            .arg_from_usage("--bin 'Package binaries from library crates'")
+            .arg_from_usage("--bin-name [name] 'Set package name for binaries (implies --bin)'")
         ).get_matches();
     let matches = matches.subcommand_matches("package").unwrap();
     let crate_name = matches.value_of("crate").unwrap();
+    let crate_name_dashed = crate_name.replace('_', "-");
     let version = matches.value_of("version");
+    let package_lib_binaries = matches.is_present("bin") || matches.is_present("bin-name");
+    let bin_name = matches.value_of("bin-name").unwrap_or(&crate_name_dashed);
 
     let deb_author = try!(get_deb_author());
 
@@ -257,8 +263,11 @@ fn real_main() -> Result<()> {
         }
     }
     bins.sort();
+    if lib && !bins.is_empty() && !package_lib_binaries {
+        println!("Ignoring binaries from lib crate; pass --bin to package: {}", bins.join(", "));
+        bins.clear();
+    }
 
-    let crate_name_dashed = crate_name.replace('_', "-");
     let debsrcname = format!("rust-{}", crate_name_dashed);
     let debver = deb_version(pkgid.version());
     let debsrcdir = Path::new(&format!("{}-{}", debsrcname, debver)).to_owned();
@@ -493,14 +502,14 @@ fn real_main() -> Result<()> {
             }
         }
         if !bins.is_empty() {
-            try!(writeln!(control, "\nPackage: {}", crate_name_dashed));
+            try!(writeln!(control, "\nPackage: {}", bin_name));
             try!(writeln!(control, "Architecture: any"));
             try!(writeln!(control, "Depends: ${{shlibs:Depends}}, ${{misc:Depends}}"));
             let summary = match summary {
                 None => format!("Binaries built from the Rust {} crate", crate_name),
                 Some(ref s) => s.to_string(),
             };
-            let boilerplate = if bins.len() > 1 || bins[0] != crate_name {
+            let boilerplate = if bins.len() > 1 || bins[0] != bin_name {
                 Some(format!("This package contains the following binaries built from the\nRust \"{}\" crate:\n- {}", crate_name, bins.join("\n- ")))
             } else {
                 None
