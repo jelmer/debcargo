@@ -396,11 +396,11 @@ fn real_main() -> Result<()> {
                 try!(writeln!(control, "Suggests:\n {}", suggests.join(",\n ")));
             }
             let summary = match summary {
-                None => format!("Source of the Rust \"{}\" crate", crate_name),
+                None => format!("Source of the Rust {} crate", crate_name),
                 Some(ref s) => format!("{} - Source", s),
             };
             let boilerplate = format!(
-                concat!("This package contains the source for the Rust \"{}\" crate,\n",
+                concat!("This package contains the source for the Rust {} crate,\n",
                         "packaged for use with cargo, debcargo, and dh-cargo."),
                 crate_name);
             try!(write_description(&mut control, &summary, description.as_ref(), Some(&boilerplate)));
@@ -410,7 +410,7 @@ fn real_main() -> Result<()> {
             try!(writeln!(control, "Architecture: any"));
             try!(writeln!(control, "Depends: ${{shlibs:Depends}}, ${{misc:Depends}}"));
             let summary = match summary {
-                None => format!("Binaries built from the Rust \"{}\" crate", crate_name),
+                None => format!("Binaries built from the Rust {} crate", crate_name),
                 Some(ref s) => s.to_string(),
             };
             let boilerplate = if bins.len() > 1 || bins[0] != crate_name {
