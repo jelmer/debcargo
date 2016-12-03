@@ -297,8 +297,7 @@ fn real_main() -> Result<()> {
             }
         }
     }
-    let mut copyright_notices: Vec<_> = copyright_notices.iter().collect();
-    copyright_notices.sort();
+    let copyright_notices = copyright_notices.into_iter().sorted();
 
     let features = summary.features();
     let mut default_deps = HashSet::new();
