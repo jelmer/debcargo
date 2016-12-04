@@ -366,6 +366,8 @@ fn real_main() -> Result<()> {
             deps.push(deb_dep(dep));
         }
     }
+    deps.sort();
+    deps.dedup();
 
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
