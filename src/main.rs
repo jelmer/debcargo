@@ -219,6 +219,7 @@ fn real_main() -> Result<()> {
             .arg_from_usage("[version] 'Version of the crate to package; may include dependency operators'")
             .arg_from_usage("--bin 'Package binaries from library crates'")
             .arg_from_usage("--bin-name [name] 'Set package name for binaries (implies --bin)'")
+            .arg_from_usage("--distribution [name] 'Set target distribution for package (default: unstable)'")
             .arg_from_usage("--multi 'Include ABI version in package name to allow installing multiple versions'")
         ).get_matches();
     let matches = matches.subcommand_matches("package").unwrap();
@@ -227,6 +228,7 @@ fn real_main() -> Result<()> {
     let version = matches.value_of("version");
     let package_lib_binaries = matches.is_present("bin") || matches.is_present("bin-name");
     let bin_name = matches.value_of("bin-name").unwrap_or(&crate_name_dashed);
+    let distribution = matches.value_of("distribution").unwrap_or("unstable");
     let multi = matches.is_present("multi");
 
     let deb_author = try!(get_deb_author());
@@ -393,10 +395,10 @@ fn real_main() -> Result<()> {
 
         let mut changelog = try!(file("changelog"));
         try!(write!(changelog,
-                    concat!("{} ({}-1) unstable; urgency=medium\n\n",
+                    concat!("{} ({}-1) {}; urgency=medium\n\n",
                             "  * Package {} {} from crates.io with debcargo {}\n\n",
                             " -- {}  {}\n"),
-                    debsrcname, debver,
+                    debsrcname, debver, distribution,
                     pkgid.name(), pkgid.version(), crate_version!(),
                     deb_author, chrono::Local::now().to_rfc2822()));
 
