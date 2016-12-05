@@ -219,6 +219,7 @@ fn real_main() -> Result<()> {
             .arg_from_usage("[version] 'Version of the crate to package; may include dependency operators'")
             .arg_from_usage("--bin 'Package binaries from library crates'")
             .arg_from_usage("--bin-name [name] 'Set package name for binaries (implies --bin)'")
+            .arg_from_usage("--multi 'Include ABI version in package name to allow installing multiple versions'")
         ).get_matches();
     let matches = matches.subcommand_matches("package").unwrap();
     let crate_name = matches.value_of("crate").unwrap();
@@ -226,6 +227,7 @@ fn real_main() -> Result<()> {
     let version = matches.value_of("version");
     let package_lib_binaries = matches.is_present("bin") || matches.is_present("bin-name");
     let bin_name = matches.value_of("bin-name").unwrap_or(&crate_name_dashed);
+    let multi = matches.is_present("multi");
 
     let deb_author = try!(get_deb_author());
 
@@ -268,7 +270,16 @@ fn real_main() -> Result<()> {
         bins.clear();
     }
 
-    let debsrcname = format!("rust-{}", crate_name_dashed);
+    let version_suffix = if multi {
+        match pkgid.version() {
+            &Version { major: 0, minor, .. } => format!("-0.{}", minor),
+            &Version { major, .. } => format!("-{}.0", major),
+        }
+    } else {
+        "".to_string()
+    };
+    let crate_pkg_base = format!("{}{}", crate_name_dashed, version_suffix);
+    let debsrcname = format!("rust-{}", crate_pkg_base);
     let debver = deb_version(pkgid.version());
     let debsrcdir = Path::new(&format!("{}-{}", debsrcname, debver)).to_owned();
     let orig_tar_gz = Path::new(&format!("{}_{}.orig.tar.gz", debsrcname, debver)).to_owned();
@@ -347,7 +358,7 @@ fn real_main() -> Result<()> {
     }
     let non_default_features = features.keys().map(String::as_str).filter(|f| !default_features.contains(f)).sorted();
 
-    let deb_feature = &|f: &str| deb_feature_name(&crate_name_dashed, f);
+    let deb_feature = &|f: &str| deb_feature_name(&crate_pkg_base, f);
 
     let mut deps = Vec::new();
     let mut all_deps = HashMap::new();
@@ -395,7 +406,7 @@ fn real_main() -> Result<()> {
         let meta = manifest.metadata();
         let mut control = io::BufWriter::new(try!(file("control")));
         try!(writeln!(control, "Source: {}", debsrcname));
-        if crate_name != crate_name_dashed {
+        if multi || crate_name != crate_name_dashed {
             try!(writeln!(control, "X-Cargo-Crate: {}", crate_name));
         }
         try!(writeln!(control, "Section: libdevel"));
@@ -432,16 +443,30 @@ fn real_main() -> Result<()> {
             (None, None)
         };
         if lib {
-            let deb_lib_name = deb_name(crate_name);
+            let deb_lib_name = deb_name(&crate_pkg_base);
             try!(writeln!(control, "\nPackage: {}", deb_lib_name));
             try!(writeln!(control, "Architecture: all"));
             try!(writeln!(control, "Depends:\n {}", vec!["${misc:Depends}".to_string()].iter().chain(deps.iter()).join(",\n ")));
             if !non_default_features.is_empty() {
                 try!(writeln!(control, "Suggests:\n {}", non_default_features.iter().cloned().map(deb_feature).join(",\n ")));
             }
+            let mut provides = Vec::new();
+            if multi {
+                let unversioned = deb_name(&crate_name_dashed);
+                try!(writeln!(control, "Conflicts: {} (= ${{binary:Version}})", unversioned));
+                provides.push(unversioned);
+            };
             if !default_features.is_empty() {
-                let default_features = default_features.iter().cloned().sorted();
-                try!(writeln!(control, "Provides:\n {}", default_features.into_iter().map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f))).join(",\n ")));
+                for feature in default_features.iter().cloned() {
+                    provides.push(deb_feature(feature));
+                    if multi {
+                        provides.push(deb_feature_name(&crate_name_dashed, feature));
+                    }
+                }
+                provides.sort();
+            }
+            if !provides.is_empty() {
+                try!(writeln!(control, "Provides:\n {}", provides.into_iter().map(|f| format!("{} (= ${{binary:Version}})", f)).join(",\n ")));
             }
             let lib_summary = match summary {
                 None => format!("Source of the Rust {} crate", crate_name),
@@ -492,6 +517,12 @@ fn real_main() -> Result<()> {
                     };
                 }
                 try!(writeln!(control, "Depends:\n {}", feature_deps.into_iter().join(",\n ")));
+                if multi {
+                    let unversioned = deb_feature_name(&crate_name_dashed, feature);
+                    for header in ["Conflicts", "Provides"].iter() {
+                        try!(writeln!(control, "{}: {} (= ${{binary:Version}})", header, unversioned));
+                    }
+                }
                 let feature_summary = match summary {
                     None => format!("Rust {} crate - {} feature", crate_name, feature),
                     Some(ref s) => format!("{} - {} feature", s, feature),
