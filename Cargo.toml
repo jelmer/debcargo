@@ -3,6 +3,7 @@ name = "debcargo"
 version = "1.0.0"
 authors = ["Josh Triplett <josh@joshtriplett.org>"]
 license = "MIT/Apache-2.0"
+repository = "https://anonscm.debian.org/git/pkg-rust/debcargo.git"
 description = "Create a Debian package from a Cargo crate."
 
 [dependencies]
