@@ -286,7 +286,7 @@ fn real_main() -> Result<()> {
     let debsrcdir = Path::new(&format!("{}-{}", debsrcname, debver)).to_owned();
     let orig_tar_gz = Path::new(&format!("{}_{}.orig.tar.gz", debsrcname, debver)).to_owned();
     if orig_tar_gz.exists() {
-        bail!(format!("File already exists: {}", orig_tar_gz.display()));
+        bail!("File already exists: {}", orig_tar_gz.display());
     }
     fs::copy(lock.path(), &orig_tar_gz).unwrap();
 
@@ -306,7 +306,7 @@ fn real_main() -> Result<()> {
     }
     let entries = try!(try!(tempdir.path().read_dir()).collect::<io::Result<Vec<_>>>());
     if entries.len() != 1 || !try!(entries[0].file_type()).is_dir() {
-        bail!(format!("{} did not unpack to a single top-level directory", crate_filename));
+        bail!("{} did not unpack to a single top-level directory", crate_filename);
     }
     try!(fs::rename(entries[0].path(), &debsrcdir));
 
@@ -372,7 +372,7 @@ fn real_main() -> Result<()> {
         }
         if dep.kind() != cargo::core::dependency::Kind::Build {
             if all_deps.insert(dep.name(), dep).is_some() {
-                bail!(format!("Duplicate dependency for {}", dep.name()));
+                bail!("Duplicate dependency for {}", dep.name());
             }
         }
         if !dep.is_optional() || default_deps.contains(dep.name()) {
@@ -515,7 +515,7 @@ fn real_main() -> Result<()> {
                     } else if dev_deps.contains(dep_name) {
                         continue;
                     } else {
-                        bail!(format!("Feature {} depended on non-existent dep {}", feature, dep_name));
+                        bail!("Feature {} depended on non-existent dep {}", feature, dep_name);
                     };
                 }
                 try!(writeln!(control, "Depends:\n {}", feature_deps.into_iter().join(",\n ")));
@@ -592,7 +592,7 @@ fn real_main() -> Result<()> {
                     "mpl-2.0" => include_str!("licenses/MPL-2.0"),
                     "unlicense" => include_str!("licenses/Unlicense"),
                     "zlib" => include_str!("licenses/Zlib"),
-                    license => bail!(format!("Unrecognized crate license: {} (parsed from {})", license, licenses)),
+                    license => bail!("Unrecognized crate license: {} (parsed from {})", license, licenses),
                 };
                 try!(write!(copyright, "\n{:->79}\n\n{}", "", text));
             }
