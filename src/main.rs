@@ -52,6 +52,7 @@ fn deb_version(v: &Version) -> String {
     s
 }
 
+#[derive(PartialEq)]
 enum V { M(u64), MM(u64, u64), MMP(u64, u64, u64) }
 
 impl V {
@@ -85,29 +86,37 @@ fn deb_feature_name(name: &str, feature: &str) -> String {
 }
 
 /// Translates a Cargo dependency into a Debian package dependency.
-fn deb_dep(dep: &Dependency) -> String {
+fn deb_dep(dep: &Dependency) -> Result<String> {
     use semver_parser::range::*;
     use semver_parser::range::Op::*;
     use self::V::*;
-    let mut packages = Vec::new();
+    let dep_dashed = dep.name().replace('_', "-");
+    let mut suffixes = Vec::new();
     if dep.uses_default_features() {
-        packages.push(deb_feature_name(dep.name(), "default"));
+        suffixes.push("+default-dev".to_string());
     }
     for feature in dep.features() {
-        packages.push(deb_feature_name(dep.name(), feature));
+        suffixes.push(format!("+{}-dev", feature.replace('_', "-")));
     }
-    if packages.is_empty() {
-        packages.push(deb_name(dep.name()));
+    if suffixes.is_empty() {
+        suffixes.push("-dev".to_string());
     }
     let req = semver_parser::range::parse(&dep.version_req().to_string()).unwrap();
     let mut deps = Vec::new();
-    for name in packages {
+    for suffix in suffixes {
+        let formatpkg = |major, minor| format!("librust-{}-{}.{}{}", dep_dashed, major, minor, suffix);
+        let pkg = |v: &V| {
+            match *v {
+                MM(0, minor) | MMP(0, minor, _) => formatpkg(0, minor),
+                M(major) | MM(major, _) | MMP(major, _, _) => formatpkg(major, 0),
+            }
+        };
         for p in &req.predicates {
             // Cargo/semver and Debian handle pre-release versions quite differently, so a versioned
             // Debian dependency cannot properly handle pre-release crates.  Don't package pre-release
             // crates or crates that depend on pre-release crates.
             if !p.pre.is_empty() {
-                writeln!(io::stderr(), "Warning: dependency on prerelease version: {} {:?}", dep.name(), p).unwrap();
+                bail!("Dependency on prerelease version: {} {:?}", dep.name(), p);
             }
             let mmp = match (p.minor, p.patch) {
                 (None, None) => M(p.major),
@@ -115,48 +124,51 @@ fn deb_dep(dep: &Dependency) -> String {
                 (Some(minor), Some(patch)) => MMP(p.major, minor, patch),
                 (None, Some(_)) => panic!("semver had patch without minor"),
             };
-            match &p.op {
-                &Ex => {
-                    deps.push(format!("{} (>= {})", name, mmp));
-                    deps.push(format!("{} (<< {})", name, mmp.inclast()));
+            if mmp == M(0) && p.op != Gt {
+                bail!("Unrepresentable dependency version predicate: {} {:?}", dep.name(), p);
+            }
+            match (&p.op, &mmp) {
+                (&Ex, &M(..)) => deps.push(pkg(&mmp)),
+                (&Ex, &MM(..)) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
+                (&Ex, &MMP(..)) => {
+                    deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
+                    deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast()));
                 }
-                &Gt => deps.push(format!("{} (>> {})", name, mmp)),
-                &GtEq => deps.push(format!("{} (>= {})", name, mmp)),
-                &Lt => deps.push(format!("{} (<< {})", name, mmp)),
-                &LtEq => deps.push(format!("{} (<< {})", name, mmp.inclast())),
-                &Tilde => {
-                    deps.push(format!("{} (>= {})", name, mmp));
-                    if let MMP(major, minor, _) = mmp {
-                        deps.push(format!("{} (<< {})", name, MM(major, minor+1)));
-                    } else {
-                        deps.push(format!("{} (<< {})", name, mmp.inclast()));
-                    }
+                // We can't represent every major version that satisfies an inequality, because
+                // each major version has a different package name, so we only allow the first
+                // major version that satisfies the inequality. This may result in a stricter
+                // dependency, but will never result in a looser one.  We could represent some
+                // dependency ranges (such as >= x and < y) better with a disjunction on multiple
+                // package names, but that would break when depending on multiple features.
+                (&Gt, &M(_)) | (&Gt, &MM(0, _)) => deps.push(pkg(&mmp.inclast())),
+                (&Gt, _) => deps.push(format!("{} (>> {})", pkg(&mmp), mmp)),
+                (&GtEq, &M(_)) | (&GtEq, &MM(0, _)) => deps.push(pkg(&mmp)),
+                (&GtEq, _) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
+                (&Lt, &M(major)) => deps.push(formatpkg(major-1, 0)),
+                (&Lt, &MM(0, 0)) => bail!("Unrepresentable dependency version predicate: {} {:?}", dep.name(), p),
+                (&Lt, &MM(0, minor)) => deps.push(formatpkg(0, minor-1)),
+                (&Lt, _) => deps.push(format!("{} (<< {})", pkg(&mmp), mmp)),
+                (&LtEq, &M(_)) | (&LtEq, &MM(0, _)) => deps.push(pkg(&mmp)),
+                (&LtEq, _) => deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast())),
+                (&Tilde, &M(_)) | (&Tilde, &MM(0, _)) | (&Tilde, &MMP(0, _, 0)) => deps.push(pkg(&mmp)),
+                (&Tilde, &MM(..)) | (&Tilde, &MMP(0, _, _)) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
+                (&Tilde, &MMP(major, minor, _)) => {
+                    deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
+                    deps.push(format!("{} (<< {})", pkg(&mmp), MM(major, minor+1)));
                 }
-                &Compatible => {
-                    deps.push(format!("{} (>= {})", name, mmp));
-                    match mmp {
-                        M(_) => {
-                            deps.push(format!("{} (<< {})", name, mmp.inclast()));
-                        }
-                        MM(0, minor) | MMP(0, minor, _) => {
-                            deps.push(format!("{} (<< {})", name, MM(0, minor+1)));
-                        }
-                        MM(major, _) | MMP(major, _, _) => {
-                            deps.push(format!("{} (<< {})", name, M(major+1)));
-                        }
-                    }
+                (&Compatible, &MMP(0, 0, _)) => {
+                    deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
+                    deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast()));
                 }
-                &Wildcard(WildcardVersion::Major) => {
-                    deps.push(format!("{}", name));
-                }
-                &Wildcard(_) => {
-                    deps.push(format!("{} (>= {})", name, mmp));
-                    deps.push(format!("{} (<< {})", name, mmp.inclast()));
-                }
+                (&Compatible, &M(_)) | (&Compatible, &MM(0, _)) | (&Compatible, &MM(_, 0)) | (&Compatible, &MMP(0, _, 0)) => deps.push(pkg(&mmp)),
+                (&Compatible, &MM(..)) | (&Compatible, &MMP(..)) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
+                (&Wildcard(WildcardVersion::Major), _) => bail!("Unrepresentable dependency wildcard: {} = \"{:?}\"", dep.name(), p),
+                (&Wildcard(WildcardVersion::Minor), _) => deps.push(pkg(&mmp)),
+                (&Wildcard(WildcardVersion::Patch), _) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
             }
         }
     }
-    deps.join(", ")
+    Ok(deps.join(", "))
 }
 
 /// Retrieve one of a series of environment variables, and provide a friendly error message for
@@ -220,7 +232,6 @@ fn real_main() -> Result<()> {
             .arg_from_usage("--bin 'Package binaries from library crates'")
             .arg_from_usage("--bin-name [name] 'Set package name for binaries (implies --bin)'")
             .arg_from_usage("--distribution [name] 'Set target distribution for package (default: unstable)'")
-            .arg_from_usage("--multi 'Include ABI version in package name to allow installing multiple versions'")
         ).get_matches();
     let matches = matches.subcommand_matches("package").unwrap();
     let crate_name = matches.value_of("crate").unwrap();
@@ -229,7 +240,6 @@ fn real_main() -> Result<()> {
     let package_lib_binaries = matches.is_present("bin") || matches.is_present("bin-name");
     let bin_name = matches.value_of("bin-name").unwrap_or(&crate_name_dashed);
     let distribution = matches.value_of("distribution").unwrap_or("unstable");
-    let multi = matches.is_present("multi");
 
     let deb_author = try!(get_deb_author());
 
@@ -272,13 +282,9 @@ fn real_main() -> Result<()> {
         bins.clear();
     }
 
-    let version_suffix = if multi {
-        match pkgid.version() {
-            &Version { major: 0, minor, .. } => format!("-0.{}", minor),
-            &Version { major, .. } => format!("-{}.0", major),
-        }
-    } else {
-        "".to_string()
+    let version_suffix = match pkgid.version() {
+        &Version { major: 0, minor, .. } => format!("-0.{}", minor),
+        &Version { major, .. } => format!("-{}.0", major),
     };
     let crate_pkg_base = format!("{}{}", crate_name_dashed, version_suffix);
     let debsrcname = format!("rust-{}", crate_pkg_base);
@@ -376,7 +382,7 @@ fn real_main() -> Result<()> {
             }
         }
         if !dep.is_optional() || default_deps.contains(dep.name()) {
-            deps.push(deb_dep(dep));
+            deps.push(try!(deb_dep(dep)));
         }
     }
     deps.sort();
@@ -408,7 +414,7 @@ fn real_main() -> Result<()> {
         let meta = manifest.metadata();
         let mut control = io::BufWriter::new(try!(file("control")));
         try!(writeln!(control, "Source: {}", debsrcname));
-        if multi || crate_name != crate_name_dashed {
+        if crate_name != crate_name_dashed {
             try!(writeln!(control, "X-Cargo-Crate: {}", crate_name));
         }
         try!(writeln!(control, "Section: libdevel"));
@@ -452,23 +458,9 @@ fn real_main() -> Result<()> {
             if !non_default_features.is_empty() {
                 try!(writeln!(control, "Suggests:\n {}", non_default_features.iter().cloned().map(deb_feature).join(",\n ")));
             }
-            let mut provides = Vec::new();
-            if multi {
-                let unversioned = deb_name(&crate_name_dashed);
-                try!(writeln!(control, "Conflicts: {} (= ${{binary:Version}})", unversioned));
-                provides.push(unversioned);
-            };
             if !default_features.is_empty() {
-                for feature in default_features.iter().cloned() {
-                    provides.push(deb_feature(feature));
-                    if multi {
-                        provides.push(deb_feature_name(&crate_name_dashed, feature));
-                    }
-                }
-                provides.sort();
-            }
-            if !provides.is_empty() {
-                try!(writeln!(control, "Provides:\n {}", provides.into_iter().map(|f| format!("{} (= ${{binary:Version}})", f)).join(",\n ")));
+                let default_features = default_features.iter().cloned().sorted();
+                try!(writeln!(control, "Provides:\n {}", default_features.into_iter().map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f))).join(",\n ")));
             }
             let lib_summary = match summary {
                 None => format!("Source of the Rust {} crate", crate_name),
@@ -507,10 +499,10 @@ fn real_main() -> Result<()> {
                 for (dep_name, dep_features) in deps_features.into_iter().sorted() {
                     if let Some(&dep_dependency) = all_deps.get(dep_name) {
                         if dep_features.is_empty() {
-                            feature_deps.push(deb_dep(dep_dependency));
+                            feature_deps.push(try!(deb_dep(dep_dependency)));
                         } else {
                             let inner = dep_dependency.clone_inner().set_features(dep_features);
-                            feature_deps.push(deb_dep(&inner.into_dependency()));
+                            feature_deps.push(try!(deb_dep(&inner.into_dependency())));
                         }
                     } else if dev_deps.contains(dep_name) {
                         continue;
@@ -519,12 +511,6 @@ fn real_main() -> Result<()> {
                     };
                 }
                 try!(writeln!(control, "Depends:\n {}", feature_deps.into_iter().join(",\n ")));
-                if multi {
-                    let unversioned = deb_feature_name(&crate_name_dashed, feature);
-                    for header in ["Conflicts", "Provides"].iter() {
-                        try!(writeln!(control, "{}: {} (= ${{binary:Version}})", header, unversioned));
-                    }
-                }
                 let feature_summary = match summary {
                     None => format!("Rust {} crate - {} feature", crate_name, feature),
                     Some(ref s) => format!("{} - {} feature", s, feature),
