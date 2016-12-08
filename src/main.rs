@@ -241,7 +241,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let dependency = try!(cargo::core::Dependency::parse_no_deprecated(&crate_name, version.as_ref().map(String::as_str), &crates_io));
     let summaries = try!(registry.query(&dependency));
     let summary = try!(summaries.iter().max_by_key(|s| s.package_id())
-                     .ok_or_else(|| format!("Couldn't find any package matching {} {}",
+                     .ok_or_else(|| format!("Couldn't find any package matching {} {}\nTry `debcargo cargo-update` to update the crates.io index.",
                                             dependency.name(), dependency.version_req())));
     let pkgid = summary.package_id();
     let checksum = try!(summary.checksum().ok_or("Could not get crate checksum"));
@@ -591,6 +591,14 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
+fn do_cargo_update() -> Result<()> {
+    let config = try!(cargo::Config::default());
+    let crates_io = try!(cargo::core::SourceId::crates_io(&config));
+	let mut registry = cargo::sources::RegistrySource::remote(&crates_io, &config);
+    try!(registry.update());
+    Ok(())
+}
+
 fn real_main() -> Result<()> {
     let m = App::new("debcargo")
         .author(crate_authors!())
@@ -599,6 +607,8 @@ fn real_main() -> Result<()> {
         .global_setting(AppSettings::UnifiedHelpMessage)
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommands(vec![
+            SubCommand::with_name("cargo-update")
+                .about("Update "),
             SubCommand::with_name("package")
                 .about("Package a crate from crates.io")
                 .arg_from_usage("<crate> 'Name of the crate to package'")
@@ -608,6 +618,7 @@ fn real_main() -> Result<()> {
                 .arg_from_usage("--distribution [name] 'Set target distribution for package (default: unstable)'"),
         ]).get_matches();
     match m.subcommand() {
+        ("cargo-update", _) => do_cargo_update(),
         ("package", Some(ref sm)) => do_package(&sm),
         _ => unreachable!(),
     }
