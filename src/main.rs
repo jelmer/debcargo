@@ -104,11 +104,15 @@ fn deb_dep(dep: &Dependency) -> Result<String> {
     let req = semver_parser::range::parse(&dep.version_req().to_string()).unwrap();
     let mut deps = Vec::new();
     for suffix in suffixes {
-        let formatpkg = |major, minor| format!("librust-{}-{}.{}{}", dep_dashed, major, minor, suffix);
         let pkg = |v: &V| {
-            match *v {
-                MM(0, minor) | MMP(0, minor, _) => formatpkg(0, minor),
-                M(major) | MM(major, _) | MMP(major, _, _) => formatpkg(major, 0),
+            let (major, minor) = match *v {
+                M(major) => (major, 0),
+                MM(major, minor) | MMP (major, minor, _) => (major, minor),
+            };
+            if major == 0 {
+                format!("librust-{}-{}.{}{}", dep_dashed, major, minor, suffix)
+            } else {
+                format!("librust-{}-{}{}", dep_dashed, major, suffix)
             }
         };
         for p in &req.predicates {
@@ -144,9 +148,9 @@ fn deb_dep(dep: &Dependency) -> Result<String> {
                 (&Gt, _) => deps.push(format!("{} (>> {})", pkg(&mmp), mmp)),
                 (&GtEq, &M(_)) | (&GtEq, &MM(0, _)) => deps.push(pkg(&mmp)),
                 (&GtEq, _) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
-                (&Lt, &M(major)) => deps.push(formatpkg(major-1, 0)),
+                (&Lt, &M(major)) => deps.push(pkg(&M(major-1))),
                 (&Lt, &MM(0, 0)) => bail!("Unrepresentable dependency version predicate: {} {:?}", dep.name(), p),
-                (&Lt, &MM(0, minor)) => deps.push(formatpkg(0, minor-1)),
+                (&Lt, &MM(0, minor)) => deps.push(pkg(&MM(0, minor-1))),
                 (&Lt, _) => deps.push(format!("{} (<< {})", pkg(&mmp), mmp)),
                 (&LtEq, &M(_)) | (&LtEq, &MM(0, _)) => deps.push(pkg(&mmp)),
                 (&LtEq, _) => deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast())),
@@ -284,7 +288,7 @@ fn real_main() -> Result<()> {
 
     let version_suffix = match pkgid.version() {
         &Version { major: 0, minor, .. } => format!("-0.{}", minor),
-        &Version { major, .. } => format!("-{}.0", major),
+        &Version { major, .. } => format!("-{}", major),
     };
     let crate_pkg_base = format!("{}{}", crate_name_dashed, version_suffix);
     let debsrcname = format!("rust-{}", crate_pkg_base);
