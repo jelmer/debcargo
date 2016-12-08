@@ -12,7 +12,7 @@ extern crate tempdir;
 extern crate walkdir;
 
 use cargo::core::{Dependency, Registry, Source, TargetKind};
-use clap::{App, AppSettings, SubCommand};
+use clap::{App, AppSettings, ArgMatches, SubCommand};
 use itertools::Itertools;
 use regex::Regex;
 use semver::Version;
@@ -222,22 +222,7 @@ fn write_description<W: IoWrite>(out: &mut W, summary: &str, longdesc: Option<&S
     Ok(())
 }
 
-fn real_main() -> Result<()> {
-    let matches = App::new("debcargo")
-        .author(crate_authors!())
-        .version(crate_version!())
-        .global_setting(AppSettings::ColoredHelp)
-        .global_setting(AppSettings::UnifiedHelpMessage)
-        .setting(AppSettings::SubcommandRequiredElseHelp)
-        .subcommand(SubCommand::with_name("package")
-            .about("Package a crate from crates.io")
-            .arg_from_usage("<crate> 'Name of the crate to package'")
-            .arg_from_usage("[version] 'Version of the crate to package; may include dependency operators'")
-            .arg_from_usage("--bin 'Package binaries from library crates'")
-            .arg_from_usage("--bin-name [name] 'Set package name for binaries (implies --bin)'")
-            .arg_from_usage("--distribution [name] 'Set target distribution for package (default: unstable)'")
-        ).get_matches();
-    let matches = matches.subcommand_matches("package").unwrap();
+fn do_package(matches: &ArgMatches) -> Result<()> {
     let crate_name = matches.value_of("crate").unwrap();
     let crate_name_dashed = crate_name.replace('_', "-");
     let version = matches.value_of("version");
@@ -604,6 +589,28 @@ fn real_main() -> Result<()> {
     tempdir.into_path();
 
     Ok(())
+}
+
+fn real_main() -> Result<()> {
+    let m = App::new("debcargo")
+        .author(crate_authors!())
+        .version(crate_version!())
+        .global_setting(AppSettings::ColoredHelp)
+        .global_setting(AppSettings::UnifiedHelpMessage)
+        .setting(AppSettings::SubcommandRequiredElseHelp)
+        .subcommands(vec![
+            SubCommand::with_name("package")
+                .about("Package a crate from crates.io")
+                .arg_from_usage("<crate> 'Name of the crate to package'")
+                .arg_from_usage("[version] 'Version of the crate to package; may include dependency operators'")
+                .arg_from_usage("--bin 'Package binaries from library crates'")
+                .arg_from_usage("--bin-name [name] 'Set package name for binaries (implies --bin)'")
+                .arg_from_usage("--distribution [name] 'Set target distribution for package (default: unstable)'"),
+        ]).get_matches();
+    match m.subcommand() {
+        ("package", Some(ref sm)) => do_package(&sm),
+        _ => unreachable!(),
+    }
 }
 
 fn main() {
