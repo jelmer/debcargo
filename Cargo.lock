@@ -4,7 +4,7 @@ version = "1.2.0"
 dependencies = [
  "cargo 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.2.25 (registry+https://github.com/rust-lang/crates.io-index)",
- "clap 2.19.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "clap 2.19.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "flate2 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -123,7 +123,7 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "2.19.1"
+version = "2.19.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "ansi_term 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -754,7 +754,7 @@ dependencies = [
 "checksum cargo 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f7630f643f1c8de164eb78db782cd0d313f77e36373349dfdb110ee583aa3015"
 "checksum cfg-if 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "de1e760d7b6535af4241fca8bd8adf68e2e7edacc6b29f5d399050c5e48cf88c"
 "checksum chrono 0.2.25 (registry+https://github.com/rust-lang/crates.io-index)" = "9213f7cd7c27e95c2b57c49f0e69b1ea65b27138da84a170133fd21b07659c00"
-"checksum clap 2.19.1 (registry+https://github.com/rust-lang/crates.io-index)" = "956cee0b2427dd9e71129a509d1ef17a7f5df9f8253924074d7a5d79bc61851e"
+"checksum clap 2.19.2 (registry+https://github.com/rust-lang/crates.io-index)" = "305ad043f009db535a110200541d4567b63e172b1fe030313fbb92565da7ed24"
 "checksum cmake 0.1.19 (registry+https://github.com/rust-lang/crates.io-index)" = "8ebde6558caa6cf9bffe5750c66c517e7f9d470d59fcd48b0acbc0a02d62a82a"
 "checksum crates-io 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e945be5e805781ccbc1134c481b4535ffefbfab9d2073c2121fb2e1cee52664e"
 "checksum crossbeam 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)" = "0c5ea215664ca264da8a9d9c3be80d2eaf30923c259d03e870388eb927508f97"
