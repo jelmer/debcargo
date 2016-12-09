@@ -280,20 +280,27 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let debver = deb_version(pkgid.version());
     let debsrcdir = Path::new(&format!("{}-{}", debsrcname, debver)).to_owned();
     let orig_tar_gz = Path::new(&format!("{}_{}.orig.tar.gz", debsrcname, debver)).to_owned();
-    if orig_tar_gz.exists() {
-        bail!("File already exists: {}", orig_tar_gz.display());
-    }
-    fs::copy(lock.path(), &orig_tar_gz).unwrap();
+
+    let mut create = fs::OpenOptions::new();
+    create.write(true).create_new(true);
+    let mut create_exec = create.clone();
+    create_exec.mode(0o777);
+
+    // Filter out static libraries, to avoid needing to patch all the winapi crates to remove
+    // import libraries.
+    let remove_path = |path: &Path| match path.extension() {
+        Some(ext) if ext == "a" => true,
+        _ => false,
+    };
 
     let mut archive = tar::Archive::new(try!(flate2::read::GzDecoder::new(lock.file())));
     let tempdir = try!(tempdir::TempDir::new_in(".", "debcargo"));
+    let mut source_modified = false;
     for entry in try!(archive.entries()) {
         let mut entry = try!(entry);
-        // Filter out static libraries, to avoid needing to patch all the winapi crates to remove
-        // import libraries.
-        match try!(entry.path()).extension() {
-            Some(ext) if ext == "a" => continue,
-            _ => {}
+        if remove_path(&try!(entry.path())) {
+            source_modified = true;
+            continue;
         }
         if !try!(entry.unpack_in(tempdir.path())) {
             bail!("Crate contained path traversals via '..'");
@@ -303,7 +310,32 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     if entries.len() != 1 || !try!(entries[0].file_type()).is_dir() {
         bail!("{} did not unpack to a single top-level directory", crate_filename);
     }
-    try!(fs::rename(entries[0].path(), &debsrcdir));
+    // If we didn't already have a source directory, assume we can safely overwrite the
+    // .orig.tar.gz file.
+    if let Err(e) = fs::rename(entries[0].path(), &debsrcdir) {
+        try!(Err(e).chain_err(|| format!("Could not create source directory {0}\nTo regenerate, move or remove {0}", debsrcdir.display())));
+    }
+
+    let temp_archive_path = tempdir.path().join(&orig_tar_gz);
+    if source_modified {
+        // Generate new .orig.tar.gz without the omitted files.
+        let mut f = lock.file();
+        use std::io::Seek;
+        try!(f.seek(io::SeekFrom::Start(0)));
+        let mut archive = tar::Archive::new(try!(flate2::read::GzDecoder::new(f)));
+        let mut new_archive = tar::Builder::new(flate2::write::GzEncoder::new(try!(create.open(&temp_archive_path)), flate2::Compression::Best));
+        for entry in try!(archive.entries()) {
+            let entry = try!(entry);
+            if !remove_path(&try!(entry.path())) {
+                try!(new_archive.append(&entry.header().clone(), entry));
+            }
+        }
+        try!(new_archive.finish());
+        try!(writeln!(io::stderr(), "Filtered out files from .orig.tar.gz"));
+    } else {
+        try!(fs::copy(lock.path(), &temp_archive_path));
+    };
+    try!(fs::rename(temp_archive_path, &orig_tar_gz));
 
     let mut copyright_notices = HashSet::new();
     let copyright_notice_re = try!(Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b\d{4}\b.*$"));
@@ -376,11 +408,6 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     }
     deps.sort();
     deps.dedup();
-
-    let mut create = fs::OpenOptions::new();
-    create.write(true).create_new(true);
-    let mut create_exec = create.clone();
-    create_exec.mode(0o777);
 
     {
         let file = |name| create.open(tempdir.path().join(name));
