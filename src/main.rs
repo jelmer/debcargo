@@ -272,6 +272,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     }
 
     let version_suffix = match pkgid.version() {
+        _ if !lib && !bins.is_empty() => "".to_string(),
         &Version { major: 0, minor, .. } => format!("-0.{}", minor),
         &Version { major, .. } => format!("-{}", major),
     };
