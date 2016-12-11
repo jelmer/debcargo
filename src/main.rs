@@ -434,7 +434,9 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         if crate_name != crate_name_dashed {
             try!(writeln!(control, "X-Cargo-Crate: {}", crate_name));
         }
-        try!(writeln!(control, "Section: libdevel"));
+        if lib {
+            try!(writeln!(control, "Section: libdevel"));
+        }
         try!(writeln!(control, "Priority: optional"));
         try!(writeln!(control, "Maintainer: {}", RUST_MAINT));
         try!(writeln!(control, "Uploaders: {}", deb_author));
@@ -542,6 +544,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         if !bins.is_empty() {
             try!(writeln!(control, "\nPackage: {}", bin_name));
             try!(writeln!(control, "Architecture: any"));
+            try!(writeln!(control, "Section: misc"));
             try!(writeln!(control, "Depends: ${{shlibs:Depends}}, ${{misc:Depends}}"));
             let summary = match summary {
                 None => format!("Binaries built from the Rust {} crate", crate_name),
