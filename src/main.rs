@@ -435,7 +435,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
             try!(writeln!(control, "X-Cargo-Crate: {}", crate_name));
         }
         if lib {
-            try!(writeln!(control, "Section: libdevel"));
+            try!(writeln!(control, "Section: rust"));
         }
         try!(writeln!(control, "Priority: optional"));
         try!(writeln!(control, "Maintainer: {}", RUST_MAINT));
