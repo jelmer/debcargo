@@ -33,7 +33,7 @@ struct License {
     text: String,
 }
 
-struct DebCopyright {
+pub struct DebCopyright {
     format: String,
     upstream: UpstreamInfo,
     disclaimer: String,
@@ -211,7 +211,7 @@ fn get_licenses(license: &String) -> Result<Vec<License>> {
     Ok(lblocks)
 }
 
-fn debian_copyright(package: &package::Package,  srcdir: &Path, manifest: &manifest::Manifest) -> Result<DebCopyright> {
+pub fn debian_copyright(package: &package::Package,  srcdir: &Path, manifest: &manifest::Manifest) -> Result<DebCopyright> {
     let meta = manifest.metadata().clone();
     let upstream = UpstreamInfo::new(manifest.name().to_string(), meta.authors, meta.repository.unwrap());
 
