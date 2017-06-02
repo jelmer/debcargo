@@ -1,37 +1,29 @@
+extern crate debcargo;
 extern crate cargo;
 #[macro_use] extern crate clap;
 extern crate chrono;
 #[macro_use] extern crate error_chain;
 extern crate flate2;
 extern crate itertools;
-extern crate regex;
 extern crate semver;
 extern crate semver_parser;
 extern crate tar;
 extern crate tempdir;
-extern crate walkdir;
 
 use cargo::core::{Dependency, Registry, Source, TargetKind};
 use clap::{App, AppSettings, ArgMatches, SubCommand};
 use itertools::Itertools;
-use regex::Regex;
 use semver::Version;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Write as FmtWrite};
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::{self, BufRead, Read, Write as IoWrite};
+use std::io::{self, Write as IoWrite};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 
-error_chain! {
-    foreign_links {
-        Io(io::Error);
-        Cargo(Box<cargo::CargoError>);
-        Regex(regex::Error);
-        WalkDir(walkdir::Error);
-    }
-}
+use debcargo::errors::*;
+use debcargo::copyright;
 
 const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>";
 
@@ -338,32 +330,6 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     };
     try!(fs::rename(temp_archive_path, &orig_tar_gz));
 
-    let mut copyright_notices = HashSet::new();
-    let copyright_notice_re = try!(Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b\d{4}\b.*$"));
-    for entry in walkdir::WalkDir::new(&debsrcdir) {
-        let entry = try!(entry);
-        if entry.file_type().is_file() {
-            let copying_file = entry.file_name().to_string_lossy().starts_with("COPYING");
-            let file = try!(fs::File::open(entry.path()));
-            let reader = io::BufReader::new(file);
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    if let Some((start, end)) = copyright_notice_re.find(&line) {
-                        let notice = line[start..end].trim_right().trim_right_matches(". See the COPYRIGHT").to_string();
-                        // Skip the copyright notices from the GPL/LGPL itself.
-                        if copying_file && notice.contains("Free Software Foundation, Inc.") {
-                            continue;
-                        }
-                        copyright_notices.insert(notice);
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
-    }
-    let copyright_notices = copyright_notices.into_iter().sorted();
-
     let features = summary.features();
     let mut default_features = HashSet::new();
     let mut default_deps = HashSet::new();
@@ -559,52 +525,8 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         }
 
         let mut copyright = io::BufWriter::new(try!(file("copyright")));
-        try!(writeln!(copyright, "Downloaded from the crate \"{}\" on crates.io via Cargo.\n", crate_name));
-        if !meta.authors.is_empty() {
-            try!(writeln!(copyright, "Upstream authors:"));
-            for author in meta.authors.iter() {
-                try!(writeln!(copyright, "- {}", author));
-            }
-            try!(writeln!(copyright, ""));
-        }
-        if !copyright_notices.is_empty() {
-            try!(writeln!(copyright, "Copyright notices:"));
-            for notice in copyright_notices.iter() {
-                try!(writeln!(copyright, "- {}", notice));
-            }
-            try!(writeln!(copyright, ""));
-        }
-        if let Some(ref license_file_name) = meta.license_file {
-            let license_file = package.manifest_path().with_file_name(license_file_name);
-            let mut text = Vec::new();
-            try!(try!(fs::File::open(license_file)).read_to_end(&mut text));
-            try!(copyright.write_all(&text));
-        } else if let Some(ref licenses) = meta.license {
-            try!(writeln!(copyright, "License: {}", licenses));
-            for license in licenses.trim().to_lowercase().replace('/', " or ").split(" or ") {
-                let text = match license.trim().trim_right_matches('+') {
-                    "agpl-3.0" => include_str!("licenses/AGPL-3.0"),
-                    "apache-2.0" => include_str!("licenses/Apache-2.0"),
-                    "bsd-2-clause" => include_str!("licenses/BSD-2-Clause"),
-                    "bsd-3-clause" => include_str!("licenses/BSD-3-Clause"),
-                    "cc0-1.0" => include_str!("licenses/CC0-1.0"),
-                    "gpl-2.0" => include_str!("licenses/GPL-2.0"),
-                    "gpl-3.0" => include_str!("licenses/GPL-3.0"),
-                    "isc" => include_str!("licenses/ISC"),
-                    "lgpl-2.0" => include_str!("licenses/LGPL-2.0"),
-                    "lgpl-2.1" => include_str!("licenses/LGPL-2.1"),
-                    "lgpl-3.0" => include_str!("licenses/LGPL-3.0"),
-                    "mit" => include_str!("licenses/MIT"),
-                    "mpl-2.0" => include_str!("licenses/MPL-2.0"),
-                    "unlicense" => include_str!("licenses/Unlicense"),
-                    "zlib" => include_str!("licenses/Zlib"),
-                    license => bail!("Unrecognized crate license: {} (parsed from {})", license, licenses),
-                };
-                try!(write!(copyright, "\n{:->79}\n\n{}", "", text));
-            }
-        } else {
-            bail!("Crate has no license or license_file");
-        }
+        let deb_copyright = copyright::debian_copyright(&package, &debsrcdir, &manifest)?;
+        writeln!(copyright, "{}", deb_copyright)?;
 
         try!(fs::create_dir(tempdir.path().join("source")));
         let mut source_format = try!(file("source/format"));
