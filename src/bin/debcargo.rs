@@ -24,6 +24,7 @@ use std::path::Path;
 
 use debcargo::errors::*;
 use debcargo::copyright;
+use debcargo::crates::CrateInfo;
 
 const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>";
 
@@ -224,29 +225,18 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
     let deb_author = try!(get_deb_author());
 
-    // Default to an exact match if no operator specified
-    let version = version.map(|v| if v.starts_with(|c: char| c.is_digit(10)) { ["=", v].concat() } else { v.to_string() });
 
-    let config = try!(cargo::Config::default());
-    let crates_io = try!(cargo::core::SourceId::crates_io(&config));
-	let mut registry = cargo::sources::RegistrySource::remote(&crates_io, &config);
-    let dependency = try!(cargo::core::Dependency::parse_no_deprecated(&crate_name, version.as_ref().map(String::as_str), &crates_io));
-    let summaries = try!(registry.query(&dependency));
-    let summary = try!(summaries.iter().max_by_key(|s| s.package_id())
-                     .ok_or_else(|| format!("Couldn't find any package matching {} {}\nTry `debcargo cargo-update` to update the crates.io index.",
-                                            dependency.name(), dependency.version_req())));
-    let pkgid = summary.package_id();
-    let checksum = try!(summary.checksum().ok_or("Could not get crate checksum"));
-    let package = try!(registry.download(&pkgid));
-    let registry_name = format!("{}-{:016x}", crates_io.url().host_str().unwrap_or(""), hash(&crates_io).swap_bytes());
-    let crate_filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
-    let lock = try!(config.registry_cache_path().join(&registry_name).open_ro(&crate_filename, &config, &crate_filename));
+    let crate_info = CrateInfo::new(crate_name, version)?;
+    let summary = crate_info.summary();
+    let pkgid = crate_info.package_id();
+    let checksum = crate_info.checksum().ok_or("Could not get crate checksum")?;
 
-    let manifest = package.manifest();
+    let package = crate_info.package();
+    let lock = crate_info.crate_file();
 
     let mut lib = false;
     let mut bins = Vec::new();
-    for target in manifest.targets() {
+    for target in crate_info.targets() {
         match target.kind() {
             &TargetKind::Lib(_) => {
                 lib = true;
@@ -301,7 +291,8 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     }
     let entries = try!(try!(tempdir.path().read_dir()).collect::<io::Result<Vec<_>>>());
     if entries.len() != 1 || !try!(entries[0].file_type()).is_dir() {
-        bail!("{} did not unpack to a single top-level directory", crate_filename);
+        bail!("{}-{}.crate did not unpack to a single top-level directory",
+              pkgid.name(), pkgid.version());
     }
     // If we didn't already have a source directory, assume we can safely overwrite the
     // .orig.tar.gz file.
@@ -359,7 +350,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let mut deps = Vec::new();
     let mut all_deps = HashMap::new();
     let mut dev_deps = HashSet::new();
-    for dep in manifest.dependencies().iter() {
+    for dep in crate_info.dependencies().iter() {
         if dep.kind() == cargo::core::dependency::Kind::Development {
             dev_deps.insert(dep.name());
             continue;
@@ -394,7 +385,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         let mut compat = try!(file("compat"));
         try!(writeln!(compat, "10"));
 
-        let meta = manifest.metadata();
+        let meta = crate_info.metadata();
         let mut control = io::BufWriter::new(try!(file("control")));
         try!(writeln!(control, "Source: {}", debsrcname));
         if crate_name != crate_name_dashed {
@@ -525,7 +516,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         }
 
         let mut copyright = io::BufWriter::new(try!(file("copyright")));
-        let deb_copyright = copyright::debian_copyright(&package, &debsrcdir, &manifest)?;
+        let deb_copyright = copyright::debian_copyright(&package, &debsrcdir, crate_info.manifest())?;
         writeln!(copyright, "{}", deb_copyright)?;
 
         try!(fs::create_dir(tempdir.path().join("source")));
