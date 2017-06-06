@@ -13,3 +13,4 @@ extern crate walkdir;
 pub mod errors;
 pub mod copyright;
 pub mod crates;
+pub mod debian;
