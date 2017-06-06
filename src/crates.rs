@@ -5,7 +5,8 @@ use cargo::util::FileLock;
 use cargo::core::{manifest, package};
 
 use semver::Version;
-use std::collections::HashMap;
+use itertools::Itertools;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 use errors::*;
@@ -113,5 +114,43 @@ impl CrateInfo {
 
     pub fn dependencies(&self) -> &[Dependency] {
         self.manifest.dependencies()
+    }
+
+    pub fn default_deps_features(&self) -> Option<(HashSet<&str>, HashSet<&str>)> {
+        let mut default_features = HashSet::new();
+        let mut default_deps = HashSet::new();
+
+        let mut defaults = Vec::new();
+        let features = self.summary.features();
+
+        defaults.push("default");
+        default_features.insert("default");
+
+        while let Some(feature) = defaults.pop() {
+            match features.get(feature) {
+                Some(l) => {
+                    default_features.insert(feature);
+                    for f in l {
+                        defaults.push(f);
+                    }
+                }
+                None => {
+                    default_deps.insert(feature);
+                }
+            }
+        }
+
+        for (feature, deps) in features {
+            if deps.is_empty() {
+                default_features.insert(feature.as_str());
+            }
+        }
+
+        Some((default_features, default_deps))
+    }
+
+    pub fn non_default_features(&self, default_features: &HashSet<&str>) -> Option<Vec<&str>> {
+        let features = self.summary.features();
+        Some(features.keys().map(String::as_str).filter(|f| !default_features.contains(f)).sorted())
     }
 }

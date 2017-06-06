@@ -321,29 +321,8 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     };
     try!(fs::rename(temp_archive_path, &orig_tar_gz));
 
-    let features = summary.features();
-    let mut default_features = HashSet::new();
-    let mut default_deps = HashSet::new();
-    let mut defaults = Vec::new();
-    defaults.push("default");
-    default_features.insert("default");
-    while let Some(feature) = defaults.pop() {
-        match features.get(feature) {
-            Some(l) => {
-                default_features.insert(feature);
-                for f in l {
-                    defaults.push(f);
-                }
-            }
-            None => { default_deps.insert(feature); }
-        }
-    }
-    for (feature, deps) in features {
-        if deps.is_empty() {
-            default_features.insert(feature.as_str());
-        }
-    }
-    let non_default_features = features.keys().map(String::as_str).filter(|f| !default_features.contains(f)).sorted();
+    let (default_features, default_deps) = crate_info.default_deps_features().unwrap();
+    let non_default_features = crate_info.non_default_features(&default_features).unwrap();
 
     let deb_feature = &|f: &str| deb_feature_name(&crate_pkg_base, f);
 
@@ -458,6 +437,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                 // Track the (possibly empty) additional features required for each dep, to call
                 // deb_dep once for all of them.
                 let mut deps_features = HashMap::new();
+                let features = crate_info.summary().features();
                 for dep_str in features.get(feature).unwrap() {
                     let mut dep_tokens = dep_str.splitn(2, '/');
                     let dep_name = dep_tokens.next().unwrap();
