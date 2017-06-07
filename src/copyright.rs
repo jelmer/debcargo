@@ -112,7 +112,25 @@ impl Files {
 impl fmt::Display for License {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "License: {}\n", self.name)?;
-        write!(f, "{}\n", self.text)
+        let text = Some(&self.text);
+        for (n, ref s) in text.iter().enumerate() {
+            if n != 0 {
+                writeln!(f, " .")?;
+            }
+
+            for line in s.trim().lines() {
+                let line = line.trim();
+                if line.is_empty() {
+                    writeln!(f, " .")?;
+                } else if line.starts_with("- ") {
+                    writeln!(f, " {}", line)?;
+                } else {
+                    writeln!(f, " {}", line)?;
+                }
+            }
+        }
+
+        write!(f, "\n")
     }
 }
 
