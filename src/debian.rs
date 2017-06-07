@@ -154,7 +154,7 @@ fn get_envs(keys: &[&str]) -> Result<Option<String>> {
 }
 
 /// Determine a name and email address from environment variables.
-fn get_deb_author() -> Result<String> {
+pub fn get_deb_author() -> Result<String> {
     let name = try!(try!(get_envs(&["DEBFULLNAME", "NAME"]))
         .ok_or("Unable to determine your name; please set $DEBFULLNAME or $NAME"));
     let email = try!(try!(get_envs(&["DEBEMAIL", "EMAIL"]))
