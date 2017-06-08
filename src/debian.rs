@@ -25,6 +25,17 @@ pub struct Source {
     x_cargo: String,
 }
 
+pub struct Package {
+    name: String,
+    arch: String,
+    depends: String,
+    suggests: String,
+    provides: String,
+    summary: String,
+    description: String,
+    boilerplate: String,
+}
+
 pub struct PkgBase {
     crate_name: String,
     crate_pkg_base: String,
@@ -120,6 +131,94 @@ impl Source {
             x_cargo: cargo_crate,
         })
     }
+impl fmt::Display for Package {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Package: {}", self.name)?;
+        writeln!(f, "Architecture: {}", self.arch)?;
+        writeln!(f, "Depends:\n {}", self.depends)?;
+        if !self.suggests.is_empty() {
+            writeln!(f, "Suggests:\n {}", self.suggests)?;
+        }
+
+        if !self.provides.is_empty() {
+            writeln!(f, "Provides:\n {}", self.provides)?;
+        }
+
+        write_description(f,
+                          self.summary.as_str(),
+                          if self.description.is_empty() {
+                              None
+                          } else {
+                              Some(&self.description)
+                          },
+                          Some(&self.boilerplate))
+    }
+}
+
+impl Package {
+    pub fn new(pkgbase: &PkgBase,
+               deps: &Vec<String>,
+               non_default_features: Option<&Vec<&str>>,
+               default_features: Option<&HashSet<&str>>,
+               summary: &Option<String>,
+               description: &Option<String>,
+               feature: Option<&str>)
+               -> Package {
+        let deb_feature = &|f: &str| deb_feature_name(&pkgbase.crate_pkg_base, f);
+        let suggests = match non_default_features {
+            Some(ndf) => ndf.iter().cloned().map(deb_feature).join(",\n "),
+            None => "".to_string(),
+        };
+
+        let provides = match default_features {
+            Some(df) => {
+                df.into_iter()
+                    .map(|f| format!("{} (=${{binary:version}})", deb_feature(f)))
+                    .join(",\n ")
+            }
+            None => "".to_string(),
+
+        };
+
+        let depends = vec!["${misc:Depends}".to_string()]
+            .iter()
+            .chain(deps.iter())
+            .join(",\n ");
+
+        let short_desc = match *summary {
+            None => format!("Source of Rust {} crate", pkgbase.crate_pkg_base),
+            Some(ref s) => format!("{} - Source", s),
+        };
+
+        let name = match feature {
+            None => deb_name(&pkgbase.crate_pkg_base.as_str()),
+            Some(ref s) => deb_feature(s),
+        };
+
+        let long_desc = match *description {
+            None => "".to_string(),
+            Some(ref s) => s.to_string(),
+        };
+
+        let boilerplate = format!(concat!("This package contains the source for the Rust {} \
+                                           crate,\n",
+                                          "packaged for use with cargo, debcargo, and dh-cargo."),
+                                  pkgbase.crate_name);
+        Package {
+            name: name,
+            arch: "all".to_string(),
+            depends: depends,
+            suggests: suggests,
+            provides: provides,
+            summary: short_desc,
+            description: long_desc,
+            boilerplate: boilerplate,
+        }
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
+    }
 }
 
 impl PkgBase {
@@ -189,6 +288,31 @@ pub fn get_deb_author() -> Result<String> {
         .ok_or("Unable to determine your email; please set $DEBEMAIL or $EMAIL"));
     Ok(format!("{} <{}>", name, email))
 }
+
+fn write_description(out: &mut fmt::Formatter,
+                     summary: &str,
+                     longdesc: Option<&String>,
+                     boilerplate: Option<&String>)
+                     -> fmt::Result {
+    writeln!(out, "Description: {}", summary)?;
+    for (n, ref s) in longdesc.iter().chain(boilerplate.iter()).enumerate() {
+        if n != 0 {
+            writeln!(out, " .")?;
+        }
+        for line in s.trim().lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                writeln!(out, " .")?;
+            } else if line.starts_with("- ") {
+                writeln!(out, "  {}", line)?;
+            } else {
+                writeln!(out, " {}", line)?;
+            }
+        }
+    }
+    write!(out, "")
+}
+
 /// Translates a Cargo dependency into a Debian package dependency.
 pub fn deb_dep(dep: &Dependency) -> Result<String> {
     use semver_parser;
