@@ -239,9 +239,14 @@ pub fn debian_copyright(package: &package::Package,
                         manifest: &manifest::Manifest)
                         -> Result<DebCopyright> {
     let meta = manifest.metadata().clone();
+    let repository = match meta.repository {
+        None => "".to_string(),
+        Some(r) => r,
+    };
+
     let upstream = UpstreamInfo::new(manifest.name().to_string(),
                                      meta.authors,
-                                     meta.repository.unwrap());
+                                     repository);
 
     let mut licenses: Vec<License> = Vec::new();
     let mut crate_license: String = "".to_string();
