@@ -63,27 +63,23 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
 
     let crate_info = CrateInfo::new(crate_name, version)?;
-    let summary = crate_info.summary();
     let pkgid = crate_info.package_id();
     let checksum = crate_info.checksum().ok_or("Could not get crate checksum")?;
 
     let package = crate_info.package();
     let lock = crate_info.crate_file();
+    let meta = crate_info.metadata();
 
-    let mut lib = false;
-    let mut bins = Vec::new();
-    for target in crate_info.targets() {
-        match target.kind() {
-            &TargetKind::Lib(_) => {
-                lib = true;
-            }
-            &TargetKind::Bin => {
-                bins.push(target.name());
-            }
-            _ => continue,
-        }
-    }
-    bins.sort();
+    let lib = crate_info.is_lib();
+    let mut bins = crate_info.get_binary_targets();
+
+    let (default_features, default_deps) = crate_info.default_deps_features().unwrap();
+    let non_default_features = crate_info.non_default_features(&default_features).unwrap();
+    let (dev_deps, all_deps, deps) = crate_info.get_dependencies(&default_deps).unwrap();
+
+    let build_deps =  if !bins.is_empty() { deps.iter() } else { [].iter() };
+
+
     if lib && !bins.is_empty() && !package_lib_binaries {
         println!("Ignoring binaries from lib crate; pass --bin to package: {}", bins.join(", "));
         bins.clear();
@@ -94,11 +90,14 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         &Version { major: 0, minor, .. } => format!("-0.{}", minor),
         &Version { major, .. } => format!("-{}", major),
     };
-    let crate_pkg_base = format!("{}{}", crate_name_dashed, version_suffix);
-    let debsrcname = format!("rust-{}", crate_pkg_base);
-    let debver = deb_version(pkgid.version());
-    let debsrcdir = Path::new(&format!("{}-{}", debsrcname, debver)).to_owned();
-    let orig_tar_gz = Path::new(&format!("{}_{}.orig.tar.gz", debsrcname, debver)).to_owned();
+
+
+    let pkgbase = PkgBase::new(crate_name, &version_suffix, pkgid.version())?;
+    let source_section = ControlSource::new(&pkgbase,
+                                            if let Some(ref home) = meta.homepage { home.as_str() } else { ""},
+                                            &lib,
+                                            &build_deps.as_slice())?;
+
 
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
@@ -132,11 +131,11 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     }
     // If we didn't already have a source directory, assume we can safely overwrite the
     // .orig.tar.gz file.
-    if let Err(e) = fs::rename(entries[0].path(), &debsrcdir) {
-        try!(Err(e).chain_err(|| format!("Could not create source directory {0}\nTo regenerate, move or remove {0}", debsrcdir.display())));
+    if let Err(e) = fs::rename(entries[0].path(), &pkgbase.srcdir) {
+        try!(Err(e).chain_err(|| format!("Could not create source directory {0}\nTo regenerate, move or remove {0}", pkgbase.srcdir.display())));
     }
 
-    let temp_archive_path = tempdir.path().join(&orig_tar_gz);
+    let temp_archive_path = tempdir.path().join(&pkgbase.orig_tar_gz);
     if source_modified {
         // Generate new .orig.tar.gz without the omitted files.
         let mut f = lock.file();
@@ -155,32 +154,12 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     } else {
         try!(fs::copy(lock.path(), &temp_archive_path));
     };
-    try!(fs::rename(temp_archive_path, &orig_tar_gz));
+    try!(fs::rename(temp_archive_path, &pkgbase.orig_tar_gz));
 
-    let (default_features, default_deps) = crate_info.default_deps_features().unwrap();
-    let non_default_features = crate_info.non_default_features(&default_features).unwrap();
 
-    let deb_feature = &|f: &str| deb_feature_name(&crate_pkg_base, f);
 
-    let mut deps = Vec::new();
-    let mut all_deps = HashMap::new();
-    let mut dev_deps = HashSet::new();
-    for dep in crate_info.dependencies().iter() {
-        if dep.kind() == cargo::core::dependency::Kind::Development {
-            dev_deps.insert(dep.name());
-            continue;
-        }
-        if dep.kind() != cargo::core::dependency::Kind::Build {
-            if all_deps.insert(dep.name(), dep).is_some() {
-                bail!("Duplicate dependency for {}", dep.name());
-            }
-        }
-        if !dep.is_optional() || default_deps.contains(dep.name()) {
-            deps.push(try!(deb_dep(dep)));
-        }
-    }
-    deps.sort();
-    deps.dedup();
+    let deb_feature = &|f: &str| deb_feature_name(&pkgbase.crate_pkg_base, f);
+
 
     {
         let file = |name| create.open(tempdir.path().join(name));
@@ -193,125 +172,49 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                     concat!("{} ({}-1) {}; urgency=medium\n\n",
                             "  * Package {} {} from crates.io with debcargo {}\n\n",
                             " -- {}  {}\n"),
-                    debsrcname, debver, distribution,
+                    source_section.srcname(), pkgbase.debver, distribution,
                     pkgid.name(), pkgid.version(), crate_version!(),
                     deb_author, chrono::Local::now().to_rfc2822()));
 
         let mut compat = try!(file("compat"));
         try!(writeln!(compat, "10"));
 
-        let meta = crate_info.metadata();
+
         let mut control = io::BufWriter::new(try!(file("control")));
-        try!(writeln!(control, "Source: {}", debsrcname));
-        if crate_name != crate_name_dashed {
-            try!(writeln!(control, "X-Cargo-Crate: {}", crate_name));
-        }
+        write!(control, "{}", source_section)?;
+        let (summary, description) = crate_info.get_summary_description();
+
         if lib {
-            try!(writeln!(control, "Section: rust"));
-        }
-        try!(writeln!(control, "Priority: optional"));
-        try!(writeln!(control, "Maintainer: {}", RUST_MAINT));
-        try!(writeln!(control, "Uploaders: {}", deb_author));
-        let build_deps = if !bins.is_empty() { deps.iter() } else { [].iter() };
-        try!(writeln!(control, "Build-Depends:\n {}", vec!["debhelper (>= 10)".to_string(), "dh-cargo".to_string()].iter().chain(build_deps).join(",\n ")));
-        try!(writeln!(control, "Standards-Version: 3.9.8"));
-        if let Some(ref homepage) = meta.homepage {
-            assert!(!homepage.contains('\n'));
-            try!(writeln!(control, "Homepage: {}", homepage));
-        }
-        let (summary, description) = if let Some(ref description) = meta.description {
-            let mut description = description.trim();
-            for article in ["a ", "A ", "an ", "An ", "the ", "The "].iter() {
-                description = description.trim_left_matches(article);
-            }
-            let p1 = description.find('\n');
-            let p2 = description.find(". ");
-            match p1.into_iter().chain(p2.into_iter()).min() {
-                Some(p) => {
-                    let s = description[..p].trim_right_matches('.').to_string();
-                    let d = description[p+1..].trim();
-                    if d.is_empty() {
-                        (Some(s), None)
-                    } else {
-                        (Some(s), Some(d.to_string()))
-                    }
-                }
-                None => (Some(description.trim_right_matches('.').to_string()), None),
-            }
-        } else {
-            (None, None)
-        };
-        if lib {
-            let deb_lib_name = deb_name(&crate_pkg_base);
-            try!(writeln!(control, "\nPackage: {}", deb_lib_name));
-            try!(writeln!(control, "Architecture: all"));
-            try!(writeln!(control, "Depends:\n {}", vec!["${misc:Depends}".to_string()].iter().chain(deps.iter()).join(",\n ")));
-            if !non_default_features.is_empty() {
-                try!(writeln!(control, "Suggests:\n {}", non_default_features.iter().cloned().map(deb_feature).join(",\n ")));
-            }
-            if !default_features.is_empty() {
-                let default_features = default_features.iter().cloned().sorted();
-                try!(writeln!(control, "Provides:\n {}", default_features.into_iter().map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f))).join(",\n ")));
-            }
-            let lib_summary = match summary {
-                None => format!("Source of the Rust {} crate", crate_name),
-                Some(ref s) => format!("{} - Source", s),
-            };
-            let boilerplate = format!(
-                concat!("This package contains the source for the Rust {} crate,\n",
-                        "packaged for use with cargo, debcargo, and dh-cargo."),
-                crate_name);
-            try!(write_description(&mut control, &lib_summary, description.as_ref(), Some(&boilerplate)));
+            let ndf = non_default_features.clone();
+            let ndf = if ndf.is_empty() { None } else { Some(&ndf)};
+
+            let df = default_features.clone();
+            let df = if df.is_empty() { None } else { Some(&df) };
+
+            let lib_package = ControlPackage::new(&pkgbase, &deps, ndf, df,
+                                                  &summary,
+                                                  &description,
+                                                  None);
+
+            writeln!(control, "{}", lib_package)?;
 
             for feature in non_default_features {
-                try!(writeln!(control, "\nPackage: {}", deb_feature(feature)));
-                try!(writeln!(control, "Architecture: all"));
                 let mut feature_deps = vec![
-                    format!("{} (= ${{binary:Version}})", deb_lib_name),
+                    format!("{} (= ${{binary:Version}})", lib_package.name()),
                     "${misc:Depends}".to_string()
                 ];
-                // Track the (possibly empty) additional features required for each dep, to call
-                // deb_dep once for all of them.
-                let mut deps_features = HashMap::new();
-                let features = crate_info.summary().features();
-                for dep_str in features.get(feature).unwrap() {
-                    let mut dep_tokens = dep_str.splitn(2, '/');
-                    let dep_name = dep_tokens.next().unwrap();
-                    match dep_tokens.next() {
-                        None if features.contains_key(dep_name) => {
-                            if !default_features.contains(dep_name) {
-                                feature_deps.push(format!("{} (= ${{binary:Version}})", deb_feature(dep_name)));
-                            }
-                        }
-                        opt_dep_feature => {
-                            deps_features.entry(dep_name).or_insert(vec![]).extend(opt_dep_feature.into_iter().map(String::from));
-                        }
-                    }
-                }
-                for (dep_name, dep_features) in deps_features.into_iter().sorted() {
-                    if let Some(&dep_dependency) = all_deps.get(dep_name) {
-                        if dep_features.is_empty() {
-                            feature_deps.push(try!(deb_dep(dep_dependency)));
-                        } else {
-                            let inner = dep_dependency.clone_inner().set_features(dep_features);
-                            feature_deps.push(try!(deb_dep(&inner.into_dependency())));
-                        }
-                    } else if dev_deps.contains(dep_name) {
-                        continue;
-                    } else {
-                        bail!("Feature {} depended on non-existent dep {}", feature, dep_name);
-                    };
-                }
-                try!(writeln!(control, "Depends:\n {}", feature_deps.into_iter().join(",\n ")));
-                let feature_summary = match summary {
-                    None => format!("Rust {} crate - {} feature", crate_name, feature),
-                    Some(ref s) => format!("{} - {} feature", s, feature),
-                };
-                let boilerplate = format!(
-                    concat!("This dependency package depends on the additional crates required for the\n",
-                            "{} feature of the Rust {} crate."),
-                    feature, crate_name);
-                try!(write_description(&mut control, &feature_summary, description.as_ref(), Some(&boilerplate)));
+
+                crate_info.get_feature_dependencies(feature,
+                                                    deb_feature, &mut feature_deps)?;
+
+                let feature_package = ControlPackage::new(&pkgbase,
+                                                          &feature_deps,
+                                                          None, None,
+                                                          &summary,
+                                                          &description,
+                                                          Some(feature));
+                writeln!(control, "{}", feature_package)?;
+
             }
         }
         if !bins.is_empty() {
@@ -332,7 +235,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         }
 
         let mut copyright = io::BufWriter::new(try!(file("copyright")));
-        let deb_copyright = copyright::debian_copyright(&package, &debsrcdir, crate_info.manifest())?;
+        let deb_copyright = copyright::debian_copyright(&package, &pkgbase.srcdir, crate_info.manifest())?;
         writeln!(copyright, "{}", deb_copyright)?;
 
         try!(fs::create_dir(tempdir.path().join("source")));
@@ -345,7 +248,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                                    "\tdh $@ --buildsystem cargo\n")));
     }
 
-    try!(fs::rename(tempdir.path(), debsrcdir.join("debian")));
+    try!(fs::rename(tempdir.path(), pkgbase.srcdir.join("debian")));
     tempdir.into_path();
 
     Ok(())
