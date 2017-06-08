@@ -1,10 +1,13 @@
 use cargo::core::manifest::ManifestMetadata;
+use cargo::core::Dependency;
 use semver::Version;
 use itertools::Itertools;
 
 use std;
-use std::fmt::{self, Write as FmtWrite};
+use std::slice::Iter;
+use std::fmt::{self, Write as FmtWrite, Formatter};
 use std::path::{Path, PathBuf};
+use std::collections::HashSet;
 use errors::*;
 
 const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>";
@@ -37,11 +40,13 @@ pub struct Package {
 }
 
 pub struct PkgBase {
-    crate_name: String,
-    crate_pkg_base: String,
-    debver: String,
-    srcdir: PathBuf,
-    orig_tar_gz: PathBuf,
+    pub crate_name: String,
+    pub crate_pkg_base: String,
+    pub debver: String,
+    pub srcdir: PathBuf,
+    pub orig_tar_gz: PathBuf,
+}
+
 #[derive(PartialEq)]
 enum V {
     M(u64),
@@ -100,17 +105,18 @@ impl fmt::Display for Source {
 }
 
 impl Source {
-    pub fn new(pkgbase: &PkgBase, home: &String, lib: bool, bdeps: &Vec<String>) -> Result<Source> {
+    pub fn new(pkgbase: &PkgBase, home: &str, lib: &bool, bdeps: &[String]) -> Result<Source> {
         let source = format!("rust-{}", pkgbase.crate_pkg_base);
-        let section = if lib { "rust" } else { "" };
+        let section = if *lib { "rust" } else { "" };
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
         let uploaders = get_deb_author()?;
         let vcs_git = format!("{}{}.git", VCS_GIT, source);
         let vcs_browser = format!("{}{}.git", VCS_VIEW, source);
-        let build_deps = vec!["debhelper (>= 10)".to_string(), "dh-cargo".to_string()]
-            .iter()
-            .chain(bdeps)
+        let mut build_deps = vec!["debhelper (>= 10)".to_string(), "dh-cargo".to_string()];
+        build_deps.extend_from_slice(bdeps);
+        let build_deps = build_deps.iter()
+            // .chain(bdeps)
             .join(",\n ");
         let cargo_crate = if pkgbase.crate_name != pkgbase.crate_name.replace('_', "-") {
             pkgbase.crate_name.clone()
@@ -127,10 +133,16 @@ impl Source {
             build_deps: build_deps,
             vcs_git: vcs_git,
             vcs_browser: vcs_browser,
-            homepage: home.clone(),
+            homepage: home.to_string(),
             x_cargo: cargo_crate,
         })
     }
+
+    pub fn srcname(&self) -> &String {
+        &self.name
+    }
+}
+
 impl fmt::Display for Package {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Package: {}", self.name)?;
@@ -221,10 +233,11 @@ impl Package {
     }
 }
 
+
 impl PkgBase {
-    pub fn new(crate_name: &String, version_suffix: &String, version: &Version) -> Result<PkgBase> {
+    pub fn new(crate_name: &str, version_suffix: &str, version: &Version) -> Result<PkgBase> {
         let crate_name_dashed = crate_name.replace('_', "-");
-        let crate_pkg_base = format!("{}-{}", crate_name_dashed, version_suffix);
+        let crate_pkg_base = format!("{}{}", crate_name_dashed, version_suffix);
 
         let debsrcname = format!("rust-{}", crate_pkg_base);
         let debver = deb_version(version);
@@ -232,7 +245,7 @@ impl PkgBase {
         let orig_tar_gz = Path::new(&format!("{}_{}.orig.tar.gz", debsrcname, debver)).to_owned();
 
         Ok(PkgBase {
-            crate_name: crate_name.clone(),
+            crate_name: crate_name.to_string(),
             crate_pkg_base: crate_pkg_base,
             debver: debver,
             srcdir: srcdir.to_path_buf(),
