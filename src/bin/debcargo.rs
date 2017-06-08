@@ -10,17 +10,13 @@ extern crate semver_parser;
 extern crate tar;
 extern crate tempdir;
 
-use cargo::core::{Dependency, Source};
+use cargo::core::Source;
 use clap::{App, AppSettings, ArgMatches, SubCommand};
-use itertools::Itertools;
 use semver::Version;
-use std::collections::{HashMap, HashSet};
-use std::fmt::{self, Write as FmtWrite};
 use std::fs;
 use std::io::{self, Write as IoWrite};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
-use std::iter::FromIterator;
 
 use debcargo::errors::*;
 use debcargo::copyright;
@@ -75,7 +71,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
     let (default_features, default_deps) = crate_info.default_deps_features().unwrap();
     let non_default_features = crate_info.non_default_features(&default_features).unwrap();
-    let (dev_deps, all_deps, deps) = crate_info.get_dependencies(&default_deps).unwrap();
+    let (_, _, deps) = crate_info.get_dependencies(&default_deps).unwrap();
 
     let build_deps =  if !bins.is_empty() { deps.iter() } else { [].iter() };
 
