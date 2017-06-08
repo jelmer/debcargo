@@ -197,7 +197,7 @@ fn gen_files(debsrcdir: &Path, license: &String) -> Result<Files> {
 fn get_licenses(license: &String) -> Result<Vec<License>> {
     let mut licenses = HashMap::new();
 
-    for ls in license.trim().to_lowercase().replace("/", " or ").split(" or ") {
+    for ls in license.trim().replace("/", " or ").split(" or ") {
         let text = match ls.trim().to_lowercase().trim_right_matches('+') {
             "agpl-3.0" => include_str!("licenses/AGPL-3.0"),
             "apache-2.0" => include_str!("licenses/Apache-2.0"),
@@ -220,14 +220,14 @@ fn get_licenses(license: &String) -> Result<Vec<License>> {
                       license)
             }
         };
-        licenses.insert(ls.to_uppercase(), text.to_string());
+        licenses.insert(ls.to_string(), text.to_string());
     }
 
     let mut lblocks: Vec<License> = Vec::new();
     if !licenses.is_empty() {
         lblocks.reserve(licenses.capacity());
         for (l, t) in licenses {
-            lblocks.push(License::new(l, t));
+            lblocks.push(License::new(l.to_string(), t));
         }
     }
 
