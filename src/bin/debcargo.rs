@@ -2,7 +2,6 @@ extern crate debcargo;
 extern crate cargo;
 #[macro_use] extern crate clap;
 extern crate chrono;
-#[macro_use] extern crate error_chain;
 extern crate flate2;
 extern crate itertools;
 extern crate semver;
@@ -12,40 +11,17 @@ extern crate tempdir;
 
 use cargo::core::Source;
 use clap::{App, AppSettings, ArgMatches, SubCommand};
-use semver::Version;
 use std::fs;
 use std::io::{self, Write as IoWrite};
 use std::os::unix::fs::OpenOptionsExt;
-use std::path::Path;
 
 use debcargo::errors::*;
 use debcargo::copyright;
 use debcargo::crates::CrateInfo;
-use debcargo::debian::{PkgBase, Source as ControlSource, Package as
+use debcargo::debian::{self, PkgBase, Source as ControlSource, Package as
                        ControlPackage};
 use debcargo::debian::{get_deb_author, deb_feature_name};
 
-/// Write a Description field with proper formatting.
-fn write_description<W: IoWrite>(out: &mut W, summary: &str, longdesc: Option<&String>, boilerplate: Option<&String>) -> Result<()> {
-    assert!(!summary.contains('\n'));
-    try!(writeln!(out, "Description: {}", summary));
-    for (n, ref s) in longdesc.iter().chain(boilerplate.iter()).enumerate() {
-        if n != 0 {
-            try!(writeln!(out, " ."));
-        }
-        for line in s.trim().lines() {
-            let line = line.trim();
-            if line.is_empty() {
-                try!(writeln!(out, " ."));
-            } else if line.starts_with("- ") {
-                try!(writeln!(out, "  {}", line));
-            } else {
-                try!(writeln!(out, " {}", line));
-            }
-        }
-    }
-    Ok(())
-}
 
 fn do_package(matches: &ArgMatches) -> Result<()> {
     let crate_name = matches.value_of("crate").unwrap();
@@ -63,7 +39,6 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let checksum = crate_info.checksum().ok_or("Could not get crate checksum")?;
 
     let package = crate_info.package();
-    let lock = crate_info.crate_file();
     let meta = crate_info.metadata();
 
     let lib = crate_info.is_lib();
