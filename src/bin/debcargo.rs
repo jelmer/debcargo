@@ -81,13 +81,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         bins.clear();
     }
 
-    let version_suffix = match pkgid.version() {
-        _ if !lib && !bins.is_empty() => "".to_string(),
-        &Version { major: 0, minor, .. } => format!("-0.{}", minor),
-        &Version { major, .. } => format!("-{}", major),
-    };
-
-
+    let version_suffix = crate_info.version_suffix();
     let pkgbase = PkgBase::new(crate_name, &version_suffix, pkgid.version())?;
     let source_section = ControlSource::new(&pkgbase,
                                             if let Some(ref home) = meta.homepage { home.as_str() } else { ""},

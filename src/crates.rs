@@ -191,6 +191,20 @@ impl CrateInfo {
         bins
     }
 
+    pub fn version_suffix(&self) -> String {
+        let lib = self.is_lib();
+        let bins = self.get_binary_targets();
+
+        let version_suffix = match self.package_id().version() {
+            _ if !lib && !bins.is_empty() => "".to_string(),
+            &Version { major: 0, minor, .. } => format!("-0.{}", minor),
+            &Version { major, .. } => format!("-{}", major),
+        };
+
+        version_suffix
+
+    }
+
     pub fn dev_dependencies(&self) -> HashSet<&str> {
         use cargo::core::dependency::Kind;
         let mut dev_deps = HashSet::new();
