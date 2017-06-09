@@ -1,4 +1,3 @@
-use cargo::core::manifest::ManifestMetadata;
 use cargo::core::Dependency;
 use semver::Version;
 use itertools::Itertools;
@@ -7,8 +6,7 @@ use semver_parser::range::*;
 use semver_parser::range::Op::*;
 
 use std;
-use std::slice::Iter;
-use std::fmt::{self, Write as FmtWrite, Formatter};
+use std::fmt::{self, Write as FmtWrite};
 use std::path::{Path, PathBuf};
 use std::collections::HashSet;
 use errors::*;
@@ -298,7 +296,7 @@ pub fn deb_feature_name(name: &str, feature: &str) -> String {
 /// Retrieve one of a series of environment variables, and provide a friendly error message for
 /// non-UTF-8 values.
 fn get_envs(keys: &[&str]) -> Result<Option<String>> {
-    use std::env::{self, VarError};
+    use std::env::VarError;
     for key in keys {
         match std::env::var(key) {
             Ok(val) => {
