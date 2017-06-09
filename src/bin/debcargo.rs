@@ -100,39 +100,11 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let mut create_exec = create.clone();
     create_exec.mode(0o777);
 
-    // Filter out static libraries, to avoid needing to patch all the winapi crates to remove
-    // import libraries.
-    let remove_path = |path: &Path| match path.extension() {
-        Some(ext) if ext == "a" => true,
-        _ => false,
-    };
-
-
-    let tempdir = try!(tempdir::TempDir::new_in(".", "debcargo"));
     let source_modified = crate_info.extract_crate(pkgbase.srcdir.as_path())?;
-
-    let temp_archive_path = tempdir.path().join(&pkgbase.orig_tar_gz);
-    if source_modified {
-        // Generate new .orig.tar.gz without the omitted files.
-        let mut f = lock.file();
-        use std::io::Seek;
-        try!(f.seek(io::SeekFrom::Start(0)));
-        let mut archive = tar::Archive::new(try!(flate2::read::GzDecoder::new(f)));
-        let mut new_archive = tar::Builder::new(flate2::write::GzEncoder::new(try!(create.open(&temp_archive_path)), flate2::Compression::Best));
-        for entry in try!(archive.entries()) {
-            let entry = try!(entry);
-            if !remove_path(&try!(entry.path())) {
-                try!(new_archive.append(&entry.header().clone(), entry));
-            }
-        }
-        try!(new_archive.finish());
-        try!(writeln!(io::stderr(), "Filtered out files from .orig.tar.gz"));
-    } else {
-        try!(fs::copy(lock.path(), &temp_archive_path));
-    };
-    try!(fs::rename(temp_archive_path, &pkgbase.orig_tar_gz));
-
-
+    debian::prepare_orig_tarball(crate_info.crate_file(),
+                                 pkgbase.orig_tar_gz.as_path(),
+                                 source_modified)?;
+    let tempdir = tempdir::TempDir::new_in(".", "debcargo")?;
 
     let deb_feature = &|f: &str| deb_feature_name(&pkgbase.crate_pkg_base, f);
 

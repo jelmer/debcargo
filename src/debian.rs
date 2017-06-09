@@ -1,11 +1,19 @@
 use cargo::core::Dependency;
+use cargo::util::FileLock;
 use semver::Version;
 use itertools::Itertools;
 use semver_parser;
 use semver_parser::range::*;
 use semver_parser::range::Op::*;
+use tempdir::TempDir;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use flate2::Compression;
+use tar::{Archive, Builder};
 
 use std;
+use std::io::{self, Write as IoWrite};
+use std::fs;
 use std::fmt::{self, Write as FmtWrite};
 use std::path::{Path, PathBuf};
 use std::collections::HashSet;
@@ -449,4 +457,42 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
         }
     }
     Ok(deps.join(", "))
+}
+
+pub fn prepare_orig_tarball(crate_file: &FileLock, tarball: &Path, src_modified: bool) -> Result<()> {
+    let tempdir = TempDir::new_in(".", "debcargo")?;
+    let temp_archive_path = tempdir.path().join(tarball);
+
+    let mut create = fs::OpenOptions::new();
+    create.write(true).create_new(true);
+
+    // Filter out static libraries, to avoid needing to patch all the winapi crates to remove
+    // import libraries.
+    let remove_path = |path: &Path| match path.extension() {
+        Some(ext) if ext == "a" => true,
+        _ => false,
+    };
+
+    if src_modified {
+        let mut f = crate_file.file();
+        use std::io::Seek;
+        f.seek(io::SeekFrom::Start(0))?;
+        let mut archive = Archive::new(GzDecoder::new(f)?);
+        let mut new_archive = Builder::new(GzEncoder::new(create.open(&tarball)?,
+                                                          Compression::Best));
+        for entry in archive.entries()? {
+            let entry = entry?;
+            if !remove_path(&entry.path()?) {
+                new_archive.append(&entry.header().clone(), entry)?;
+            }
+        }
+
+        new_archive.finish()?;
+        writeln!(io::stderr(), "Filtered out files from .orig.tar.gz")?;
+    } else {
+        fs::copy(crate_file.path(), &temp_archive_path)?;
+    }
+
+    fs::rename(temp_archive_path, &tarball)?;
+    Ok(())
 }
