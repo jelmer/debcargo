@@ -497,7 +497,10 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
     Ok(deps.join(", "))
 }
 
-pub fn prepare_orig_tarball(crate_file: &FileLock, tarball: &Path, src_modified: bool) -> Result<()> {
+pub fn prepare_orig_tarball(crate_file: &FileLock,
+                            tarball: &Path,
+                            src_modified: bool)
+                            -> Result<()> {
     let tempdir = TempDir::new_in(".", "debcargo")?;
     let temp_archive_path = tempdir.path().join(tarball);
 
