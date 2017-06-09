@@ -31,55 +31,6 @@ pub struct Source {
     x_cargo: String,
 }
 
-pub struct Package {
-    name: String,
-    arch: String,
-    depends: String,
-    suggests: String,
-    provides: String,
-    summary: String,
-    description: String,
-    boilerplate: String,
-}
-
-pub struct PkgBase {
-    pub crate_name: String,
-    pub crate_pkg_base: String,
-    pub debver: String,
-    pub srcdir: PathBuf,
-    pub orig_tar_gz: PathBuf,
-}
-
-#[derive(PartialEq)]
-enum V {
-    M(u64),
-    MM(u64, u64),
-    MMP(u64, u64, u64),
-}
-
-impl V {
-    fn inclast(&self) -> V {
-        use self::V::*;
-        match *self {
-            M(major) => M(major + 1),
-            MM(major, minor) => MM(major, minor + 1),
-            MMP(major, minor, patch) => MMP(major, minor, patch + 1),
-        }
-    }
-}
-
-impl fmt::Display for V {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::V::*;
-        match *self {
-            M(major) => write!(f, "{}", major),
-            MM(major, minor) => write!(f, "{}.{}", major, minor),
-            MMP(major, minor, patch) => write!(f, "{}.{}.{}", major, minor, patch),
-        }
-    }
-}
-
-
 impl fmt::Display for Source {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Source: {}", self.name)?;
@@ -145,6 +96,19 @@ impl Source {
         &self.name
     }
 }
+
+
+pub struct Package {
+    name: String,
+    arch: String,
+    depends: String,
+    suggests: String,
+    provides: String,
+    summary: String,
+    description: String,
+    boilerplate: String,
+}
+
 
 impl fmt::Display for Package {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -236,6 +200,13 @@ impl Package {
     }
 }
 
+pub struct PkgBase {
+    pub crate_name: String,
+    pub crate_pkg_base: String,
+    pub debver: String,
+    pub srcdir: PathBuf,
+    pub orig_tar_gz: PathBuf,
+}
 
 impl PkgBase {
     pub fn new(crate_name: &str, version_suffix: &str, version: &Version) -> Result<PkgBase> {
@@ -257,6 +228,14 @@ impl PkgBase {
     }
 }
 
+#[derive(PartialEq)]
+enum V {
+    M(u64),
+    MM(u64, u64),
+    MMP(u64, u64, u64),
+}
+
+impl V {
     fn new(p: &Predicate, dep: &str) -> Result<Self> {
         use self::V::*;
         let mmp = match (p.minor, p.patch) {
@@ -273,6 +252,28 @@ impl PkgBase {
 
         Ok(mmp)
     }
+
+    fn inclast(&self) -> V {
+        use self::V::*;
+        match *self {
+            M(major) => M(major + 1),
+            MM(major, minor) => MM(major, minor + 1),
+            MMP(major, minor, patch) => MMP(major, minor, patch + 1),
+        }
+    }
+}
+
+impl fmt::Display for V {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::V::*;
+        match *self {
+            M(major) => write!(f, "{}", major),
+            MM(major, minor) => write!(f, "{}.{}", major, minor),
+            MMP(major, minor, patch) => write!(f, "{}.{}.{}", major, minor, patch),
+        }
+    }
+}
+
 
 /// Translates a semver into a Debian version. Omits the build metadata, and uses a ~ before the
 /// prerelease version so it compares earlier than the subsequent release.
