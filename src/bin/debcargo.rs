@@ -69,9 +69,9 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let lib = crate_info.is_lib();
     let mut bins = crate_info.get_binary_targets();
 
-    let (default_features, default_deps) = crate_info.default_deps_features().unwrap();
+    let (default_features, _) = crate_info.default_deps_features().unwrap();
     let non_default_features = crate_info.non_default_features(&default_features).unwrap();
-    let (_, _, deps) = crate_info.get_dependencies(&default_deps).unwrap();
+    let deps = crate_info.non_dev_dependencies()?;
 
     let build_deps =  if !bins.is_empty() { deps.iter() } else { [].iter() };
 

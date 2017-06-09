@@ -262,8 +262,10 @@ impl CrateInfo {
                                        -> Result<()>
         where F: Fn(&str) -> String
     {
-        let (default_features, default_deps) = self.default_deps_features().unwrap();
-        let (dev_deps, all_deps, deps) = self.get_dependencies(&default_deps)?;
+        let (default_features, _) = self.default_deps_features().unwrap();
+        let dev_deps = self.dev_dependencies();
+        let all_deps = self.non_build_dependencies()?;
+
 
         // Track the (possibly empty) additional features required for each dep, to call
         // deb_dep once for all of them.
