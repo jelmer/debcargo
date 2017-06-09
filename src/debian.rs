@@ -2,6 +2,9 @@ use cargo::core::manifest::ManifestMetadata;
 use cargo::core::Dependency;
 use semver::Version;
 use itertools::Itertools;
+use semver_parser;
+use semver_parser::range::*;
+use semver_parser::range::Op::*;
 
 use std;
 use std::slice::Iter;
@@ -254,6 +257,23 @@ impl PkgBase {
     }
 }
 
+    fn new(p: &Predicate, dep: &str) -> Result<Self> {
+        use self::V::*;
+        let mmp = match (p.minor, p.patch) {
+            (None, None) => M(p.major),
+            (Some(minor), None) => MM(p.major, minor),
+            (Some(minor), Some(patch)) => MMP(p.major, minor, patch),
+            (None, Some(_)) => panic!("semver had patch without minor"),
+        };
+        if mmp == M(0) && p.op != Gt {
+            bail!("Unrepresentable dependency version predicate: {} {:?}",
+                  dep,
+                  p);
+        }
+
+        Ok(mmp)
+    }
+
 /// Translates a semver into a Debian version. Omits the build metadata, and uses a ~ before the
 /// prerelease version so it compares earlier than the subsequent release.
 fn deb_version(v: &Version) -> String {
@@ -328,9 +348,6 @@ fn write_description(out: &mut fmt::Formatter,
 
 /// Translates a Cargo dependency into a Debian package dependency.
 pub fn deb_dep(dep: &Dependency) -> Result<String> {
-    use semver_parser;
-    use semver_parser::range::*;
-    use semver_parser::range::Op::*;
     use self::V::*;
     let dep_dashed = dep.name().replace('_', "-");
     let mut suffixes = Vec::new();
@@ -358,6 +375,7 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
                 format!("librust-{}-{}{}", dep_dashed, major, suffix)
             }
         };
+
         for p in &req.predicates {
             // Cargo/semver and Debian handle pre-release versions quite
             // differently, so a versioned Debian dependency cannot properly
@@ -366,17 +384,9 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
             if !p.pre.is_empty() {
                 bail!("Dependency on prerelease version: {} {:?}", dep.name(), p);
             }
-            let mmp = match (p.minor, p.patch) {
-                (None, None) => M(p.major),
-                (Some(minor), None) => MM(p.major, minor),
-                (Some(minor), Some(patch)) => MMP(p.major, minor, patch),
-                (None, Some(_)) => panic!("semver had patch without minor"),
-            };
-            if mmp == M(0) && p.op != Gt {
-                bail!("Unrepresentable dependency version predicate: {} {:?}",
-                      dep.name(),
-                      p);
-            }
+
+            let mmp = V::new(&p, dep.name())?;
+
             match (&p.op, &mmp) {
                 (&Ex, &M(..)) => deps.push(pkg(&mmp)),
                 (&Ex, &MM(..)) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
