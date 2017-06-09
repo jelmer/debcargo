@@ -184,35 +184,47 @@ impl CrateInfo {
         bins
     }
 
-    pub fn get_dependencies(&self,
-                            default_deps: &HashSet<&str>)
-                            -> Result<(HashSet<&str>, HashMap<&str, &Dependency>, Vec<String>)> {
-        let dependencies = self.manifest.dependencies();
-
+    pub fn dev_dependencies(&self) -> HashSet<&str> {
+        use cargo::core::dependency::Kind;
         let mut dev_deps = HashSet::new();
-        let mut all_deps = HashMap::new();
-        let mut deps = Vec::new();
-
-        for dep in dependencies.iter() {
-            if dep.kind() == cargo::core::dependency::Kind::Development {
+        for dep in self.dependencies().iter() {
+            if dep.kind() == Kind::Development {
                 dev_deps.insert(dep.name());
-                continue;
             }
+        }
 
-            if dep.kind() != cargo::core::dependency::Kind::Build {
+        dev_deps
+    }
+
+    pub fn non_build_dependencies(&self) -> Result<HashMap<&str, &Dependency>> {
+        let mut all_deps = HashMap::new();
+        let dev_deps = self.dev_dependencies();
+        for dep in self.dependencies().iter() {
+            if !dep.is_build() && !dev_deps.contains(dep.name()) {
                 if all_deps.insert(dep.name(), dep).is_some() {
                     bail!("Duplicate dependency for {}", dep.name());
                 }
             }
+        }
 
-            if !dep.is_optional() || default_deps.contains(dep.name()) {
+        Ok(all_deps)
+    }
+
+    pub fn non_dev_dependencies(&self) -> Result<Vec<String>> {
+        let (_, default_deps) = self.default_deps_features().unwrap();
+        let dev_deps = self.dev_dependencies();
+        let mut deps = Vec::new();
+
+        for dep in self.dependencies().iter() {
+            if !dev_deps.contains(dep.name()) &&
+               (!dep.is_optional() || default_deps.contains(dep.name())) {
                 deps.push(try!(deb_dep(dep)));
             }
         }
 
         deps.sort();
         deps.dedup();
-        Ok((dev_deps, all_deps, deps))
+        Ok(deps)
     }
 
     pub fn get_summary_description(&self) -> (Option<String>, Option<String>) {
