@@ -107,6 +107,7 @@ impl Source {
 pub struct Package {
     name: String,
     arch: String,
+    section: String,
     depends: String,
     suggests: String,
     provides: String,
@@ -120,6 +121,11 @@ impl fmt::Display for Package {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Package: {}", self.name)?;
         writeln!(f, "Architecture: {}", self.arch)?;
+
+        if !self.section.is_empty() {
+            writeln!(f, "Section: {}", self.section)?;
+        }
+
         writeln!(f, "Depends:\n {}", self.depends)?;
         if !self.suggests.is_empty() {
             writeln!(f, "Suggests:\n {}", self.suggests)?;
@@ -192,12 +198,44 @@ impl Package {
         Package {
             name: name,
             arch: "all".to_string(),
+            section: "".to_string(),
             depends: depends,
             suggests: suggests,
             provides: provides,
             summary: short_desc,
             description: long_desc,
             boilerplate: boilerplate,
+        }
+    }
+
+    pub fn new_bin(pkgbase: &PkgBase,
+                   name: &str,
+                   summary: &Option<String>,
+                   description: &Option<String>,
+                   boilerplate: &str)
+                   -> Self {
+        let short_desc = match *summary {
+            None => format!("Binaries built from the Rust {} crate", pkgbase.crate_name),
+            Some(ref s) => s.to_string(),
+        };
+
+        let long_desc = match *description {
+            None => "".to_string(),
+            Some(ref s) => s.to_string(),
+        };
+
+        Package {
+            name: name.to_string(),
+            arch: "any".to_string(),
+            section: "misc".to_string(),
+            depends: vec!["${misc:Depends}".to_string(), "${shlibs:Depends}".to_string()]
+                .iter()
+                .join(",\n "),
+            suggests: "".to_string(),
+            provides: "".to_string(),
+            summary: short_desc,
+            description: long_desc,
+            boilerplate: boilerplate.to_string(),
         }
     }
 

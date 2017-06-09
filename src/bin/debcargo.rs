@@ -159,21 +159,24 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
             }
         }
+
         if !bins.is_empty() {
-            try!(writeln!(control, "\nPackage: {}", bin_name));
-            try!(writeln!(control, "Architecture: any"));
-            try!(writeln!(control, "Section: misc"));
-            try!(writeln!(control, "Depends: ${{shlibs:Depends}}, ${{misc:Depends}}"));
-            let summary = match summary {
-                None => format!("Binaries built from the Rust {} crate", crate_name),
-                Some(ref s) => s.to_string(),
-            };
             let boilerplate = if bins.len() > 1 || bins[0] != bin_name {
-                Some(format!("This package contains the following binaries built from the\nRust \"{}\" crate:\n- {}", crate_name, bins.join("\n- ")))
+                Some(format!("This package contains the following binaries built
+        from the\nRust \"{}\" crate:\n- {}", crate_name, bins.join("\n- ")))
             } else {
                 None
             };
-            try!(write_description(&mut control, &summary, description.as_ref(), boilerplate.as_ref()));
+
+            let bin_pkg = ControlPackage::new_bin(&pkgbase, bin_name,
+                                                  &summary,
+                                                  &description,
+                                                  match boilerplate {
+                                                      Some(ref s) => s,
+                                                      None => "",
+                                                  });
+
+            writeln!(control, "{}", bin_pkg)?;
         }
 
         let mut copyright = io::BufWriter::new(try!(file("copyright")));
