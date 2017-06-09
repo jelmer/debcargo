@@ -1,13 +1,20 @@
 use cargo;
-use std;
 use cargo::core::{Dependency, Source, SourceId, PackageId, Summary, Registry, TargetKind};
 use cargo::util::FileLock;
 use cargo::core::{manifest, package};
-
 use semver::Version;
 use itertools::Itertools;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use tar::Archive;
+use tempdir::TempDir;
+
+use std;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
+use std::path::Path;
+use std::io;
+use std::fs;
 
 use errors::*;
 use debian::deb_dep;
@@ -307,5 +314,49 @@ impl CrateInfo {
         }
 
         Ok(())
+    }
+
+    pub fn extract_crate(&self, path: &Path) -> Result<bool> {
+        let mut archive = Archive::new(GzDecoder::new(self.crate_file.file())?);
+        let tempdir = TempDir::new_in(".", "debcargo")?;
+        let mut source_modified = false;
+
+        // Filter out static libraries, to avoid needing to patch all the winapi crates to remove
+        // import libraries.
+        let remove_path = |path: &Path| match path.extension() {
+            Some(ext) if ext == "a" => true,
+            _ => false,
+        };
+
+        for entry in archive.entries()? {
+            let mut entry = entry?;
+            if remove_path(&(entry.path()?)) {
+                source_modified = true;
+                continue;
+            }
+
+            if !entry.unpack_in(tempdir.path())? {
+                bail!("Crate contained path traversals via '..'");
+            }
+        }
+
+        let entries = tempdir.path().read_dir()?.collect::<io::Result<Vec<_>>>()?;
+        if entries.len() != 1 || !entries[0].file_type()?.is_dir() {
+            let pkgid = self.package_id();
+            bail!("{}-{}.crate did not unpack to a single top-level directory",
+                  pkgid.name(),
+                  pkgid.version());
+        }
+
+        if let Err(e) = fs::rename(entries[0].path(), &path) {
+            Err(e).chain_err(|| {
+                    format!("Could not create source directory {0}\n
+           To regenerate, \
+                             move or remove {0}",
+                            path.display())
+                })?;
+        }
+
+        Ok(source_modified)
     }
 }

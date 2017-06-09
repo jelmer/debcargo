@@ -107,29 +107,9 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         _ => false,
     };
 
-    let mut archive = tar::Archive::new(try!(flate2::read::GzDecoder::new(lock.file())));
+
     let tempdir = try!(tempdir::TempDir::new_in(".", "debcargo"));
-    let mut source_modified = false;
-    for entry in try!(archive.entries()) {
-        let mut entry = try!(entry);
-        if remove_path(&try!(entry.path())) {
-            source_modified = true;
-            continue;
-        }
-        if !try!(entry.unpack_in(tempdir.path())) {
-            bail!("Crate contained path traversals via '..'");
-        }
-    }
-    let entries = try!(try!(tempdir.path().read_dir()).collect::<io::Result<Vec<_>>>());
-    if entries.len() != 1 || !try!(entries[0].file_type()).is_dir() {
-        bail!("{}-{}.crate did not unpack to a single top-level directory",
-              pkgid.name(), pkgid.version());
-    }
-    // If we didn't already have a source directory, assume we can safely overwrite the
-    // .orig.tar.gz file.
-    if let Err(e) = fs::rename(entries[0].path(), &pkgbase.srcdir) {
-        try!(Err(e).chain_err(|| format!("Could not create source directory {0}\nTo regenerate, move or remove {0}", pkgbase.srcdir.display())));
-    }
+    let source_modified = crate_info.extract_crate(pkgbase.srcdir.as_path())?;
 
     let temp_archive_path = tempdir.path().join(&pkgbase.orig_tar_gz);
     if source_modified {
