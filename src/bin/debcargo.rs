@@ -1,6 +1,7 @@
 extern crate debcargo;
 extern crate cargo;
-#[macro_use] extern crate clap;
+#[macro_use]
+extern crate clap;
 extern crate chrono;
 extern crate flate2;
 extern crate itertools;
@@ -18,8 +19,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use debcargo::errors::*;
 use debcargo::copyright;
 use debcargo::crates::CrateInfo;
-use debcargo::debian::{self, PkgBase, Source as ControlSource, Package as
-                       ControlPackage};
+use debcargo::debian::{self, PkgBase, Source as ControlSource, Package as ControlPackage};
 use debcargo::debian::deb_feature_name;
 
 
@@ -46,18 +46,27 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let non_default_features = crate_info.non_default_features(&default_features).unwrap();
     let deps = crate_info.non_dev_dependencies()?;
 
-    let build_deps =  if !bins.is_empty() { deps.iter() } else { [].iter() };
+    let build_deps = if !bins.is_empty() {
+        deps.iter()
+    } else {
+        [].iter()
+    };
 
 
     if lib && !bins.is_empty() && !package_lib_binaries {
-        println!("Ignoring binaries from lib crate; pass --bin to package: {}", bins.join(", "));
+        println!("Ignoring binaries from lib crate; pass --bin to package: {}",
+                 bins.join(", "));
         bins.clear();
     }
 
     let version_suffix = crate_info.version_suffix();
     let pkgbase = PkgBase::new(crate_name, &version_suffix, pkgid.version())?;
     let source_section = ControlSource::new(&pkgbase,
-                                            if let Some(ref home) = meta.homepage { home.as_str() } else { ""},
+                                            if let Some(ref home) = meta.homepage {
+                                                home.as_str()
+                                            } else {
+                                                ""
+                                            },
                                             &lib,
                                             &build_deps.as_slice())?;
 
@@ -80,13 +89,17 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         let file = |name| create.open(tempdir.path().join(name));
 
         let mut cargo_checksum_json = try!(file("cargo-checksum.json"));
-        try!(writeln!(cargo_checksum_json, r#"{{"package":"{}","files":{{}}}}"#, checksum));
+        try!(writeln!(cargo_checksum_json,
+                      r#"{{"package":"{}","files":{{}}}}"#,
+                      checksum));
 
         let mut changelog = try!(file("changelog"));
-        write!(changelog, "{}",
+        write!(changelog,
+               "{}",
                source_section.changelog_entry(pkgid.name(),
                                               pkgid.version(),
-                                              distribution, crate_version!()))?;
+                                              distribution,
+                                              crate_version!()))?;
 
         let mut compat = try!(file("compat"));
         try!(writeln!(compat, "10"));
@@ -98,30 +111,27 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
         if lib {
             let ndf = non_default_features.clone();
-            let ndf = if ndf.is_empty() { None } else { Some(&ndf)};
+            let ndf = if ndf.is_empty() { None } else { Some(&ndf) };
 
             let df = default_features.clone();
             let df = if df.is_empty() { None } else { Some(&df) };
 
-            let lib_package = ControlPackage::new(&pkgbase, &deps, ndf, df,
-                                                  &summary,
-                                                  &description,
-                                                  None);
+            let lib_package =
+                ControlPackage::new(&pkgbase, &deps, ndf, df, &summary, &description, None);
 
             writeln!(control, "{}", lib_package)?;
 
             for feature in non_default_features {
-                let mut feature_deps = vec![
-                    format!("{} (= ${{binary:Version}})", lib_package.name()),
-                    "${misc:Depends}".to_string()
-                ];
+                let mut feature_deps = vec![format!("{} (= ${{binary:Version}})",
+                                                    lib_package.name()),
+                                            "${misc:Depends}".to_string()];
 
-                crate_info.get_feature_dependencies(feature,
-                                                    deb_feature, &mut feature_deps)?;
+                crate_info.get_feature_dependencies(feature, deb_feature, &mut feature_deps)?;
 
                 let feature_package = ControlPackage::new(&pkgbase,
                                                           &feature_deps,
-                                                          None, None,
+                                                          None,
+                                                          None,
                                                           &summary,
                                                           &description,
                                                           Some(feature));
@@ -133,12 +143,15 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         if !bins.is_empty() {
             let boilerplate = if bins.len() > 1 || bins[0] != bin_name {
                 Some(format!("This package contains the following binaries built
-        from the\nRust \"{}\" crate:\n- {}", crate_name, bins.join("\n- ")))
+        from the\nRust \"{}\" crate:\n- {}",
+                             crate_name,
+                             bins.join("\n- ")))
             } else {
                 None
             };
 
-            let bin_pkg = ControlPackage::new_bin(&pkgbase, bin_name,
+            let bin_pkg = ControlPackage::new_bin(&pkgbase,
+                                                  bin_name,
                                                   &summary,
                                                   &description,
                                                   match boilerplate {
@@ -150,7 +163,8 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         }
 
         let mut copyright = io::BufWriter::new(try!(file("copyright")));
-        let deb_copyright = copyright::debian_copyright(&package, &pkgbase.srcdir, crate_info.manifest())?;
+        let deb_copyright =
+            copyright::debian_copyright(&package, &pkgbase.srcdir, crate_info.manifest())?;
         writeln!(copyright, "{}", deb_copyright)?;
 
         try!(fs::create_dir(tempdir.path().join("source")));
@@ -158,16 +172,23 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         try!(writeln!(source_format, "3.0 (quilt)"));
 
         let mut rules = try!(create_exec.open(tempdir.path().join("rules")));
-        try!(write!(rules, concat!("#!/usr/bin/make -f\n",
-                                   "%:\n",
-                                   "\tdh $@ --buildsystem cargo\n")));
+        try!(write!(rules,
+                    concat!("#!/usr/bin/make -f\n",
+                            "%:\n",
+                            "\tdh $@ --buildsystem cargo\n")));
 
         let mut watch = create.open(tempdir.path().join("watch"))?;
-        write!(watch, "{}", format!(concat!("version=4\n",
-                                            "opts=filenamemangle=s/.*\\/(.*)\\/download/{}-$1\\.tar\\.gz/g\\ \n",
-                                            " https://qa.debian.org/cgi-bin/fakeupstream.cgi?upstream=crates.io/{} ",
-                                            ".*/crates/{}/@ANY_VERSION@/download\n"),
-                              crate_name, crate_name, crate_name))?;
+        write!(watch,
+               "{}",
+               format!(concat!("version=4\n",
+                               "opts=filenamemangle=s/.*\\/(.*)\\/download/{}-$1\\.tar\\.\
+                                gz/g\\ \n",
+                               " https://qa.debian.org/cgi-bin/fakeupstream.\
+                                cgi?upstream=crates.io/{} ",
+                               ".*/crates/{}/@ANY_VERSION@/download\n"),
+                       crate_name,
+                       crate_name,
+                       crate_name))?;
     }
 
     try!(fs::rename(tempdir.path(), pkgbase.srcdir.join("debian")));
@@ -179,7 +200,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 fn do_cargo_update() -> Result<()> {
     let config = try!(cargo::Config::default());
     let crates_io = try!(cargo::core::SourceId::crates_io(&config));
-	let mut registry = cargo::sources::RegistrySource::remote(&crates_io, &config);
+    let mut registry = cargo::sources::RegistrySource::remote(&crates_io, &config);
     try!(registry.update());
     Ok(())
 }
@@ -191,17 +212,18 @@ fn real_main() -> Result<()> {
         .global_setting(AppSettings::ColoredHelp)
         .global_setting(AppSettings::UnifiedHelpMessage)
         .setting(AppSettings::SubcommandRequiredElseHelp)
-        .subcommands(vec![
-            SubCommand::with_name("cargo-update")
-                .about("Update "),
-            SubCommand::with_name("package")
-                .about("Package a crate from crates.io")
-                .arg_from_usage("<crate> 'Name of the crate to package'")
-                .arg_from_usage("[version] 'Version of the crate to package; may include dependency operators'")
-                .arg_from_usage("--bin 'Package binaries from library crates'")
-                .arg_from_usage("--bin-name [name] 'Set package name for binaries (implies --bin)'")
-                .arg_from_usage("--distribution [name] 'Set target distribution for package (default: unstable)'"),
-        ]).get_matches();
+        .subcommands(vec![SubCommand::with_name("cargo-update").about("Update "),
+                          SubCommand::with_name("package")
+                              .about("Package a crate from crates.io")
+                              .arg_from_usage("<crate> 'Name of the crate to package'")
+                              .arg_from_usage("[version] 'Version of the crate to package; may \
+                                               include dependency operators'")
+                              .arg_from_usage("--bin 'Package binaries from library crates'")
+                              .arg_from_usage("--bin-name [name] 'Set package name for \
+                                               binaries (implies --bin)'")
+                              .arg_from_usage("--distribution [name] 'Set target distribution \
+                                               for package (default: unstable)'")])
+        .get_matches();
     match m.subcommand() {
         ("cargo-update", _) => do_cargo_update(),
         ("package", Some(ref sm)) => do_package(&sm),
