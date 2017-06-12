@@ -161,6 +161,13 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         try!(write!(rules, concat!("#!/usr/bin/make -f\n",
                                    "%:\n",
                                    "\tdh $@ --buildsystem cargo\n")));
+
+        let mut watch = create.open(tempdir.path().join("watch"))?;
+        write!(watch, "{}", format!(concat!("version=4\n",
+                                            "opts=filenamemangle=s/.*\\/(.*)\\/download/{}-$1\\.tar\\.gz/g\\ \n",
+                                            " https://qa.debian.org/cgi-bin/fakeupstream.cgi?upstream=crates.io/{} ",
+                                            ".*/crates/{}/@ANY_VERSION@/download\n"),
+                              crate_name, crate_name, crate_name))?;
     }
 
     try!(fs::rename(tempdir.path(), pkgbase.srcdir.join("debian")));
