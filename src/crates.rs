@@ -5,7 +5,6 @@ use cargo::core::{manifest, package};
 use semver::Version;
 use itertools::Itertools;
 use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
 use tar::Archive;
 use tempdir::TempDir;
 
