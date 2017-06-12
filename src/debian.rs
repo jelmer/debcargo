@@ -111,7 +111,7 @@ impl Source {
                            distribution: &str,
                            selfversion: &str)
                            -> String {
-        format!(concat!("{} ({}-1) {}; urgency=medium\n\n",
+        format!(concat!("{} ({}) {}; urgency=medium\n\n",
                         "  * Package {} {} from crates.io with debcargo {}\n\n",
                         " -- {}  {}\n"),
                 self.name,
