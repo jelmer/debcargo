@@ -20,7 +20,7 @@ use debcargo::copyright;
 use debcargo::crates::CrateInfo;
 use debcargo::debian::{self, PkgBase, Source as ControlSource, Package as
                        ControlPackage};
-use debcargo::debian::{get_deb_author, deb_feature_name};
+use debcargo::debian::deb_feature_name;
 
 
 fn do_package(matches: &ArgMatches) -> Result<()> {
@@ -30,8 +30,6 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let package_lib_binaries = matches.is_present("bin") || matches.is_present("bin-name");
     let bin_name = matches.value_of("bin-name").unwrap_or(&crate_name_dashed);
     let distribution = matches.value_of("distribution").unwrap_or("unstable");
-
-    let deb_author = try!(get_deb_author());
 
 
     let crate_info = CrateInfo::new(crate_name, version)?;
@@ -85,13 +83,10 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         try!(writeln!(cargo_checksum_json, r#"{{"package":"{}","files":{{}}}}"#, checksum));
 
         let mut changelog = try!(file("changelog"));
-        try!(write!(changelog,
-                    concat!("{} ({}-1) {}; urgency=medium\n\n",
-                            "  * Package {} {} from crates.io with debcargo {}\n\n",
-                            " -- {}  {}\n"),
-                    source_section.srcname(), pkgbase.debver, distribution,
-                    pkgid.name(), pkgid.version(), crate_version!(),
-                    deb_author, chrono::Local::now().to_rfc2822()));
+        write!(changelog, "{}",
+               source_section.changelog_entry(pkgid.name(),
+                                              pkgid.version(),
+                                              distribution, crate_version!()))?;
 
         let mut compat = try!(file("compat"));
         try!(writeln!(compat, "10"));

@@ -1,3 +1,4 @@
+use chrono;
 use cargo::core::Dependency;
 use cargo::util::FileLock;
 use semver::Version;
@@ -35,6 +36,7 @@ pub struct Source {
     vcs_browser: String,
     homepage: String,
     x_cargo: String,
+    version: String,
 }
 
 impl fmt::Display for Source {
@@ -95,11 +97,31 @@ impl Source {
             vcs_browser: vcs_browser,
             homepage: home.to_string(),
             x_cargo: cargo_crate,
+            version: format!("{}-1", pkgbase.debver),
         })
     }
 
     pub fn srcname(&self) -> &String {
         &self.name
+    }
+
+    pub fn changelog_entry(&self,
+                           crate_name: &str,
+                           crate_version: &Version,
+                           distribution: &str,
+                           selfversion: &str)
+                           -> String {
+        format!(concat!("{} ({}-1) {}; urgency=medium\n\n",
+                        "  * Package {} {} from crates.io with debcargo {}\n\n",
+                        " -- {}  {}\n"),
+                self.name,
+                self.version,
+                distribution,
+                crate_name,
+                crate_version,
+                selfversion,
+                self.uploaders,
+                chrono::Local::now().to_rfc2822())
     }
 }
 
