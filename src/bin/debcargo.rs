@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate debcargo;
 extern crate cargo;
 #[macro_use]
@@ -9,9 +10,11 @@ extern crate semver;
 extern crate semver_parser;
 extern crate tar;
 extern crate tempdir;
+extern crate termcolor;
 
 use cargo::core::Source;
 use clap::{App, AppSettings, ArgMatches, SubCommand};
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use std::fs;
 use std::io::{self, Write as IoWrite};
 use std::os::unix::fs::OpenOptionsExt;
@@ -54,7 +57,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
 
     if lib && !bins.is_empty() && !package_lib_binaries {
-        println!("Ignoring binaries from lib crate; pass --bin to package: {}",
+        debcargo_info!("Ignoring binaries from lib crate; pass --bin to package: {}",
                  bins.join(", "));
         bins.clear();
     }
@@ -194,6 +197,12 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     try!(fs::rename(tempdir.path(), pkgbase.srcdir.join("debian")));
     tempdir.into_path();
 
+
+    debcargo_info!(concat!("Package Source: {}\n",
+                   "Original Tarball for package: {}\n"),
+                   pkgbase.srcdir.to_str().unwrap(), pkgbase.orig_tar_gz.to_str().unwrap());
+    debcargo_highlight!("Please update the sections marked FIXME in files inside Debian folder\n");
+
     Ok(())
 }
 
@@ -226,7 +235,7 @@ fn real_main() -> Result<()> {
         .get_matches();
     match m.subcommand() {
         ("cargo-update", _) => do_cargo_update(),
-        ("package", Some(ref sm)) => do_package(&sm),
+        ("package", Some(ref sm)) => do_package(sm),
         _ => unreachable!(),
     }
 }
