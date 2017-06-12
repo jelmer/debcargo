@@ -186,7 +186,7 @@ impl Package {
         let provides = match default_features {
             Some(df) => {
                 df.into_iter()
-                    .map(|f| format!("{} (=${{binary:version}})", deb_feature(f)))
+                    .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
                     .join(",\n ")
             }
             None => "".to_string(),
