@@ -187,7 +187,7 @@ fn gen_files(debsrcdir: &Path, license: &String) -> Result<Files> {
     let files = Files::new("*".to_string(),
                            notices,
                            if license.is_empty() {
-                               "UNKNOWN".to_string()
+                               "FIXME".to_string()
                            } else {
                                format!("{} #FIXME", license)
                            });
@@ -257,7 +257,7 @@ pub fn debian_copyright(package: &package::Package,
         fs::File::open(license_file)?.read_to_end(&mut text)?;
         licenses.reserve(1);
         let stext = String::from_utf8(text)?;
-        licenses.push(License::new("UNKNOWN".to_string(), stext));
+        licenses.push(License::new("FIXME".to_string(), stext));
     } else if let Some(ref license) = meta.license {
         licenses = get_licenses(license).unwrap();
         crate_license = license.trim().replace("/", " or ");
