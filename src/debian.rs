@@ -69,7 +69,7 @@ impl fmt::Display for Source {
 impl Source {
     pub fn new(pkgbase: &PkgBase, home: &str, lib: &bool, bdeps: &[String]) -> Result<Source> {
         let source = format!("rust-{}", pkgbase.crate_pkg_base);
-        let section = if *lib { "rust" } else { "" };
+        let section = if *lib { "rust" } else { "FIXME" };
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
         let uploaders = get_deb_author()?;
