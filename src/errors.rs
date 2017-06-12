@@ -33,7 +33,7 @@ macro_rules! debcargo_info {
 macro_rules! debcargo_highlight {
     ($e:expr) => {{
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red).set_bold(true).set_intense(true)))?;
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true).set_intense(true))?;
         writeln!(&mut stdout, $e)?;
     }};
 
