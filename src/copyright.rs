@@ -181,13 +181,10 @@ fn gen_files(debsrcdir: &Path, license: &str) -> Result<Files> {
     }
 
     notices.push_str(" FIXME\n");
+    let license = if license.is_empty() { "UNKNOWN; FIXME" } else { license };
     let files = Files::new("*".to_string(),
                            notices,
-                           if license.is_empty() {
-                               "FIXME".to_string()
-                           } else {
-                               format!("{} #FIXME", license)
-                           });
+                           license.to_string());
     Ok(files)
 }
 
