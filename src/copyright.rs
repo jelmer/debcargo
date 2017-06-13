@@ -73,7 +73,7 @@ impl fmt::Display for UpstreamInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Upstream-Name: {}\n", self.name)?;
         write!(f, "Upstream-Contact:")?;
-        for contact in self.contacts.iter() {
+        for contact in &self.contacts {
             write!(f, " {}\n", contact)?;
         }
         write!(f, "Source: {}\n", self.source)
@@ -112,7 +112,7 @@ impl fmt::Display for License {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "License: {}\n", self.name)?;
         let text = Some(&self.text);
-        for (n, ref s) in text.iter().enumerate() {
+        for (n, s) in text.iter().enumerate() {
             if n != 0 {
                 writeln!(f, " .")?;
             }
@@ -142,7 +142,7 @@ impl License {
     }
 }
 
-fn gen_files(debsrcdir: &Path, license: &String) -> Result<Files> {
+fn gen_files(debsrcdir: &Path, license: &str) -> Result<Files> {
     let mut copyright_notices = HashSet::new();
     let copyright_notice_re =
         try!(regex::Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b\d{4}\b.*$"));
@@ -180,7 +180,7 @@ fn gen_files(debsrcdir: &Path, license: &String) -> Result<Files> {
         }
     }
 
-    notices.push_str(format!(" FIXME\n").as_str());
+    notices.push_str(" FIXME\n");
     let files = Files::new("*".to_string(),
                            notices,
                            if license.is_empty() {
@@ -191,7 +191,7 @@ fn gen_files(debsrcdir: &Path, license: &String) -> Result<Files> {
     Ok(files)
 }
 
-fn get_licenses(license: &String) -> Result<Vec<License>> {
+fn get_licenses(license: &str) -> Result<Vec<License>> {
     let mut licenses = HashMap::new();
 
     for ls in license.trim().replace("/", " or ").split(" or ") {
@@ -268,7 +268,7 @@ pub fn debian_copyright(package: &package::Package,
     let current_year = chrono::Local::now().year();
     let deb_notice = format!("{}, {}\n",
                              current_year,
-                             get_deb_author().unwrap_or("".to_string()));
+                             get_deb_author().unwrap_or_default());
 
     files.push(Files::new("debian/*".to_string(), deb_notice, crate_license));
     Ok(DebCopyright::new(upstream, files, licenses))

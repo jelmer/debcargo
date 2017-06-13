@@ -170,7 +170,7 @@ impl fmt::Display for Package {
 
 impl Package {
     pub fn new(pkgbase: &PkgBase,
-               deps: &Vec<String>,
+               deps: &[String],
                non_default_features: Option<&Vec<&str>>,
                default_features: Option<&HashSet<&str>>,
                summary: &Option<String>,
@@ -204,8 +204,8 @@ impl Package {
         };
 
         let name = match feature {
-            None => deb_name(&pkgbase.crate_pkg_base.as_str()),
-            Some(ref s) => deb_feature(s),
+            None => deb_name(pkgbase.crate_pkg_base.as_str()),
+            Some(s) => deb_feature(s),
         };
 
         let long_desc = match *description {
@@ -395,7 +395,7 @@ fn write_description(out: &mut fmt::Formatter,
                      boilerplate: Option<&String>)
                      -> fmt::Result {
     writeln!(out, "Description: {}", summary)?;
-    for (n, ref s) in longdesc.iter().chain(boilerplate.iter()).enumerate() {
+    for (n, s) in longdesc.iter().chain(boilerplate.iter()).enumerate() {
         if n != 0 {
             writeln!(out, " .")?;
         }
@@ -452,7 +452,7 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
                 bail!("Dependency on prerelease version: {} {:?}", dep.name(), p);
             }
 
-            let mmp = V::new(&p, dep.name())?;
+            let mmp = V::new(p, dep.name())?;
 
             match (&p.op, &mmp) {
                 (&Ex, &M(..)) => deps.push(pkg(&mmp)),

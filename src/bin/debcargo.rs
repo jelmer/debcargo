@@ -71,7 +71,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                                                 ""
                                             },
                                             &lib,
-                                            &build_deps.as_slice())?;
+                                            build_deps.as_slice())?;
 
 
     let mut create = fs::OpenOptions::new();
@@ -167,7 +167,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
         let mut copyright = io::BufWriter::new(try!(file("copyright")));
         let deb_copyright =
-            copyright::debian_copyright(&package, &pkgbase.srcdir, crate_info.manifest())?;
+            copyright::debian_copyright(package, &pkgbase.srcdir, crate_info.manifest())?;
         writeln!(copyright, "{}", deb_copyright)?;
 
         try!(fs::create_dir(tempdir.path().join("source")));
@@ -235,7 +235,7 @@ fn real_main() -> Result<()> {
         .get_matches();
     match m.subcommand() {
         ("cargo-update", _) => do_cargo_update(),
-        ("package", Some(ref sm)) => do_package(sm),
+        ("package", Some(sm)) => do_package(sm),
         _ => unreachable!(),
     }
 }

@@ -42,7 +42,7 @@ impl CrateInfo {
         let config = cargo::Config::default()?;
         let crates_io = SourceId::crates_io(&config)?;
         let mut registry = cargo::sources::RegistrySource::remote(&crates_io, &config);
-        let dependency = Dependency::parse_no_deprecated(&crate_name,
+        let dependency = Dependency::parse_no_deprecated(crate_name,
                                                          version.as_ref().map(String::as_str),
                                                          &crates_io)?;
         let summaries = registry.query(&dependency)?;
@@ -63,7 +63,7 @@ impl CrateInfo {
             })?;
 
         let pkgid = summary.package_id();
-        let package = registry.download(&pkgid)?;
+        let package = registry.download(pkgid)?;
         let manifest = package.manifest();
         let filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
         let crate_file = config.registry_cache_path()
@@ -164,8 +164,8 @@ impl CrateInfo {
     pub fn is_lib(&self) -> bool {
         let mut lib = false;
         for target in self.manifest.targets() {
-            match target.kind() {
-                &TargetKind::Lib(_) => {
+            match *target.kind() {
+                TargetKind::Lib(_) => {
                     lib = true;
                     break;
                 }
@@ -179,8 +179,8 @@ impl CrateInfo {
     pub fn get_binary_targets(&self) -> Vec<&str> {
         let mut bins = Vec::new();
         for target in self.manifest.targets() {
-            match target.kind() {
-                &TargetKind::Bin => {
+            match *target.kind() {
+                TargetKind::Bin => {
                     bins.push(target.name());
                 }
                 _ => continue,
@@ -194,13 +194,11 @@ impl CrateInfo {
         let lib = self.is_lib();
         let bins = self.get_binary_targets();
 
-        let version_suffix = match self.package_id().version() {
+        match *self.package_id().version() {
             _ if !lib && !bins.is_empty() => "".to_string(),
-            &Version { major: 0, minor, .. } => format!("-0.{}", minor),
-            &Version { major, .. } => format!("-{}", major),
-        };
-
-        version_suffix
+            Version { major: 0, minor, .. } => format!("-0.{}", minor),
+            Version { major, .. } => format!("-{}", major),
+        }
 
     }
 
@@ -220,10 +218,12 @@ impl CrateInfo {
         let mut all_deps = HashMap::new();
         let dev_deps = self.dev_dependencies();
         for dep in self.dependencies().iter() {
-            if !dep.is_build() && !dev_deps.contains(dep.name()) {
-                if all_deps.insert(dep.name(), dep).is_some() {
-                    bail!("Duplicate dependency for {}", dep.name());
-                }
+            if dep.is_build() || dev_deps.contains(dep.name()) {
+                continue;
+            }
+
+            if all_deps.insert(dep.name(), dep).is_some() {
+                bail!("Duplicate dependency for {}", dep.name());
             }
         }
 
@@ -250,7 +250,7 @@ impl CrateInfo {
     pub fn get_summary_description(&self) -> (Option<String>, Option<String>) {
         let (summary, description) = if let Some(ref description) = self.metadata().description {
             let mut description = description.trim();
-            for article in ["a ", "A ", "an ", "An ", "the ", "The "].iter() {
+            for article in &["a ", "A ", "an ", "An ", "the ", "The "] {
                 description = description.trim_left_matches(article);
             }
 
@@ -303,7 +303,7 @@ impl CrateInfo {
                 }
                 opt_dep_feature => {
                     deps_features.entry(dep_name)
-                        .or_insert(vec![])
+                        .or_insert_with(|| vec![])
                         .extend(opt_dep_feature.into_iter()
                             .map(String::from));
                 }
