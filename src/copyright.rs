@@ -93,7 +93,7 @@ impl UpstreamInfo {
 impl fmt::Display for Files {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Files: {}\n", self.files)?;
-        write!(f, "Copyright:{}", self.copyright)?;
+        write!(f, "Copyright: {}", self.copyright)?;
         write!(f, "License: {}\n\n", self.license)
     }
 }
@@ -145,7 +145,7 @@ impl License {
 fn gen_files(debsrcdir: &Path, license: &str) -> Result<Files> {
     let mut copyright_notices = HashSet::new();
     let copyright_notice_re =
-        try!(regex::Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b\d{4}\b.*$"));
+        try!(regex::Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b(\d{4}\b.*)$"));
     for entry in walkdir::WalkDir::new(&debsrcdir) {
         let entry = try!(entry);
         if entry.file_type().is_file() {
@@ -154,7 +154,10 @@ fn gen_files(debsrcdir: &Path, license: &str) -> Result<Files> {
             let reader = BufReader::new(file);
             for line in reader.lines() {
                 if let Ok(line) = line {
-                    if let Some((start, end)) = copyright_notice_re.find(&line) {
+                    if let Some(m) = copyright_notice_re.captures(&line) {
+                        let m = m.get(1).unwrap();
+                        let start = m.start();
+                        let end = m.end();
                         let notice = line[start..end]
                             .trim_right()
                             .trim_right_matches(". See the COPYRIGHT")
@@ -176,14 +179,13 @@ fn gen_files(debsrcdir: &Path, license: &str) -> Result<Files> {
     let mut notices: String = String::new();
     if !copyright_notices.is_empty() {
         for notice in &copyright_notices {
-            notices.push_str(format!(" {}\n", notice).as_str());
+            notices.push_str(format!("           {}\n", notice).as_str());
         }
     }
 
-    notices.push_str(" FIXME\n");
     let license = if license.is_empty() { "UNKNOWN; FIXME" } else { license };
     let files = Files::new("*".to_string(),
-                           notices,
+                           notices.trim_left().to_string(),
                            license.to_string());
     Ok(files)
 }
@@ -263,7 +265,7 @@ pub fn debian_copyright(package: &package::Package,
     files.push(gen_files(srcdir, &crate_license).unwrap());
 
     let current_year = chrono::Local::now().year();
-    let deb_notice = format!("{}, {}\n",
+    let deb_notice = format!("{} {}\n",
                              current_year,
                              get_deb_author().unwrap_or_default());
 
