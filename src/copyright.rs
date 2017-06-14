@@ -23,12 +23,14 @@ struct UpstreamInfo {
     source: String,
 }
 
+#[derive(Clone)]
 struct Files {
     files: String,
     copyright: String,
     license: String,
 }
 
+#[derive(Clone)]
 struct License {
     name: String,
     text: String,
@@ -59,12 +61,12 @@ impl fmt::Display for DebCopyright {
 }
 
 impl DebCopyright {
-    fn new(u: UpstreamInfo, f: Vec<Files>, l: Vec<License>) -> DebCopyright {
+    fn new(u: UpstreamInfo, f: &[Files], l: &[License]) -> DebCopyright {
         DebCopyright {
             format: DEB_COPYRIGHT_FORMAT.to_string(),
             upstream: u,
-            files: f,
-            licenses: l,
+            files: f.to_vec(),
+            licenses: l.to_vec(),
         }
     }
 }
@@ -81,11 +83,11 @@ impl fmt::Display for UpstreamInfo {
 }
 
 impl UpstreamInfo {
-    fn new(name: String, authors: Vec<String>, repo: String) -> UpstreamInfo {
+    fn new(name: String, authors: &[String], repo: &str) -> UpstreamInfo {
         UpstreamInfo {
             name: name,
-            contacts: authors,
-            source: repo,
+            contacts: authors.to_vec(),
+            source: repo.to_string(),
         }
     }
 }
@@ -99,11 +101,11 @@ impl fmt::Display for Files {
 }
 
 impl Files {
-    fn new(name: String, notice: String, license: String) -> Files {
+    fn new(name: &str, notice: &str, license: &str) -> Files {
         Files {
-            files: name,
-            copyright: notice,
-            license: license,
+            files: name.to_string(),
+            copyright: notice.to_string(),
+            license: license.to_string(),
         }
     }
 }
@@ -236,7 +238,7 @@ pub fn debian_copyright(package: &package::Package,
         Some(r) => r,
     };
 
-    let upstream = UpstreamInfo::new(manifest.name().to_string(), meta.authors, repository);
+    let upstream = UpstreamInfo::new(manifest.name().to_string(), &meta.authors, repository);
 
     let mut licenses: Vec<License> = Vec::new();
     let mut crate_license: String = "".to_string();
@@ -262,9 +264,9 @@ pub fn debian_copyright(package: &package::Package,
     let deb_notice = format!("{} {}\n",
                              current_year,
                              get_deb_author().unwrap_or_default());
+    files.push(Files::new("debian/*", &deb_notice, &crate_license));
 
-    files.push(Files::new("debian/*".to_string(), deb_notice, crate_license));
-    Ok(DebCopyright::new(upstream, files, licenses))
+    Ok(DebCopyright::new(upstream, &files, &licenses))
 }
 
 // #[cfg(test)]
