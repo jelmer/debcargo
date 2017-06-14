@@ -142,14 +142,14 @@ impl License {
     }
 }
 
-fn gen_files(debsrcdir: &Path, license: &str) -> Result<Files> {
-    let mut copyright_notices = HashSet::new();
+fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
+    let mut copyright_notices = HashMap::new();
     let copyright_notice_re =
         try!(regex::Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b(\d{4}\b.*)$"));
     for entry in walkdir::WalkDir::new(&debsrcdir) {
         let entry = try!(entry);
         if entry.file_type().is_file() {
-            let copying_file = entry.file_name().to_string_lossy().starts_with("COPYING");
+            let copyright_file = entry.file_name().to_str().unwrap();
             let file = try!(fs::File::open(entry.path()));
             let reader = BufReader::new(file);
             for line in reader.lines() {
@@ -162,11 +162,7 @@ fn gen_files(debsrcdir: &Path, license: &str) -> Result<Files> {
                             .trim_right()
                             .trim_right_matches(". See the COPYRIGHT")
                             .to_string();
-                        // Skip the copyright notices from the GPL/LGPL itself.
-                        if copying_file && notice.contains("Free Software Foundation, Inc.") {
-                            continue;
-                        }
-                        copyright_notices.insert(notice);
+                        copyright_notices.insert(copyright_file.to_string(), notice);
                     }
                 } else {
                     break;
@@ -175,23 +171,19 @@ fn gen_files(debsrcdir: &Path, license: &str) -> Result<Files> {
         }
     }
 
-    let copyright_notices = copyright_notices.into_iter().sorted();
-    let mut notices: String = String::new();
+
+    let mut notices: Vec<Files> = Vec::new();
     if !copyright_notices.is_empty() {
-        for notice in &copyright_notices {
-            notices.push_str(format!("           {}\n", notice).as_str());
+        for (filename, notice) in &copyright_notices {
+            notices.push(Files::new(filename,
+                                    format!(" {}\n", notice).as_str(),
+                                    "UNKNOWN; FIXME"));
+
         }
     }
 
-    let license = if license.is_empty() {
-        "UNKNOWN; FIXME"
-    } else {
-        license
-    };
-    let files = Files::new("*".to_string(),
-                           notices.trim_left().to_string(),
-                           license.to_string());
-    Ok(files)
+
+    Ok(notices)
 }
 
 fn get_licenses(license: &str) -> Result<Vec<License>> {
