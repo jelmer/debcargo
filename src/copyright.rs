@@ -272,30 +272,3 @@ pub fn debian_copyright(package: &package::Package,
 
     Ok(DebCopyright::new(upstream, &files, &licenses))
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::{gen_files, get_licenses};
-//     use std::path::Path;
-
-//     #[test]
-//     fn test_gen_files() {
-//         let path = Path::new("rust-nom-3-3.0.0");
-//         let files = gen_files(path);
-//         let act_str = format!("{}", files.ok().unwrap());
-//         let expected = "Files: *
-// Copyright: Copyright (c) 2015-2016 Geoffroy Couprie
-//  FIXME
-// License: UNKNOWN
-// ";
-//         assert_eq!(act_str, expected);
-//     }
-
-//     #[test]
-//     fn test_get_licenses() {
-//         let ls = "MIT/Apache-2.0".to_string();
-//         let act_result = get_licenses(&ls).unwrap_or(Vec::new());
-//         assert_eq!(act_result.len(), 2);
-//     }
-
-// }
