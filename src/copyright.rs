@@ -1,13 +1,12 @@
 use walkdir;
 use regex;
 use chrono::{self, Datelike};
-use itertools::Itertools;
 use cargo::core::{manifest, package};
 
 use std::fmt;
 use std::fs;
 use std::path::Path;
-use std::collections::{HashSet, HashMap};
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 
 use errors::*;
@@ -221,7 +220,7 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
     if !licenses.is_empty() {
         lblocks.reserve(licenses.capacity());
         for (l, t) in licenses {
-            lblocks.push(License::new(l.to_string(), t));
+            lblocks.push(License::new(l, t));
         }
     }
 
@@ -234,8 +233,8 @@ pub fn debian_copyright(package: &package::Package,
                         -> Result<DebCopyright> {
     let meta = manifest.metadata().clone();
     let repository = match meta.repository {
-        None => "".to_string(),
-        Some(r) => r,
+        None => "",
+        Some(ref r) => r,
     };
 
     let upstream = UpstreamInfo::new(manifest.name().to_string(), &meta.authors, repository);
@@ -249,7 +248,7 @@ pub fn debian_copyright(package: &package::Package,
         fs::File::open(license_file)?.read_to_end(&mut text)?;
         licenses.reserve(1);
         let stext = String::from_utf8(text)?;
-        licenses.push(License::new("FIXME".to_string(), stext));
+        licenses.push(License::new("UNKNOWN; FIXME".to_string(), stext));
     } else if let Some(ref license) = meta.license {
         licenses = get_licenses(license).unwrap();
         crate_license = license.trim().replace("/", " or ");
@@ -257,14 +256,19 @@ pub fn debian_copyright(package: &package::Package,
         bail!("Crate has no license or license_file");
     }
 
-    let mut files: Vec<Files> = Vec::new();
-    files.push(gen_files(srcdir, &crate_license).unwrap());
+    let mut files = gen_files(srcdir)?;
 
     let current_year = chrono::Local::now().year();
     let deb_notice = format!("{} {}\n",
                              current_year,
                              get_deb_author().unwrap_or_default());
     files.push(Files::new("debian/*", &deb_notice, &crate_license));
+
+    // Insert catch all block as the first block of copyright file.
+    files.insert(0,
+                 Files::new("*",
+                            format!("{}\n", meta.authors.join("\n ")).as_str(),
+                            &crate_license));
 
     Ok(DebCopyright::new(upstream, &files, &licenses))
 }
