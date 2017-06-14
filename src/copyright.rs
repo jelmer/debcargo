@@ -183,7 +183,11 @@ fn gen_files(debsrcdir: &Path, license: &str) -> Result<Files> {
         }
     }
 
-    let license = if license.is_empty() { "UNKNOWN; FIXME" } else { license };
+    let license = if license.is_empty() {
+        "UNKNOWN; FIXME"
+    } else {
+        license
+    };
     let files = Files::new("*".to_string(),
                            notices.trim_left().to_string(),
                            license.to_string());
@@ -240,9 +244,7 @@ pub fn debian_copyright(package: &package::Package,
         Some(r) => r,
     };
 
-    let upstream = UpstreamInfo::new(manifest.name().to_string(),
-                                     meta.authors,
-                                     repository);
+    let upstream = UpstreamInfo::new(manifest.name().to_string(), meta.authors, repository);
 
     let mut licenses: Vec<License> = Vec::new();
     let mut crate_license: String = "".to_string();
