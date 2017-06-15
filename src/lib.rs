@@ -9,6 +9,7 @@ extern crate semver_parser;
 extern crate tar;
 extern crate tempdir;
 extern crate walkdir;
+extern crate subprocess;
 
 pub mod errors;
 pub mod copyright;

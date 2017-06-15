@@ -2,11 +2,17 @@ use walkdir;
 use regex;
 use chrono::{self, Datelike};
 use cargo::core::{manifest, package};
+use subprocess::{self, Exec};
+use tempdir::TempDir;
 
 use std::fmt;
 use std::fs;
+use std::i32;
+use std::str::FromStr;
+use std::cmp::Ordering;
 use std::path::Path;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::io::{BufRead, BufReader, Read};
 
 use errors::*;
@@ -227,6 +233,52 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
     Ok(lblocks)
 }
 
+fn copyright_fromgit(repo: &str) -> Result<Vec<String>> {
+    let tempdir = TempDir::new_in(".", "debcargo")?;
+    Exec::shell(OsStr::new(format!("git clone --bare {} {}",
+                                   repo,
+                                   tempdir.path().to_str().unwrap())
+            .as_str())).stdout(subprocess::NullFile)
+        .stderr(subprocess::NullFile)
+        .popen()?;
+
+    let author_process = {
+            Exec::shell(OsStr::new("git log --format=\"%an <%ae>\"")).cwd(tempdir.path()) |
+            Exec::shell(OsStr::new("sort -u"))
+        }.capture()?;
+    let authors = format!("{}", author_process.stdout_str().trim());
+    let authors: Vec<&str> = authors.split('\n').collect();
+    let mut notices: Vec<String> = Vec::new();
+    for author in &authors {
+        let reverse_command = format!("git log --author=\"{}\" --format=%ad --date=format:%Y \
+                                       --reverse",
+                                      author);
+        let command = format!("git log --author=\"{}\" --format=%ad --date=format:%Y",
+                              author);
+        let first = {
+                Exec::shell(OsStr::new(&reverse_command)).cwd(tempdir.path()) |
+                Exec::shell(OsStr::new("head -n1"))
+            }.capture()?;
+
+        let latest = {
+                Exec::shell(OsStr::new(&command)).cwd(tempdir.path()) | Exec::shell("head -n1")
+            }.capture()?;
+
+        let start = i32::from_str(first.stdout_str().trim())?;
+        let end = i32::from_str(latest.stdout_str().trim())?;
+        let cnotice = match start.cmp(&end) {
+            Ordering::Equal => format!("{}, {}", start, author),
+            _ => format!("{}-{}, {}", start, end, author),
+        };
+
+        notices.push(cnotice);
+    }
+
+
+    Ok(notices)
+}
+
+
 pub fn debian_copyright(package: &package::Package,
                         srcdir: &Path,
                         manifest: &manifest::Manifest)
@@ -264,10 +316,12 @@ pub fn debian_copyright(package: &package::Package,
                              get_deb_author().unwrap_or_default());
     files.push(Files::new("debian/*", &deb_notice, &crate_license));
 
-    // Insert catch all block as the first block of copyright file.
+    // Insert catch all block as the first block of copyright file. Capture
+    // copyright notice from git log of the upstream repository.
+    let notices = copyright_fromgit(repository)?;
     files.insert(0,
                  Files::new("*",
-                            format!("{}\n", meta.authors.join("\n ")).as_str(),
+                            format!("{}\n", notices.join("\n ")).as_str(),
                             &crate_license));
 
     Ok(DebCopyright::new(upstream, &files, &licenses))

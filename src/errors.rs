@@ -1,8 +1,10 @@
 use std::io;
 use std::string;
+use std::num;
 use cargo;
 use walkdir;
 use regex;
+use subprocess;
 
 error_chain! {
     foreign_links {
@@ -11,6 +13,8 @@ error_chain! {
         Regex(regex::Error);
         WalkDir(walkdir::Error);
         String(string::FromUtf8Error);
+        Subprocess(subprocess::PopenError);
+        ParseInt(num::ParseIntError);
     }
 }
 
