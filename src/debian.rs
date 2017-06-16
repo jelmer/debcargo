@@ -311,7 +311,7 @@ impl V {
             (None, Some(_)) => panic!("semver had patch without minor"),
         };
         if mmp == M(0) && p.op != Gt {
-            bail!("Unrepresentable dependency version predicate: {} {:?}",
+            debcargo_bail!("Unrepresentable dependency version predicate: {} {:?}",
                   dep,
                   p);
         }
@@ -449,7 +449,7 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
             // handle pre-release crates. Don't package pre-release crates or
             // crates that depend on pre-release crates.
             if !p.pre.is_empty() {
-                bail!("Dependency on prerelease version: {} {:?}", dep.name(), p);
+                debcargo_bail!("Dependency on prerelease version: {} {:?}", dep.name(), p);
             }
 
             let mmp = V::new(p, dep.name())?;
@@ -476,7 +476,7 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
                 (&GtEq, _) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
                 (&Lt, &M(major)) => deps.push(pkg(&M(major - 1))),
                 (&Lt, &MM(0, 0)) => {
-                    bail!("Unrepresentable dependency version predicate: {} {:?}",
+                    debcargo_bail!("Unrepresentable dependency version predicate: {} {:?}",
                           dep.name(),
                           p)
                 }
@@ -505,7 +505,7 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
                 (&Compatible, &MM(..)) |
                 (&Compatible, &MMP(..)) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
                 (&Wildcard(WildcardVersion::Major), _) => {
-                    bail!("Unrepresentable dependency wildcard: {} = \"{:?}\"",
+                    debcargo_bail!("Unrepresentable dependency wildcard: {} = \"{:?}\"",
                           dep.name(),
                           p)
                 }

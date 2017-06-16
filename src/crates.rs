@@ -56,8 +56,9 @@ impl CrateInfo {
         let summary = summaries.iter()
             .max_by_key(|s| s.package_id())
             .ok_or_else(|| {
-                format!("Couldn't find any crate matching {} {}\n Try `debcargo cargo-update` to \
-                         update the crates.io index",
+                format!(concat!("Couldn't find any crate matching {} {}\n Try `debcargo \
+                                 cargo-update` to",
+                                "update the crates.io index"),
                         dependency.name(),
                         dependency.version_req())
             })?;
@@ -223,7 +224,7 @@ impl CrateInfo {
             }
 
             if all_deps.insert(dep.name(), dep).is_some() {
-                bail!("Duplicate dependency for {}", dep.name());
+                debcargo_bail!("Duplicate dependency for {}", dep.name());
             }
         }
 
@@ -320,9 +321,9 @@ impl CrateInfo {
             } else if dev_deps.contains(dep_name) {
                 continue;
             } else {
-                bail!("Feature {} depended on non-existent dep {}",
-                      feature,
-                      dep_name);
+                debcargo_bail!("Feature {} depended on non-existent dep {}",
+                               feature,
+                               dep_name);
             };
         }
 
@@ -349,23 +350,22 @@ impl CrateInfo {
             }
 
             if !entry.unpack_in(tempdir.path())? {
-                bail!("Crate contained path traversals via '..'");
+                debcargo_bail!("Crate contained path traversals via '..'");
             }
         }
 
         let entries = tempdir.path().read_dir()?.collect::<io::Result<Vec<_>>>()?;
         if entries.len() != 1 || !entries[0].file_type()?.is_dir() {
             let pkgid = self.package_id();
-            bail!("{}-{}.crate did not unpack to a single top-level directory",
-                  pkgid.name(),
-                  pkgid.version());
+            debcargo_bail!("{}-{}.crate did not unpack to a single top-level directory",
+                           pkgid.name(),
+                           pkgid.version());
         }
 
         if let Err(e) = fs::rename(entries[0].path(), &path) {
             Err(e).chain_err(|| {
-                    format!("Could not create source directory {0}\n
-           To regenerate, \
-                             move or remove {0}",
+                    format!(concat!("Could not create source directory {0}\n",
+                                    "To regenerate,move or remove {0}"),
                             path.display())
                 })?;
         }

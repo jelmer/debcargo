@@ -214,7 +214,7 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
             "unlicense" => include_str!("licenses/Unlicense"),
             "zlib" => include_str!("licenses/Zlib"),
             ls => {
-                bail!("Unrecognized crate license: {} (parsed from {})",
+                debcargo_bail!("Unrecognized crate license: {} (parsed from {})",
                       ls,
                       license)
             }
@@ -305,7 +305,7 @@ pub fn debian_copyright(package: &package::Package,
         licenses = get_licenses(license).unwrap();
         crate_license = license.trim().replace("/", " or ");
     } else {
-        bail!("Crate has no license or license_file");
+        debcargo_bail!("Crate has no license or license_file");
     }
 
     let mut files = gen_files(srcdir)?;
