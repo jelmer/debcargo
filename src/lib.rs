@@ -10,7 +10,9 @@ extern crate tar;
 extern crate tempdir;
 extern crate walkdir;
 extern crate subprocess;
+extern crate ansi_term;
 
+#[macro_use]
 pub mod errors;
 pub mod copyright;
 pub mod crates;

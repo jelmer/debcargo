@@ -20,32 +20,17 @@ error_chain! {
 
 #[macro_export]
 macro_rules! debcargo_info {
-    ($e:expr) => {{
-        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
-        writeln!(&mut stdout, $e)?;
-    }};
-
-    ($fmt:expr, $($arg:tt)+) => {{
-        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
-        writeln!(&mut stdout, "{}", format!($fmt, $($arg)+))?;
-    }};
+    ($e:expr) => {
+        println!("{}",Blue.paint($e));
+    };
 }
 
 #[macro_export]
-macro_rules! debcargo_highlight {
-    ($e:expr) => {{
-        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true).set_intense(true))?;
-        writeln!(&mut stdout, $e)?;
-    }};
+macro_rules! debcargo_warn {
+    ($e:expr) => {
+        println!("{}", RGB(255,165,0).bold().paint($e))
+    };
 
-    ($fmt:expr, $($arg:tt)+) => {{
-        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true).set_intense(true))?;
-        writeln!(&mut stdout, "{}", format!($fmt, $($arg)+))?;
-    }};
 }
 
 #[macro_export]
