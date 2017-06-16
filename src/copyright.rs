@@ -215,8 +215,8 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
             "zlib" => include_str!("licenses/Zlib"),
             ls => {
                 debcargo_bail!("Unrecognized crate license: {} (parsed from {})",
-                      ls,
-                      license)
+                               ls,
+                               license)
             }
         };
         licenses.insert(ls.to_string(), text.to_string());
@@ -246,7 +246,7 @@ fn copyright_fromgit(repo: &str) -> Result<Vec<String>> {
             Exec::shell(OsStr::new("git log --format=\"%an <%ae>\"")).cwd(tempdir.path()) |
             Exec::shell(OsStr::new("sort -u"))
         }.capture()?;
-    let authors = format!("{}", author_process.stdout_str().trim());
+    let authors = author_process.stdout_str().trim().to_string();
     let authors: Vec<&str> = authors.split('\n').collect();
     let mut notices: Vec<String> = Vec::new();
     for author in &authors {
