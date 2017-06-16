@@ -35,11 +35,17 @@ macro_rules! debcargo_warn {
 
 #[macro_export]
 macro_rules! debcargo_bail {
-    ($e:expr) => {
-        return Err(debcargo_bail!($e));
-    };
+    ($e:expr) => {{
+        use ansi_term::Colour::Red;
+        let error_string = Red.bold().paint($e).to_string();
+        return Err(error_string.into());
+    }};
 
-    ($fmt:expr, $($arg:tt)+) => {
-        return Err(debcargo_bail!($fmt, $($arg)+));
-    }
+    ($fmt:expr, $( $arg:tt)+) => {
+        {
+            use ansi_term::Colour::Red;
+            let error_string = format!($fmt, $($arg)+);
+            return Err(Red.bold().paint(error_string).to_string().into());
+        }
+    };
 }
