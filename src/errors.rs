@@ -21,14 +21,36 @@ error_chain! {
 #[macro_export]
 macro_rules! debcargo_info {
     ($e:expr) => {
-        println!("{}",Blue.paint($e));
+        {
+            use ansi_term::Colour::Blue;
+            println!("{}",Blue.paint($e));
+        }
+    };
+
+    ($fmt:expr, $( $arg:tt)+) => {
+        {
+            use ansi_term::Colour::Blue;
+            let print_string = format!($fmt, $($arg)+);
+            println!("{}", Blue.paint(print_string));
+        }
     };
 }
 
 #[macro_export]
 macro_rules! debcargo_warn {
     ($e:expr) => {
-        println!("{}", RGB(255,165,0).bold().paint($e))
+        {
+            use ansi_term::Colour::RGB;
+            println!("{}", RGB(255,165,0).bold().paint($e));
+        }
+    };
+
+    ($fmt:expr, $( $arg:tt)+) => {
+        {
+            use ansi_term::Colour::RGB;
+            let print_string = RGB(255,165,0).bold.paint(format!($fmt, $($arg)+));
+            println!("{}", print_string);
+        }
     };
 
 }
