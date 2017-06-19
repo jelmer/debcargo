@@ -238,31 +238,34 @@ fn copyright_fromgit(repo: &str) -> Result<Vec<String>> {
     Exec::shell(OsStr::new(format!("git clone --bare {} {}",
                                    repo,
                                    tempdir.path().to_str().unwrap())
-            .as_str())).stdout(subprocess::NullFile)
+                               .as_str()))
+        .stdout(subprocess::NullFile)
         .stderr(subprocess::NullFile)
         .popen()?;
 
     let author_process = {
-            Exec::shell(OsStr::new("git log --format=\"%an <%ae>\"")).cwd(tempdir.path()) |
-            Exec::shell(OsStr::new("sort -u"))
-        }.capture()?;
+        Exec::shell(OsStr::new("git log --format=\"%an <%ae>\"")).cwd(tempdir.path()) |
+        Exec::shell(OsStr::new("sort -u"))
+    }.capture()?;
     let authors = author_process.stdout_str().trim().to_string();
     let authors: Vec<&str> = authors.split('\n').collect();
     let mut notices: Vec<String> = Vec::new();
     for author in &authors {
-        let reverse_command = format!("git log --author=\"{}\" --format=%ad --date=format:%Y \
-                                       --reverse",
-                                      author);
-        let command = format!("git log --author=\"{}\" --format=%ad --date=format:%Y",
-                              author);
+        let author_string = format!("--author={}", author);
         let first = {
-                Exec::shell(OsStr::new(&reverse_command)).cwd(tempdir.path()) |
-                Exec::shell(OsStr::new("head -n1"))
-            }.capture()?;
+            Exec::cmd("/usr/bin/git")
+                .args(&["log", "--format=%ad",
+                       "--date=format:%Y",
+                       "--reverse",
+                       &author_string])
+                .cwd(tempdir.path()) | Exec::shell(OsStr::new("head -n1"))
+        }.capture()?;
 
         let latest = {
-                Exec::shell(OsStr::new(&command)).cwd(tempdir.path()) | Exec::shell("head -n1")
-            }.capture()?;
+            Exec::cmd("/usr/bin/git")
+                .args(&["log", "--format=%ad", "--date=format:%Y", &author_string])
+                .cwd(tempdir.path()) | Exec::shell("head -n1")
+        }.capture()?;
 
         let start = i32::from_str(first.stdout_str().trim())?;
         let end = i32::from_str(latest.stdout_str().trim())?;
@@ -273,7 +276,6 @@ fn copyright_fromgit(repo: &str) -> Result<Vec<String>> {
 
         notices.push(cnotice);
     }
-
 
     Ok(notices)
 }
