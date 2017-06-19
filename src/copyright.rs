@@ -235,10 +235,8 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
 
 fn copyright_fromgit(repo: &str) -> Result<Vec<String>> {
     let tempdir = TempDir::new_in(".", "debcargo")?;
-    Exec::shell(OsStr::new(format!("git clone --bare {} {}",
-                                   repo,
-                                   tempdir.path().to_str().unwrap())
-                               .as_str()))
+    Exec::cmd("git")
+        .args(&["clone", "--bare", repo, tempdir.path().to_str().unwrap()])
         .stdout(subprocess::NullFile)
         .stderr(subprocess::NullFile)
         .popen()?;
