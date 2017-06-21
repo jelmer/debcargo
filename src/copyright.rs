@@ -327,7 +327,7 @@ pub fn debian_copyright(package: &package::Package,
     let mut files = gen_files(srcdir)?;
 
     let current_year = chrono::Local::now().year();
-    let deb_notice = format!("{} {}\n",
+    let deb_notice = format!("{}, {}\n",
                              current_year,
                              get_deb_author().unwrap_or_default());
     files.push(Files::new("debian/*", &deb_notice, &crate_license));
