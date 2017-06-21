@@ -8,6 +8,7 @@ use tempdir::TempDir;
 use std::fmt;
 use std::fs;
 use std::i32;
+use std::env;
 use std::str::FromStr;
 use std::cmp::Ordering;
 use std::path::Path;
@@ -153,10 +154,21 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     let mut copyright_notices = HashMap::new();
     let copyright_notice_re =
         try!(regex::Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b(\d{4}\b.*)$"));
-    for entry in walkdir::WalkDir::new(&debsrcdir) {
+
+    // Get current working directory and move inside the extracted source of
+    // crate. This is necessary so as to capture correct path for files in
+    // debian/copyright.
+    let current_dir = env::current_dir()?;
+    env::set_current_dir(debsrcdir)?;
+
+    // Here we specifically use "." to avoid absolute paths. If we use
+    // current_dir then we end up having absolute path from user home directory,
+    // which again messes debian/copyright.
+    // Use of . creates paths in format ./src/ which is acceptable.
+    for entry in walkdir::WalkDir::new(".") {
         let entry = try!(entry);
         if entry.file_type().is_file() {
-            let copyright_file = entry.file_name().to_str().unwrap();
+            let copyright_file = entry.path().to_str().unwrap();
             let file = try!(fs::File::open(entry.path()));
             let reader = BufReader::new(file);
             for line in reader.lines() {
@@ -178,6 +190,9 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
         }
     }
 
+    // Restore back to original working directory as we can continue without
+    // problems.
+    env::set_current_dir(current_dir.as_path())?;
 
     let mut notices: Vec<Files> = Vec::new();
     if !copyright_notices.is_empty() {
