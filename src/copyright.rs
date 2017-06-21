@@ -250,35 +250,36 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
 
 fn copyright_fromgit(repo: &str) -> Result<Vec<String>> {
     let tempdir = TempDir::new_in(".", "debcargo")?;
-    Exec::cmd("git")
-        .args(&["clone", "--bare", repo, tempdir.path().to_str().unwrap()])
+    Exec::cmd("git").args(&["clone", "--bare", repo, tempdir.path().to_str().unwrap()])
         .stdout(subprocess::NullFile)
         .stderr(subprocess::NullFile)
         .popen()?;
 
     let author_process = {
-        Exec::shell(OsStr::new("git log --format=\"%an <%ae>\"")).cwd(tempdir.path()) |
-        Exec::shell(OsStr::new("sort -u"))
-    }.capture()?;
+            Exec::cmd("/usr/bin/git")
+                .args(&["log", "--format=%an <%ae>"])
+                .cwd(tempdir.path()) | Exec::cmd("sort").arg("-u")
+        }.capture()?;
     let authors = author_process.stdout_str().trim().to_string();
     let authors: Vec<&str> = authors.split('\n').collect();
     let mut notices: Vec<String> = Vec::new();
     for author in &authors {
         let author_string = format!("--author={}", author);
         let first = {
-            Exec::cmd("/usr/bin/git")
-                .args(&["log", "--format=%ad",
-                       "--date=format:%Y",
-                       "--reverse",
-                       &author_string])
-                .cwd(tempdir.path()) | Exec::shell(OsStr::new("head -n1"))
-        }.capture()?;
+                Exec::cmd("/usr/bin/git")
+                    .args(&["log",
+                            "--format=%ad",
+                            "--date=format:%Y",
+                            "--reverse",
+                            &author_string])
+                    .cwd(tempdir.path()) | Exec::shell(OsStr::new("head -n1"))
+            }.capture()?;
 
         let latest = {
-            Exec::cmd("/usr/bin/git")
-                .args(&["log", "--format=%ad", "--date=format:%Y", &author_string])
-                .cwd(tempdir.path()) | Exec::shell("head -n1")
-        }.capture()?;
+                Exec::cmd("/usr/bin/git")
+                    .args(&["log", "--format=%ad", "--date=format:%Y", &author_string])
+                    .cwd(tempdir.path()) | Exec::shell("head -n1")
+            }.capture()?;
 
         let start = i32::from_str(first.stdout_str().trim())?;
         let end = i32::from_str(latest.stdout_str().trim())?;
