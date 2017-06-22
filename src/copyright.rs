@@ -7,13 +7,10 @@ use tempdir::TempDir;
 
 use std::fmt;
 use std::fs;
-use std::i32;
 use std::env;
-use std::str::FromStr;
 use std::cmp::Ordering;
 use std::path::Path;
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::io::{BufRead, BufReader, Read};
 
 use errors::*;
