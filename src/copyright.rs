@@ -23,6 +23,31 @@ const DEB_COPYRIGHT_FORMAT: &'static str = "https://www.debian.\
                                             org/doc/packaging-manuals/copyright-format/1.0/";
 
 
+macro_rules! format_para {
+    ($fmt: expr, $text:expr) => {
+        {
+            let text = Some($text.to_string());
+            for (n, s) in text.iter().enumerate() {
+                if n != 0 {
+                    writeln!($fmt, " .")?;
+                }
+
+                for line in s.trim().lines() {
+                    let line = line.trim();
+                    if line.is_empty() {
+                        writeln!($fmt, " .")?;
+                    } else if line.starts_with("- ") {
+                        writeln!($fmt, " {}", line)?;
+                    } else {
+                        writeln!($fmt, " {}", line)?;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 struct UpstreamInfo {
     name: String,
     contacts: Vec<String>,
@@ -119,24 +144,7 @@ impl Files {
 impl fmt::Display for License {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "License: {}\n", self.name)?;
-        let text = Some(&self.text);
-        for (n, s) in text.iter().enumerate() {
-            if n != 0 {
-                writeln!(f, " .")?;
-            }
-
-            for line in s.trim().lines() {
-                let line = line.trim();
-                if line.is_empty() {
-                    writeln!(f, " .")?;
-                } else if line.starts_with("- ") {
-                    writeln!(f, " {}", line)?;
-                } else {
-                    writeln!(f, " {}", line)?;
-                }
-            }
-        }
-
+        format_para!(f, &self.text)?;
         write!(f, "\n")
     }
 }
