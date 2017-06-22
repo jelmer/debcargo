@@ -269,50 +269,35 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
     Ok(lblocks)
 }
 
-fn copyright_fromgit(repo: &str) -> Result<Vec<String>> {
+fn copyright_fromgit(repo: &str) -> Result<String> {
     let tempdir = TempDir::new_in(".", "debcargo")?;
     Exec::cmd("git").args(&["clone", "--bare", repo, tempdir.path().to_str().unwrap()])
         .stdout(subprocess::NullFile)
         .stderr(subprocess::NullFile)
         .popen()?;
 
-    let author_process = {
-            Exec::cmd("/usr/bin/git")
-                .args(&["log", "--format=%an <%ae>"])
-                .cwd(tempdir.path()) | Exec::cmd("sort").arg("-u")
-        }.capture()?;
-    let authors = author_process.stdout_str().trim().to_string();
-    let authors: Vec<&str> = authors.split('\n').collect();
-    let mut notices: Vec<String> = Vec::new();
-    for author in &authors {
-        let author_string = format!("--author={}", author);
-        let first = {
-                Exec::cmd("/usr/bin/git")
-                    .args(&["log",
-                            "--format=%ad",
-                            "--date=format:%Y",
-                            "--reverse",
-                            &author_string])
-                    .cwd(tempdir.path()) | Exec::shell(OsStr::new("head -n1"))
-            }.capture()?;
+    let first = {
+            Exec::cmd("git")
+                .args(&["log", "--format=%ad", "--date=format:%Y", "--reverse"])
+                .cwd(tempdir.path()) | Exec::cmd("head").arg("-n1")
+        }
+        .capture()?
+        .stdout_str();
 
-        let latest = {
-                Exec::cmd("/usr/bin/git")
-                    .args(&["log", "--format=%ad", "--date=format:%Y", &author_string])
-                    .cwd(tempdir.path()) | Exec::shell("head -n1")
-            }.capture()?;
+    let last = {
+            Exec::cmd("git")
+                .args(&["log", "--format=%ad", "--date=format:%Y"])
+                .cwd(tempdir.path()) | Exec::cmd("head").arg("-n1")
+        }
+        .capture()?
+        .stdout_str();
 
-        let start = i32::from_str(first.stdout_str().trim())?;
-        let end = i32::from_str(latest.stdout_str().trim())?;
-        let cnotice = match start.cmp(&end) {
-            Ordering::Equal => format!("{}, {}", start, author),
-            _ => format!("{}-{}, {}", start, end, author),
-        };
+    let notice = match first.trim().cmp(last.trim()) {
+        Ordering::Equal => first,
+        _ => format!("{}-{},", first.trim(), last.trim()),
+    };
 
-        notices.push(cnotice);
-    }
-
-    Ok(notices)
+    Ok(notice)
 }
 
 
