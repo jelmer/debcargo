@@ -59,6 +59,7 @@ struct Files {
     files: String,
     copyright: String,
     license: String,
+    comment: String,
 }
 
 #[derive(Clone)]
@@ -127,16 +128,24 @@ impl fmt::Display for Files {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Files: {}\n", self.files)?;
         write!(f, "Copyright: {}", self.copyright)?;
-        write!(f, "License: {}\n\n", self.license)
+        write!(f, "License: {}\n", self.license)?;
+        if !self.comment.is_empty() {
+            write!(f, "Comment:\n")?;
+            format_para!(f, &self.comment)?;
+        }
+
+        write!(f, "\n")
+
     }
 }
 
 impl Files {
-    fn new(name: &str, notice: &str, license: &str) -> Files {
+    fn new(name: &str, notice: &str, license: &str, comment: &str) -> Files {
         Files {
             files: name.to_string(),
             copyright: notice.to_string(),
             license: license.to_string(),
+            comment: comment.to_string(),
         }
     }
 }
@@ -207,7 +216,11 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
         for (filename, notice) in &copyright_notices {
             notices.push(Files::new(filename,
                                     format!(" {}\n", notice).as_str(),
-                                    "UNKNOWN; FIXME"));
+                                    "UNKNOWN; FIXME",
+                                    concat!("These notices are extracted from ",
+                                            "files. Please review them before ",
+                                            "uploading to\n archive. Also delete",
+                                            " this comment")));
 
         }
     }
