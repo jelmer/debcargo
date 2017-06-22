@@ -336,15 +336,33 @@ pub fn debian_copyright(package: &package::Package,
     let deb_notice = format!("{}, {}\n",
                              current_year,
                              get_deb_author().unwrap_or_default());
-    files.push(Files::new("debian/*", &deb_notice, &crate_license));
+    files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
 
     // Insert catch all block as the first block of copyright file. Capture
     // copyright notice from git log of the upstream repository.
-    let notices = copyright_fromgit(repository)?;
+    let period = copyright_fromgit(repository)?;
+    let notice = match meta.authors.len() {
+        1 => format!("{} {}\n", period, &meta.authors[0]),
+        _ => {
+            let author_notices: Vec<String> = meta.authors
+                .iter()
+                .map(|s| format!("{} {}", period, s))
+                .collect();
+            format!("{}\n", author_notices.join("\n "))
+        }
+    };
     files.insert(0,
                  Files::new("*",
-                            format!("{}\n", notices.join("\n ")).as_str(),
-                            &crate_license));
+                            &notice,
+                            &crate_license,
+                            concat!(
+                                "Since upstream copyright period is not ",
+                                "available in Cargo.toml, copyright period\n",
+                                "is extracted from upstream Git repository. ",
+                                "This may not be correct information\nso",
+                                " maintainer should review and fix this ",
+                                "information before uploading to\narchive.",
+                            )));
 
     Ok(DebCopyright::new(upstream, &files, &licenses))
 }
