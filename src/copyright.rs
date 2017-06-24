@@ -40,7 +40,7 @@ macro_rules! format_para {
                     }
                 }
             }
-            write!($fmt, "\n")
+            write!($fmt, "")
         }
     }
 }
@@ -132,7 +132,7 @@ impl fmt::Display for Files {
             format_para!(f, &self.comment)?;
         }
 
-        write!(f, "")
+        write!(f, "\n")
 
     }
 }
@@ -152,7 +152,7 @@ impl fmt::Display for License {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "License: {}\n", self.name)?;
         format_para!(f, &self.text)?;
-        write!(f, "")
+        write!(f, "\n")
     }
 }
 
