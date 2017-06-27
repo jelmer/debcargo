@@ -22,16 +22,16 @@ error_chain! {
 macro_rules! debcargo_info {
     ($e:expr) => {
         {
-            use ansi_term::Colour::Blue;
-            println!("{}",Blue.paint($e));
+            use ansi_term::Colour::Green;
+            println!("{}", Green.paint($e));
         }
     };
 
     ($fmt:expr, $( $arg:tt)+) => {
         {
-            use ansi_term::Colour::Blue;
+            use ansi_term::Colour::Green;
             let print_string = format!($fmt, $($arg)+);
-            println!("{}", Blue.paint(print_string));
+            println!("{}", Green.paint(print_string));
         }
     };
 }
