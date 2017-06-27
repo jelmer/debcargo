@@ -4,14 +4,21 @@ Manual review
 We'll manually review the output of debcargo and based on this, add things to
 "Bugs" and "Vital features" below.
 
-Reviewed so far:
+Reviewed (only lintian, not manually) so far:
 
-debcargo cargo clap chrono error-chain flate2 itertools regex semver
-semver-parser tar tempdir walkdir ansi_term subprocess
+advapi32-sys ansi_term bufstream cargo chrono clap crates-io crossbeam curl
+debcargo docopt env_logger error-chain filetime flate2 fs2 git2 git2-curl glob
+hamcrest itertools kernel32-sys libc libgit2-sys log miow num_cpus openssl
+psapi-sys regex rustc-serialize semver semver-parser serde serde_derive
+serde_ignored serde_json shell-escape subprocess tar tempdir term toml url
+walkdir winapi
 
+i.e. debcargo-CURRENT, cargo-0.19, and their dependencies
 
 Bugs
 ====
+
+Unrepresentable dependency version predicate: libz-sys Predicate { op: GtEq, major: 0, minor: None, patch: None, pre: [] }
 
 P: rust-regex-0.2 source: duplicate-in-relation-field in librust-regex-0.2+simd-accel-dev depends: ${misc:Depends}, ${misc:Depends}
 
@@ -19,10 +26,15 @@ I: rust-regex-0.2 source: duplicate-short-description librust-regex-0.2-dev libr
 I: rust-regex-0.2 source: duplicate-long-description librust-regex-0.2-dev librust-regex-0.2+simd-accel-dev
 "Feature" packages should mention this in their package description
 
-Comment: paragraphs in d/copyright should have FIXME for easy grepping
+"Comment:" paragraphs in d/copyright should have FIXME for easy grepping
 
 If there are no FIXMEs emitted, debcargo's output should not prompt the user to
 "Please update the sections marked FIXME"
+
+libgit2-sys:
+Unrepresentable dependency version predicate: libz-sys Predicate { op: GtEq, major: 0, minor: None, patch: None, pre: [] }
+psapi-sys:
+Unrepresentable dependency version predicate: winapi Predicate { op: Wildcard(Major), major: 0, minor: None, patch: None, pre: [] }
 
 
 Vital features
@@ -47,9 +59,43 @@ If the autodetected value differs from the overridden value, debcargo should
 emit an "info" notice on stdout. This helps when upgrading, in case any files
 had new people added as part of their copyright, etc.
 
+If an override-value is given for a "Files:" stanza that doesn't exist,
+debcargo should emit a warning.
+
 d/control
 `````````
 
 P: rust-subprocess-0.1 source: no-homepage-field
 Sometimes we can't detect the Homepage, but the maintainer could supply a
 manual one.
+
+
+Nice to have
+============
+
+Collapse auto-generated Files stanzas
+-------------------------------------
+
+e.g. for rust-url:
+
+~~~~
+Files: ./src/quirks.rs
+Copyright:  2016 The rust-url developers.
+License: UNKNOWN; FIXME
+Comment: [..]
+
+Files: ./src/parser.rs
+Copyright:  2013-2016 The rust-url developers.
+License: UNKNOWN; FIXME
+Comment: [..]
+
+Files: ./src/lib.rs
+Copyright:  2013-2015 The rust-url developers.
+License: UNKNOWN; FIXME
+Comment: [..]
+
+[..]
+~~~~
+
+would be good to collapse all of these down into a single "Files" stanza and
+combine the dates into a single range. This would be a bit fiddly

@@ -5,15 +5,28 @@
 # $ "$0" </path/to/Cargo.toml>
 #
 set -e
-CRATE="${1:-debcargo}"
+ALLOW_FAIL="${ALLOW_FAIL:-test/build-allow-fail}"
 
 cargo build
 
 oldpwd="$PWD"
-rm -rf tmp && mkdir -p tmp && cd tmp
+if [ -z "$NOCLEAN" ]; then
+	rm -rf tmp && mkdir -p tmp
+fi
+cd tmp
+
+allow_fail() {
+	if ( cd "$oldpwd" && grep -q "${crate}" "${ALLOW_FAIL}" ); then
+		echo >&2 "Allowing ${crate} to fail..."
+		return 0
+	else
+		return 1
+	fi
+}
 
 run_lintian() {
 	crate="$1"
+	allow_fail "$crate" && return 0
 	# The source name is different depending on if it's a non-library crate or not
 	changes="$(ls -1 rust-"${crate/_/-}"-*_*_source.changes rust-"${crate/_/-}"_*_source.changes 2>/dev/null || true)"
 	lintian -EvIL +pedantic "$changes" || true
@@ -21,7 +34,11 @@ run_lintian() {
 
 build_source() {
 	crate="$1"
-	../target/debug/debcargo package "${crate}"
+	if allow_fail "$crate"; then
+		../target/debug/debcargo package "${crate}" || return 0
+	else
+		../target/debug/debcargo package "${crate}"
+	fi
 	cratedir="$(find . -maxdepth 1 -name "rust-${crate/_/-}-*" -type d)"
 	( cd "${cratedir}" && dpkg-buildpackage -d -S --no-sign )
 }
@@ -32,7 +49,8 @@ ghetto_parse_deps() {
 	| sed -e 's/\t\[/\n[/g' \
 	| sed -ne '/^\[.*dependencies\]/p' \
 	| tr '\t' '\n' \
-	| sed -ne 's/\([^[:space:]]*\)[[:space:]]*=.*/\1/gp'
+	| sed -ne 's/\([^[:space:]]*\)[[:space:]]*=.*/\1/gp' \
+	| sort -u
 }
 
 run_x_or_deps() {
