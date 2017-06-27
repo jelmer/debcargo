@@ -1,0 +1,55 @@
+Manual review
+=============
+
+We'll manually review the output of debcargo and based on this, add things to
+"Bugs" and "Vital features" below.
+
+Reviewed so far:
+
+debcargo cargo clap chrono error-chain flate2 itertools regex semver
+semver-parser tar tempdir walkdir ansi_term subprocess
+
+
+Bugs
+====
+
+P: rust-regex-0.2 source: duplicate-in-relation-field in librust-regex-0.2+simd-accel-dev depends: ${misc:Depends}, ${misc:Depends}
+
+I: rust-regex-0.2 source: duplicate-short-description librust-regex-0.2-dev librust-regex-0.2+simd-accel-dev
+I: rust-regex-0.2 source: duplicate-long-description librust-regex-0.2-dev librust-regex-0.2+simd-accel-dev
+"Feature" packages should mention this in their package description
+
+Comment: paragraphs in d/copyright should have FIXME for easy grepping
+
+If there are no FIXMEs emitted, debcargo's output should not prompt the user to
+"Please update the sections marked FIXME"
+
+
+Vital features
+==============
+
+Overrides
+---------
+
+Add a command-line flag to supply an override file. When read, it should supply
+override values for:
+
+d/copyright
+```````````
+
+In the "Files:" stanza, we autodetect the value, and output a comment.
+The value could be overridden and the comment suppressed.
+
+In each "Files:" stanza, sometimes we output "License: UNKNOWN; FIXME" plus a comment.
+The License could be overridden and the comment suppressed.
+
+If the autodetected value differs from the overridden value, debcargo should
+emit an "info" notice on stdout. This helps when upgrading, in case any files
+had new people added as part of their copyright, etc.
+
+d/control
+`````````
+
+P: rust-subprocess-0.1 source: no-homepage-field
+Sometimes we can't detect the Homepage, but the maintainer could supply a
+manual one.

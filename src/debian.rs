@@ -91,7 +91,7 @@ impl Source {
             priority: priority,
             maintainer: maintainer,
             uploaders: uploaders,
-            standards: "3.9.8".to_string(),
+            standards: "4.0.0".to_string(),
             build_deps: build_deps,
             vcs_git: vcs_git,
             vcs_browser: vcs_browser,
