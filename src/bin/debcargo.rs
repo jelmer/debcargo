@@ -125,8 +125,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
             for feature in non_default_features {
                 let mut feature_deps = vec![format!("{} (= ${{binary:Version}})",
-                                                    lib_package.name()),
-                                            "${misc:Depends}".to_string()];
+                                                    lib_package.name())];
 
                 crate_info.get_feature_dependencies(feature, deb_feature, &mut feature_deps)?;
 
