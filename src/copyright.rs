@@ -218,7 +218,7 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
                                     concat!("These notices are extracted from ",
                                             "files. Please review them before ",
                                             "uploading to\n archive. Also delete",
-                                            " this comment")));
+                                            " this comment. FIXME")));
 
         }
     }
@@ -359,7 +359,7 @@ pub fn debian_copyright(package: &package::Package,
                                 "is extracted from upstream Git repository. ",
                                 "This may not be correct information\nso",
                                 " maintainer should review and fix this ",
-                                "information before uploading to\narchive.",
+                                "information before uploading to\narchive. FIXME",
                             )));
 
     Ok(DebCopyright::new(upstream, &files, &licenses))
