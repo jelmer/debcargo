@@ -316,8 +316,8 @@ impl V {
         };
         if mmp == M(0) && p.op != Gt {
             debcargo_bail!("Unrepresentable dependency version predicate: {} {:?}",
-                  dep,
-                  p);
+                           dep,
+                           p);
         }
 
         Ok(mmp)
@@ -481,8 +481,8 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
                 (&Lt, &M(major)) => deps.push(pkg(&M(major - 1))),
                 (&Lt, &MM(0, 0)) => {
                     debcargo_bail!("Unrepresentable dependency version predicate: {} {:?}",
-                          dep.name(),
-                          p)
+                                   dep.name(),
+                                   p)
                 }
                 (&Lt, &MM(0, minor)) => deps.push(pkg(&MM(0, minor - 1))),
                 (&Lt, _) => deps.push(format!("{} (<< {})", pkg(&mmp), mmp)),
@@ -510,8 +510,8 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
                 (&Compatible, &MMP(..)) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
                 (&Wildcard(WildcardVersion::Major), _) => {
                     debcargo_bail!("Unrepresentable dependency wildcard: {} = \"{:?}\"",
-                          dep.name(),
-                          p)
+                                   dep.name(),
+                                   p)
                 }
                 (&Wildcard(WildcardVersion::Minor), _) => deps.push(pkg(&mmp)),
                 (&Wildcard(WildcardVersion::Patch), _) => {
