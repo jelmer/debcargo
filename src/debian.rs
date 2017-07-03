@@ -200,7 +200,11 @@ impl Package {
 
         let short_desc = match *summary {
             None => format!("Source of Rust {} crate", pkgbase.crate_pkg_base),
-            Some(ref s) => format!("{} - Source", s),
+            Some(ref s) => {
+                format!("{} - {}",
+                        s,
+                        if let Some(f) = feature { f } else { "Source" })
+            }
         };
 
         let name = match feature {
