@@ -11,11 +11,13 @@ extern crate semver_parser;
 extern crate tar;
 extern crate tempdir;
 extern crate ansi_term;
+extern crate walkdir;
+extern crate regex;
 
-use cargo::core::Source;
 use clap::{App, AppSettings, ArgMatches, SubCommand};
 use std::fs;
-use std::io::{self, Write as IoWrite};
+use std::path::Path;
+use std::io::{self, Write as IoWrite, BufReader, BufRead};
 use std::os::unix::fs::OpenOptionsExt;
 
 use debcargo::errors::*;
@@ -23,6 +25,32 @@ use debcargo::copyright;
 use debcargo::crates::CrateInfo;
 use debcargo::debian::{self, PkgBase, Source as ControlSource, Package as ControlPackage};
 use debcargo::debian::deb_feature_name;
+
+
+fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
+    let fixme_regex = regex::Regex::new(r"(?:FIXME)")?;
+    let mut fixme_files = Vec::new();
+    for entry in walkdir::WalkDir::new(srcdir) {
+        let entry = entry?;
+        if entry.file_type().is_file() {
+            let filename = entry.path().to_str().unwrap();
+            let file = fs::File::open(entry.path())?;
+            let reader = BufReader::new(file);
+            // If we find one FIXME we break the loop and check next file. Idea
+            // is only to find files with FIXME strings in it.
+            for line in reader.lines() {
+                if let Ok(line) = line {
+                    if fixme_regex.is_match(&line) {
+                        fixme_files.push(filename.to_string());
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(fixme_files)
+}
 
 
 fn do_package(matches: &ArgMatches) -> Result<()> {
@@ -199,7 +227,13 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     debcargo_info!(concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
                    pkgbase.srcdir.to_str().unwrap(),
                    pkgbase.orig_tar_gz.to_str().unwrap());
-    debcargo_warn!("Please update the sections marked FIXME in files inside Debian folder\n");
+    let fixmes = lookup_fixmes(pkgbase.srcdir.join("debian").as_path());
+    if let Ok(fixmes) = fixmes {
+        debcargo_warn!("Please update the sections marked FIXME in following files.");
+        for f in fixmes {
+            debcargo_warn!(format!("\t• {}", f));
+        }
+    }
 
     Ok(())
 }
