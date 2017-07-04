@@ -238,14 +238,6 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn do_cargo_update() -> Result<()> {
-    let config = try!(cargo::Config::default());
-    let crates_io = try!(cargo::core::SourceId::crates_io(&config));
-    let mut registry = cargo::sources::RegistrySource::remote(&crates_io, &config);
-    try!(registry.update());
-    Ok(())
-}
-
 fn real_main() -> Result<()> {
     let m = App::new("debcargo")
         .author(crate_authors!())
@@ -253,8 +245,7 @@ fn real_main() -> Result<()> {
         .global_setting(AppSettings::ColoredHelp)
         .global_setting(AppSettings::UnifiedHelpMessage)
         .setting(AppSettings::SubcommandRequiredElseHelp)
-        .subcommands(vec![SubCommand::with_name("cargo-update").about("Update "),
-                          SubCommand::with_name("package")
+        .subcommands(vec![SubCommand::with_name("package")
                               .about("Package a crate from crates.io")
                               .arg_from_usage("<crate> 'Name of the crate to package'")
                               .arg_from_usage("[version] 'Version of the crate to package; may \
@@ -266,7 +257,6 @@ fn real_main() -> Result<()> {
                                                for package (default: unstable)'")])
         .get_matches();
     match m.subcommand() {
-        ("cargo-update", _) => do_cargo_update(),
         ("package", Some(sm)) => do_package(sm),
         _ => unreachable!(),
     }
