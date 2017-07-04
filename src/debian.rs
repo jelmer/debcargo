@@ -217,10 +217,24 @@ impl Package {
             Some(ref s) => s.to_string(),
         };
 
-        let boilerplate = format!(concat!("This package contains the source for the Rust {} \
-                                           crate,\n",
-                                          "packaged for use with cargo, debcargo, and dh-cargo."),
-                                  pkgbase.crate_name);
+        let boilerplate = match feature {
+            None => {
+                format!(concat!("This package contains the source for the",
+                                " Rust {} crate,\npackaged for use with",
+                                " cargo, debcargo, and dh-cargo."),
+                        pkgbase.crate_name)
+            }
+            Some(f) => {
+                format!(concat!("This package enables feature {} for the",
+                                " Rust {} crate. Purpose of this package",
+                                " is\nto pull the additional dependency",
+                                " needed to enable feature {}."),
+                        f,
+                        pkgbase.crate_name,
+                        f)
+            }
+        };
+
         Package {
             name: name,
             arch: "all".to_string(),
