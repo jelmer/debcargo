@@ -1,0 +1,10 @@
+[source]
+section = "misc"
+
+[packages."debcargo"]
+summary = "Tool to create Debian package from Rust crate"
+description = """
+This package provides debcargo a tool to create Debian source package from Rust
+crate. The package created by this tool is as per the packaging policy set by
+Debian Rust team.
+"""

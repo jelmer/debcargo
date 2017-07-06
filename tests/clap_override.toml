@@ -1,0 +1,23 @@
+[source]
+policy = "4.0.0"
+homepage = "https://clap.rs"
+
+[packages."librust-clap-2-dev"]
+summary = "Simple, efficient and full featured Command line argument parser - source"
+description = """
+clap is used to parse and validate string of command line arguments provided by
+user at runtime. It provides help and version flags by default and additionally
+provide help subcommands in addition to traditional flags.
+This package provides clap with following default features.
+ * suggestions: provides did you mean suggestions on typos
+ * color: turns on colored error messages.
+ * wrap_help: Wrap the help at actual terminal width when available.
+"""
+
+[files."*"]
+copyright = ["2015-2016, Kevin B. Knapp <kbknapp@gmail.com"]
+license = "MIT"
+
+[files."debian/*"]
+copyright = ["2017, Vasudev Kamath <vasudev@copyninja.info"]
+license = "MIT"
