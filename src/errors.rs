@@ -5,6 +5,7 @@ use cargo;
 use walkdir;
 use regex;
 use subprocess;
+use toml;
 
 error_chain! {
     foreign_links {
@@ -15,6 +16,7 @@ error_chain! {
         String(string::FromUtf8Error);
         Subprocess(subprocess::PopenError);
         ParseInt(num::ParseIntError);
+        TomlError(toml::de::Error);
     }
 }
 

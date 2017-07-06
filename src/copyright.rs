@@ -53,7 +53,7 @@ struct UpstreamInfo {
 }
 
 #[derive(Clone)]
-struct Files {
+pub struct Files {
     files: String,
     copyright: String,
     license: String,
@@ -138,7 +138,7 @@ impl fmt::Display for Files {
 }
 
 impl Files {
-    fn new(name: &str, notice: &str, license: &str, comment: &str) -> Files {
+    pub fn new(name: &str, notice: &str, license: &str, comment: &str) -> Files {
         Files {
             files: name.to_string(),
             copyright: notice.to_string(),
