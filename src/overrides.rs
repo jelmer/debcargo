@@ -36,6 +36,18 @@ pub struct Files {
 }
 
 impl Overrides {
+    pub fn is_source_present(&self) -> bool {
+        self.source.is_some()
+    }
+
+    pub fn is_packages_present(&self) -> bool {
+        self.packages.is_some()
+    }
+
+    pub fn is_files_present(&self) -> bool {
+        self.files.is_some()
+    }
+
     pub fn file_section_for(&self, filename: &str) -> Option<CFiles> {
         match self.files {
             Some(ref files) => {
