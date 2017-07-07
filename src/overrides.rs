@@ -19,14 +19,14 @@ pub struct Source {
     section: Option<String>,
     policy: Option<String>,
     homepage: Option<String>,
-    build_depends: Option<Vec<String>>
+    build_depends: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Package {
     summary: Option<String>,
     description: Option<String>,
-    depends: Option<Vec<String>>
+    depends: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -96,10 +96,10 @@ impl Overrides {
 
     pub fn build_depends(&self) -> Option<Vec<&str>> {
         if let Some(ref s) = self.source {
-                if let Some(ref bdeps) = s.build_depends {
-                    let build_deps = bdeps.iter().map(|x| x.as_str()).collect();
-                    return Some(build_deps);
-                }
+            if let Some(ref bdeps) = s.build_depends {
+                let build_deps = bdeps.iter().map(|x| x.as_str()).collect();
+                return Some(build_deps);
+            }
         }
         None
     }
