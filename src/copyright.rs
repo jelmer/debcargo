@@ -146,6 +146,18 @@ impl Files {
             comment: comment.to_string(),
         }
     }
+
+    pub fn files(&self) -> &str {
+        &self.files
+    }
+
+    pub fn copyright_str(&self) -> &str {
+        &self.copyright
+    }
+
+    pub fn license(&self) -> &str {
+        &self.license
+    }
 }
 
 impl fmt::Display for License {
