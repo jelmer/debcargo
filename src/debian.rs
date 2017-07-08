@@ -125,6 +125,27 @@ impl Source {
     }
 }
 
+impl OverrideDefaults for Source {
+    fn apply_overrides(&mut self, overrides: &Overrides) {
+        if let Some(section) = overrides.section() {
+            self.section = section.to_string();
+        }
+
+        if let Some(policy) = overrides.policy_version() {
+            self.standards = policy.to_string();
+        }
+
+        if let Some(bdeps) = overrides.build_depends() {
+            let deps = bdeps.iter().join(",\n ");
+            self.build_deps.push_str(",\n ");
+            self.build_deps.push_str(&deps);
+        }
+
+        if let Some(homepage) = overrides.homepage() {
+            self.homepage = homepage.to_string();
+        }
+    }
+}
 
 pub struct Package {
     name: String,
@@ -284,6 +305,19 @@ impl Package {
     }
 }
 
+impl OverrideDefaults for Package {
+    fn apply_overrides(&mut self, overrides: &Overrides) {
+        if let Some((s, d)) = overrides.summary_description_for(&self.name) {
+            if !s.is_empty() {
+                self.summary = s.to_string();
+            }
+
+            if !d.is_empty() {
+                self.description = d.to_string();
+            }
+        }
+    }
+}
 pub struct PkgBase {
     pub crate_name: String,
     pub crate_pkg_base: String,
