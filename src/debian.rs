@@ -318,16 +318,22 @@ impl OverrideDefaults for Package {
         }
     }
 }
+
 pub struct PkgBase {
     pub crate_name: String,
     pub crate_pkg_base: String,
     pub debver: String,
     pub srcdir: PathBuf,
     pub orig_tar_gz: PathBuf,
+    pub debcargo_version: String,
 }
 
 impl PkgBase {
-    pub fn new(crate_name: &str, version_suffix: &str, version: &Version) -> Result<PkgBase> {
+    pub fn new(crate_name: &str,
+               version_suffix: &str,
+               version: &Version,
+               debcargo_version: &str)
+               -> Result<PkgBase> {
         let crate_name_dashed = crate_name.replace('_', "-");
         let crate_pkg_base = format!("{}{}", crate_name_dashed, version_suffix);
 
@@ -337,12 +343,13 @@ impl PkgBase {
         let orig_tar_gz = Path::new(&format!("{}_{}.orig.tar.gz", debsrcname, debver)).to_owned();
 
         Ok(PkgBase {
-            crate_name: crate_name.to_string(),
-            crate_pkg_base: crate_pkg_base,
-            debver: debver,
-            srcdir: srcdir.to_path_buf(),
-            orig_tar_gz: orig_tar_gz.to_path_buf(),
-        })
+               crate_name: crate_name.to_string(),
+               crate_pkg_base: crate_pkg_base,
+               debver: debver,
+               srcdir: srcdir.to_path_buf(),
+               orig_tar_gz: orig_tar_gz.to_path_buf(),
+               debcargo_version: debcargo_version.to_string(),
+           })
     }
 }
 
