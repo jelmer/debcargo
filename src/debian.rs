@@ -92,19 +92,19 @@ impl Source {
             "".to_string()
         };
         Ok(Source {
-            name: source,
-            section: section.to_string(),
-            priority: priority,
-            maintainer: maintainer,
-            uploaders: uploaders,
-            standards: "4.0.0".to_string(),
-            build_deps: build_deps,
-            vcs_git: vcs_git,
-            vcs_browser: vcs_browser,
-            homepage: home.to_string(),
-            x_cargo: cargo_crate,
-            version: format!("{}-1", pkgbase.debver),
-        })
+               name: source,
+               section: section.to_string(),
+               priority: priority,
+               maintainer: maintainer,
+               uploaders: uploaders,
+               standards: "4.0.0".to_string(),
+               build_deps: build_deps,
+               vcs_git: vcs_git,
+               vcs_browser: vcs_browser,
+               homepage: home.to_string(),
+               x_cargo: cargo_crate,
+               version: format!("{}-1", pkgbase.debver),
+           })
     }
 
     pub fn srcname(&self) -> &String {
@@ -295,7 +295,8 @@ impl Package {
             name: name.to_string(),
             arch: "any".to_string(),
             section: "misc".to_string(),
-            depends: vec!["${misc:Depends}".to_string(), "${shlibs:Depends}".to_string()]
+            depends: vec!["${misc:Depends}".to_string(),
+                          "${shlibs:Depends}".to_string()]
                 .iter()
                 .join(",\n "),
             suggests: "".to_string(),
@@ -448,9 +449,9 @@ fn get_envs(keys: &[&str]) -> Result<Option<String>> {
 /// Determine a name and email address from environment variables.
 pub fn get_deb_author() -> Result<String> {
     let name = try!(try!(get_envs(&["DEBFULLNAME", "NAME"]))
-        .ok_or("Unable to determine your name; please set $DEBFULLNAME or $NAME"));
+                        .ok_or("Unable to determine your name; please set $DEBFULLNAME or $NAME"));
     let email = try!(try!(get_envs(&["DEBEMAIL", "EMAIL"]))
-        .ok_or("Unable to determine your email; please set $DEBEMAIL or $EMAIL"));
+                         .ok_or("Unable to determine your email; please set $DEBEMAIL or $EMAIL"));
     Ok(format!("{} <{}>", name, email))
 }
 
