@@ -35,6 +35,10 @@ pub struct Files {
     license: String,
 }
 
+pub trait OverrideDefaults {
+    fn apply_overrides(&mut self, overrides: &Overrides);
+}
+
 impl Overrides {
     pub fn is_source_present(&self) -> bool {
         self.source.is_some()
