@@ -39,7 +39,7 @@ fn source_package_override() {
 
     let section = overrides.section();
     assert!(section.is_some());
-    assert_eq!(section.unwrap(), "misc");
+    assert_eq!(section.unwrap(), "rust");
 
 
     assert!(overrides.is_packages_present());
