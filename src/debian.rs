@@ -1,4 +1,5 @@
 use chrono;
+use tempdir;
 use cargo::core::Dependency;
 use cargo::util::FileLock;
 use semver::Version;
@@ -18,7 +19,12 @@ use std::fs;
 use std::fmt::{self, Write as FmtWrite};
 use std::path::{Path, PathBuf};
 use std::collections::HashSet;
+use std::os::unix::fs::OpenOptionsExt;
+
 use errors::*;
+use crates::CrateInfo;
+use copyright::debian_copyright;
+use overrides::{parse_overrides, OverrideDefaults, Overrides};
 
 const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>";
 const VCS_GIT: &'static str = "https://anonscm.debian.org/git/pkg-rust/";
@@ -616,5 +622,191 @@ pub fn prepare_orig_tarball(crate_file: &FileLock,
     }
 
     fs::rename(temp_archive_path, &tarball)?;
+    Ok(())
+}
+
+pub fn prepare_debian_folder(pkgbase: &PkgBase,
+                             crate_info: &CrateInfo,
+                             pkg_lib_binaries: bool,
+                             bin_name: &str,
+                             distribution: &str,
+                             override_file: &str)
+                             -> Result<()> {
+    let lib = crate_info.is_lib();
+    let mut bins = crate_info.get_binary_targets();
+
+    let meta = crate_info.metadata();
+
+    let (default_features, _) = crate_info.default_deps_features().unwrap();
+    let non_default_features = crate_info.non_default_features(&default_features).unwrap();
+    let deps = crate_info.non_dev_dependencies()?;
+
+    let build_deps = if !bins.is_empty() {
+        deps.iter()
+    } else {
+        [].iter()
+    };
+
+    if lib && !bins.is_empty() && !pkg_lib_binaries {
+        debcargo_info!("Ignoring binaries from lib crate; pass --bin to package: {}",
+                       bins.join(", "));
+        bins.clear();
+    }
+
+    let mut create = fs::OpenOptions::new();
+    create.write(true).create_new(true);
+
+    let tempdir = tempdir::TempDir::new_in(".", "debcargo")?;
+    let deb_feature = &|f: &str| deb_feature_name(&pkgbase.crate_pkg_base, f);
+
+
+    let overrides = parse_overrides(Path::new(override_file))?;
+
+    {
+        let file = |name: &str| create.open(tempdir.path().join(name));
+
+        // debian/cargo-checksum.json
+        let checksum = crate_info
+            .checksum()
+            .unwrap_or("Could not get crate checksum");
+        let mut cargo_checksum_json = file("cargo-checksum.json")?;
+        writeln!(cargo_checksum_json,
+                 r#"{{"package":"{}","files":{{}}}}"#,
+                 checksum)?;
+
+        // debian/compat
+        let mut compat = file("compat")?;
+        writeln!(compat, "10")?;
+
+        // debian/copyright
+        let mut copyright = io::BufWriter::new(file("copyright")?);
+        let dep5_copyright =
+            debian_copyright(crate_info.package(), &pkgbase.srcdir, crate_info.manifest())?;
+        writeln!(copyright, "{}", dep5_copyright)?;
+
+        // debian/watch
+        let mut watch = file("watch")?;
+        writeln!(watch,
+                 "{}",
+                 format!(concat!("version=4\n",
+                                 "opts=filenamemangle=s/.*\\/(.*)\\/download/{}-$1\\.tar\\.\
+                                  gz/g\\ \n",
+                                 " https://qa.debian.org/cgi-bin/fakeupstream.\
+                                  cgi?upstream=crates.io/{} ",
+                                 ".*/crates/{}/@ANY_VERSION@/download\n"),
+                         pkgbase.crate_name,
+                         pkgbase.crate_name,
+                         pkgbase.crate_name))?;
+
+        // debian/source/format
+        fs::create_dir(tempdir.path().join("source"))?;
+        let mut source_format = file("source/format")?;
+        writeln!(source_format, "3.0 (quilt)")?;
+
+        // debian/rules
+        let mut create_exec = create.clone();
+        create_exec.mode(0o777);
+        let mut rules = create_exec.open(tempdir.path().join("rules"))?;
+        write!(rules,
+               "{}",
+               concat!("#!/usr/bin/make -f\n",
+                       "%:\n",
+                       "\tdh $@ --buildsystem cargo\n"))?;
+
+        // debian/control
+        let mut source = Source::new(&pkgbase,
+                                     if let Some(ref home) = meta.homepage {
+                                         home
+                                     } else {
+                                         ""
+                                     },
+                                     &lib,
+                                     build_deps.as_slice())?;
+
+        // If source overrides are present update related parts.
+        source.apply_overrides(&overrides);
+
+        let mut control = io::BufWriter::new(file("control")?);
+        write!(control, "{}", source)?;
+
+        // Summary and description generated from Cargo.toml
+        let (summary, description) = crate_info.get_summary_description();
+
+        if lib {
+            let ndf = non_default_features.clone();
+            let ndf = if ndf.is_empty() { None } else { Some(&ndf) };
+
+            let df = default_features.clone();
+            let df = if df.is_empty() { None } else { Some(&df) };
+
+            let mut lib_package =
+                Package::new(pkgbase, &deps, ndf, df, &summary, &description, None);
+
+            // Apply overrides if any
+            lib_package.apply_overrides(&overrides);
+            writeln!(control, "{}", lib_package)?;
+
+            for feature in non_default_features {
+                let mut feature_deps = vec![format!("{} (= ${{binary:Version}})",
+                                                    lib_package.name())];
+
+                crate_info
+                    .get_feature_dependencies(feature, deb_feature, &mut feature_deps)?;
+
+                let mut feature_package = Package::new(&pkgbase,
+                                                       &feature_deps,
+                                                       None,
+                                                       None,
+                                                       &summary,
+                                                       &description,
+                                                       Some(feature));
+
+                // If any overrides present for this package it will be taken care.
+                feature_package.apply_overrides(&overrides);
+                writeln!(control, "{}", feature_package)?;
+            }
+        }
+
+        if !bins.is_empty() {
+            let boilerplate = if bins.len() > 1 || bins[0] != bin_name {
+                Some(format!(
+                    "This package contains the following binaries built
+        from the\nRust \"{}\" crate:\n- {}",
+                    pkgbase.crate_name,
+                    bins.join("\n- ")
+                ))
+            } else {
+                None
+            };
+
+            let mut bin_pkg = Package::new_bin(&pkgbase,
+                                               bin_name,
+                                               &summary,
+                                               &description,
+                                               match boilerplate {
+                                                   Some(ref s) => s,
+                                                   None => "",
+                                               });
+
+            // Binary package overrides.
+            bin_pkg.apply_overrides(&overrides);
+
+            writeln!(control, "{}", bin_pkg)?;
+        }
+
+        // debian/changelog
+        let mut changelog = try!(file("changelog"));
+        let pkgid = crate_info.package_id();
+        write!(changelog,
+               "{}",
+               source.changelog_entry(pkgid.name(),
+                                      pkgid.version(),
+                                      distribution,
+                                      &pkgbase.debcargo_version))?;
+
+    }
+
+    fs::rename(tempdir.path(), pkgbase.srcdir.join("debian"))?;
+    tempdir.into_path();
     Ok(())
 }
