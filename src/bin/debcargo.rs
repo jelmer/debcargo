@@ -114,7 +114,9 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("--bin-name [name] 'Set package name for \
                                                binaries (implies --bin)'")
                               .arg_from_usage("--distribution [name] 'Set target distribution \
-                                               for package (default: unstable)'")])
+                                               for package (default: unstable)'")
+                              .arg_from_usage("--override [files] 'TOML file providing \
+                                               override values for debcargo")])
         .get_matches();
     match m.subcommand() {
         ("package", Some(sm)) => do_package(sm),
