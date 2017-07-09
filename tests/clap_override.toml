@@ -21,3 +21,11 @@ license = "MIT"
 [files."debian/*"]
 copyright = ["2017, Vasudev Kamath <vasudev@copyninja.info"]
 license = "MIT"
+
+[files."./LICENSE-MIT"]
+copyright = ["2015-2016, Kvin B. Knapp <kbknapp@gmail.com>"]
+license = "MIT"
+
+[files."./src/args/arg_matches.rs"]
+copyright = ["2015, The Rust Project Developers"]
+license = "MIT"
