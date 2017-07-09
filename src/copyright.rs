@@ -194,6 +194,18 @@ impl License {
     }
 }
 
+macro_rules! default_files {
+    ($file:expr, $notice:expr) => {{
+        Files::new($file,
+                   $notice,
+                   "UNKNOWN; FIXME",
+                   concat!("These notices are extracted from ",
+                           "files. Please review them before ",
+                           "uploading to\n archive. Also delete",
+                           " this comment. FIXME"))
+    }}
+}
+
 fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     let mut copyright_notices = HashMap::new();
     let copyright_notice_re =
@@ -241,14 +253,7 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     let mut notices: Vec<Files> = Vec::new();
     if !copyright_notices.is_empty() {
         for (filename, notice) in &copyright_notices {
-            notices.push(Files::new(filename,
-                                    format!(" {}\n", notice).as_str(),
-                                    "UNKNOWN; FIXME",
-                                    concat!("These notices are extracted from ",
-                                            "files. Please review them before ",
-                                            "uploading to\n archive. Also delete",
-                                            " this comment. FIXME")));
-
+            notices.push(default_files!(filename, notice));
         }
     }
 
