@@ -23,6 +23,7 @@ use std::io::{BufReader, BufRead};
 use debcargo::errors::*;
 use debcargo::crates::CrateInfo;
 use debcargo::debian::{self, PkgBase};
+use debcargo::overrides::parse_overrides;
 
 
 fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
@@ -59,6 +60,12 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let bin_name = matches.value_of("bin-name").unwrap_or(&crate_name_dashed);
     let distribution = matches.value_of("distribution").unwrap_or("unstable");
     let override_file = matches.value_of("override").unwrap_or("");
+    let override_path = Path::new(override_file);
+
+    let overrides = match parse_overrides(&override_path) {
+        Ok(o) => Some(o),
+        Err(_) => None
+    };
 
 
     let crate_info = CrateInfo::new(crate_name, version)?;
@@ -81,7 +88,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                                   package_lib_binaries,
                                   bin_name,
                                   distribution,
-                                  override_file)?;
+                                  overrides)?;
 
 
     debcargo_info!(concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
