@@ -298,25 +298,24 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
 
 fn copyright_fromgit(repo: &str) -> Result<String> {
     let tempdir = TempDir::new_in(".", "debcargo")?;
-    Exec::cmd("git").args(&["clone", "--bare", repo, tempdir.path().to_str().unwrap()])
+    Exec::cmd("git")
+        .args(&["clone", "--bare", repo, tempdir.path().to_str().unwrap()])
         .stdout(subprocess::NullFile)
         .stderr(subprocess::NullFile)
         .popen()?;
 
     let first = {
-            Exec::cmd("git")
-                .args(&["log", "--format=%ad", "--date=format:%Y", "--reverse"])
-                .cwd(tempdir.path()) | Exec::cmd("head").arg("-n1")
-        }
-        .capture()?
+        Exec::cmd("git")
+            .args(&["log", "--format=%ad", "--date=format:%Y", "--reverse"])
+            .cwd(tempdir.path()) | Exec::cmd("head").arg("-n1")
+    }.capture()?
         .stdout_str();
 
     let last = {
-            Exec::cmd("git")
-                .args(&["log", "--format=%ad", "--date=format:%Y"])
-                .cwd(tempdir.path()) | Exec::cmd("head").arg("-n1")
-        }
-        .capture()?
+        Exec::cmd("git")
+            .args(&["log", "--format=%ad", "--date=format:%Y"])
+            .cwd(tempdir.path()) | Exec::cmd("head").arg("-n1")
+    }.capture()?
         .stdout_str();
 
     let notice = match first.trim().cmp(last.trim()) {
