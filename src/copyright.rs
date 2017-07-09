@@ -126,7 +126,7 @@ impl UpstreamInfo {
 impl fmt::Display for Files {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Files: {}\n", self.files)?;
-        write!(f, "Copyright: {}", self.copyright)?;
+        write!(f, "Copyright: {}\n", self.copyright)?;
         write!(f, "License: {}\n", self.license)?;
         if !self.comment.is_empty() {
             write!(f, "Comment:\n")?;
@@ -372,39 +372,40 @@ pub fn debian_copyright(package: &package::Package,
     if let Some(o) = overrides {
         if let Some(f) = o.file_section_for("debian/*") {
             files.push(f);
-        } else {
-            let current_year = chrono::Local::now().year();
-            let deb_notice = format!("{}, {}\n",
-                                     current_year,
-                                     get_deb_author().unwrap_or_default());
-            files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
         }
+    } else {
+        let current_year = chrono::Local::now().year();
+        let deb_notice = format!("{}, {}\n",
+                                 current_year,
+                                 get_deb_author().unwrap_or_default());
+        files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
     }
 
     if let Some(o) = overrides {
         if let Some(f) = o.file_section_for("*") {
             files.insert(0, f);
-        } else {
-            // Insert catch all block as the first block of copyright file. Capture
-            // copyright notice from git log of the upstream repository.
-            let period = copyright_fromgit(repository)?;
-            let notice = match meta.authors.len() {
-                1 => format!("{} {}\n", period, &meta.authors[0]),
-                _ => {
-                    let author_notices: Vec<String> = meta.authors
-                        .iter()
-                        .map(|s| format!("{} {}", period, s))
-                        .collect();
-                    format!("{}\n", author_notices.join("\n "))
-                }
-            };
-            files.insert(
-                0,
-                Files::new(
-                    "*",
-                    &notice,
-                    &crate_license,
-                    concat!(
+        }
+    } else {
+        // Insert catch all block as the first block of copyright file. Capture
+        // copyright notice from git log of the upstream repository.
+        let period = copyright_fromgit(repository)?;
+        let notice = match meta.authors.len() {
+            1 => format!("{} {}", period, &meta.authors[0]),
+            _ => {
+                let author_notices: Vec<String> = meta.authors
+                    .iter()
+                    .map(|s| format!("{} {}", period, s))
+                    .collect();
+                format!("{}", author_notices.join("\n ").trim())
+            }
+        };
+        files.insert(
+            0,
+            Files::new(
+                "*",
+                &notice,
+                &crate_license,
+                concat!(
                                 "Since upstream copyright period is not ",
                                 "available in Cargo.toml, copyright period\n",
                                 "is extracted from upstream Git repository. ",
@@ -412,10 +413,9 @@ pub fn debian_copyright(package: &package::Package,
                                 " maintainer should review and fix this ",
                                 "information before uploading to\narchive. FIXME",
                             ),
-                ),
-            );
+            ),
+        );
 
-        }
     }
 
     Ok(DebCopyright::new(upstream, &files, &licenses))
