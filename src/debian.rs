@@ -679,8 +679,10 @@ pub fn prepare_debian_folder(pkgbase: &PkgBase,
 
         // debian/copyright
         let mut copyright = io::BufWriter::new(file("copyright")?);
-        let dep5_copyright =
-            debian_copyright(crate_info.package(), &pkgbase.srcdir, crate_info.manifest())?;
+        let dep5_copyright = debian_copyright(crate_info.package(),
+                                              &pkgbase.srcdir,
+                                              crate_info.manifest(),
+                                               overrides.as_ref())?;
         writeln!(copyright, "{}", dep5_copyright)?;
 
         // debian/watch

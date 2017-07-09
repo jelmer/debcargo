@@ -15,6 +15,7 @@ use std::io::{BufRead, BufReader, Read};
 
 use errors::*;
 use debian::get_deb_author;
+use overrides::{Overrides, OverrideDefaults};
 
 const DEB_COPYRIGHT_FORMAT: &'static str = "https://www.debian.\
                                             org/doc/packaging-manuals/copyright-format/1.0/";
@@ -134,6 +135,22 @@ impl fmt::Display for Files {
 
         write!(f, "\n")
 
+    }
+}
+
+impl OverrideDefaults for Files {
+    fn apply_overrides(&mut self, overrides: &Overrides) {
+        if let Some(ofile) = overrides.file_section_for(&self.files) {
+            if self.copyright != ofile.copyright {
+                debcargo_info!("Auto detected copyright: {} is different from \
+                                your supplied override",
+                               self.copyright);
+            }
+
+            self.copyright = ofile.copyright;
+            self.license = ofile.license;
+            self.comment.clear();
+        }
     }
 }
 
@@ -313,7 +330,8 @@ fn copyright_fromgit(repo: &str) -> Result<String> {
 
 pub fn debian_copyright(package: &package::Package,
                         srcdir: &Path,
-                        manifest: &manifest::Manifest)
+                        manifest: &manifest::Manifest,
+                        overrides: Option<&Overrides>)
                         -> Result<DebCopyright> {
     let meta = manifest.metadata().clone();
     let repository = match meta.repository {
@@ -341,38 +359,60 @@ pub fn debian_copyright(package: &package::Package,
     }
 
     let mut files = gen_files(srcdir)?;
-
-    let current_year = chrono::Local::now().year();
-    let deb_notice = format!("{}, {}\n",
-                             current_year,
-                             get_deb_author().unwrap_or_default());
-    files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
-
-    // Insert catch all block as the first block of copyright file. Capture
-    // copyright notice from git log of the upstream repository.
-    let period = copyright_fromgit(repository)?;
-    let notice = match meta.authors.len() {
-        1 => format!("{} {}\n", period, &meta.authors[0]),
-        _ => {
-            let author_notices: Vec<String> = meta.authors
-                .iter()
-                .map(|s| format!("{} {}", period, s))
-                .collect();
-            format!("{}\n", author_notices.join("\n "))
+    if let Some(o) = overrides {
+        for file in &mut files {
+            file.apply_overrides(o);
         }
-    };
-    files.insert(0,
-                 Files::new("*",
-                            &notice,
-                            &crate_license,
-                            concat!(
+    }
+
+    if let Some(o) = overrides {
+        if let Some(f) = o.file_section_for("debian/*") {
+            files.push(f);
+        } else {
+            let current_year = chrono::Local::now().year();
+            let deb_notice = format!("{}, {}\n",
+                                     current_year,
+                                     get_deb_author().unwrap_or_default());
+            files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
+        }
+    }
+
+    if let Some(o) = overrides {
+        if let Some(f) = o.file_section_for("*") {
+            files.insert(0, f);
+        } else {
+            // Insert catch all block as the first block of copyright file. Capture
+            // copyright notice from git log of the upstream repository.
+            let period = copyright_fromgit(repository)?;
+            let notice = match meta.authors.len() {
+                1 => format!("{} {}\n", period, &meta.authors[0]),
+                _ => {
+                    let author_notices: Vec<String> = meta.authors
+                        .iter()
+                        .map(|s| format!("{} {}", period, s))
+                        .collect();
+                    format!("{}\n", author_notices.join("\n "))
+                }
+            };
+            files.insert(
+                0,
+                Files::new(
+                    "*",
+                    &notice,
+                    &crate_license,
+                    concat!(
                                 "Since upstream copyright period is not ",
                                 "available in Cargo.toml, copyright period\n",
                                 "is extracted from upstream Git repository. ",
                                 "This may not be correct information\nso",
                                 " maintainer should review and fix this ",
                                 "information before uploading to\narchive. FIXME",
-                            )));
+                            ),
+                ),
+            );
+
+        }
+    }
 
     Ok(DebCopyright::new(upstream, &files, &licenses))
 }
