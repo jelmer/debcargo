@@ -109,7 +109,11 @@ impl fmt::Display for UpstreamInfo {
         for contact in &self.contacts {
             write!(f, " {}\n", contact)?;
         }
-        write!(f, "Source: {}\n", self.source)
+        if !self.source.is_empty() {
+            write!(f, "Source: {}\n", self.source)?;
+        }
+
+        write!(f, "")
     }
 }
 
@@ -392,7 +396,11 @@ pub fn debian_copyright(package: &package::Package,
     } else {
         // Insert catch all block as the first block of copyright file. Capture
         // copyright notice from git log of the upstream repository.
-        let period = copyright_fromgit(repository)?;
+        let period = if !repository.is_empty() {
+            copyright_fromgit(repository)?
+        } else {
+            "".to_string()
+        };
         let notice = match meta.authors.len() {
             1 => format!("{} {}", period, &meta.authors[0]),
             _ => {
