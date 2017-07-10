@@ -4,8 +4,8 @@ use std::num;
 use cargo;
 use walkdir;
 use regex;
-use subprocess;
 use toml;
+use git2;
 
 error_chain! {
     foreign_links {
@@ -14,9 +14,9 @@ error_chain! {
         Regex(regex::Error);
         WalkDir(walkdir::Error);
         String(string::FromUtf8Error);
-        Subprocess(subprocess::PopenError);
         ParseInt(num::ParseIntError);
         TomlError(toml::de::Error);
+        GitError(git2::Error);
     }
 }
 

@@ -1,9 +1,9 @@
 use walkdir;
 use regex;
-use chrono::{self, Datelike};
+use chrono::{self, Datelike, NaiveDateTime, DateTime, Utc};
 use cargo::core::{manifest, package};
-use subprocess::{self, Exec};
 use tempdir::TempDir;
+use git2::Repository;
 
 use std::fmt;
 use std::fs;
@@ -301,31 +301,35 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
     Ok(lblocks)
 }
 
-fn copyright_fromgit(repo: &str) -> Result<String> {
+fn copyright_fromgit(repo_url: &str) -> Result<String> {
     let tempdir = TempDir::new_in(".", "debcargo")?;
-    Exec::cmd("git")
-        .args(&["clone", "--bare", repo, tempdir.path().to_str().unwrap()])
-        .stdout(subprocess::NullFile)
-        .stderr(subprocess::NullFile)
-        .popen()?;
+    let repo = Repository::clone(repo_url, tempdir.path())?;
 
-    let first = {
-        Exec::cmd("git")
-            .args(&["log", "--format=%ad", "--date=format:%Y", "--reverse"])
-            .cwd(tempdir.path()) | Exec::cmd("head").arg("-n1")
-    }.capture()?
-        .stdout_str();
+    let mut revwalker = repo.revwalk()?;
+    revwalker.push_head()?;
 
-    let last = {
-        Exec::cmd("git")
-            .args(&["log", "--format=%ad", "--date=format:%Y"])
-            .cwd(tempdir.path()) | Exec::cmd("head").arg("-n1")
-    }.capture()?
-        .stdout_str();
+    // Get the latest and first commit id. This is bit ugly
+    let latest_id = revwalker.next().unwrap()?;
+    let first_id = revwalker.last().unwrap()?; // revwalker ends here is consumed by last
 
-    let notice = match first.trim().cmp(last.trim()) {
-        Ordering::Equal => first,
-        _ => format!("{}-{},", first.trim(), last.trim()),
+    let first_commit = repo.find_commit(first_id)?;
+    let latest_commit = repo.find_commit(latest_id)?;
+
+    let first_year =
+        DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(first_commit.time().seconds(), 0),
+                                  Utc)
+            .year();
+
+    let latest_year =
+        DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(latest_commit.time().seconds(), 0),
+                                  Utc)
+            .year();
+
+
+
+    let notice = match first_year.cmp(&latest_year) {
+        Ordering::Equal => format!("{}", first_year),
+        _ => format!("{}-{},", first_year, latest_year),
     };
 
     Ok(notice)

@@ -12,9 +12,9 @@ extern crate semver_parser;
 extern crate tar;
 extern crate tempdir;
 extern crate walkdir;
-extern crate subprocess;
 extern crate ansi_term;
 extern crate toml;
+extern crate git2;
 
 #[macro_use]
 pub mod errors;
