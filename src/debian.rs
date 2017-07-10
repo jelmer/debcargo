@@ -24,7 +24,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use errors::*;
 use crates::CrateInfo;
 use copyright::debian_copyright;
-use overrides::{parse_overrides, OverrideDefaults, Overrides};
+use overrides::{OverrideDefaults, Overrides};
 
 const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>";
 const VCS_GIT: &'static str = "https://anonscm.debian.org/git/pkg-rust/";
