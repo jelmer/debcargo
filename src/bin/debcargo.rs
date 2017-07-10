@@ -64,7 +64,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
     let overrides = match parse_overrides(&override_path) {
         Ok(o) => Some(o),
-        Err(_) => None
+        Err(_) => None,
     };
 
 
@@ -96,9 +96,11 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                    pkgbase.orig_tar_gz.to_str().unwrap());
     let fixmes = lookup_fixmes(pkgbase.srcdir.join("debian").as_path());
     if let Ok(fixmes) = fixmes {
-        debcargo_warn!("Please update the sections marked FIXME in following files.");
-        for f in fixmes {
-            debcargo_warn!(format!("\t• {}", f));
+        if fixmes.len() > 0 {
+            debcargo_warn!("Please update the sections marked FIXME in following files.");
+            for f in fixmes {
+                debcargo_warn!(format!("\t• {}", f));
+            }
         }
     }
 
