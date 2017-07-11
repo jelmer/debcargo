@@ -6,6 +6,11 @@
 #
 set -e
 ALLOW_FAIL="${ALLOW_FAIL:-test/build-allow-fail}"
+OVERRIDE_DIR="${OVERRIDE_DIR:-test/overrides}"
+
+if [ -d "$OVERRIDE_DIR" ]; then
+    OVERRIDE_EXISTS=1
+fi
 
 cargo build
 
@@ -33,14 +38,20 @@ run_lintian() {
 }
 
 build_source() {
-	crate="$1"
-	if allow_fail "$crate"; then
-		../target/debug/debcargo package "${crate}" || return 0
-	else
-		../target/debug/debcargo package "${crate}"
-	fi
-	cratedir="$(find . -maxdepth 1 -name "rust-${crate/_/-}-*" -type d)"
-	( cd "${cratedir}" && dpkg-buildpackage -d -S --no-sign )
+    crate="$1"
+    if [ -n "$OVERRIDE_EXISTS" ]; then
+        if [ -f "$OVERRIDE_DIR/${crate}_overrides.toml" ]; then
+            option="--override ${OVERRIDE_DIR}/${crate}_overrides.toml"
+        fi
+    fi
+
+    if allow_fail "$crate"; then
+	../target/debug/debcargo package $option "${crate}" || return 0
+    else
+	../target/debug/debcargo package $option "${crate}"
+    fi
+    cratedir="$(find . -maxdepth 1 -name "rust-${crate/_/-}-*" -type d)"
+    ( cd "${cratedir}" && dpkg-buildpackage -d -S --no-sign )
 }
 
 ghetto_parse_deps() {
