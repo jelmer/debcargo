@@ -351,6 +351,11 @@ pub fn debian_copyright(package: &package::Package,
         Some(ref r) => r,
     };
 
+    let overrides: Overrides = match overrides {
+        Some(o) => o.to_owned(),
+        None => Overrides::default(),
+    };
+
     let upstream = UpstreamInfo::new(manifest.name().to_string(), &meta.authors, repository);
 
     let mut licenses: Vec<License> = Vec::new();
@@ -372,25 +377,24 @@ pub fn debian_copyright(package: &package::Package,
 
     let mut files = gen_files(srcdir)?;
     if let Some(o) = overrides {
+    if overrides.is_files_present() {
         for file in &mut files {
-            file.apply_overrides(o);
+            file.apply_overrides(&overrides);
         }
     }
 
-    if let Some(o) = overrides {
-        if let Some(f) = o.file_section_for("debian/*") {
-            files.push(f);
-        }
+
+    if let Some(f) = overrides.file_section_for("debian/*") {
+        files.push(f);
     } else {
         let current_year = chrono::Local::now().year();
         let deb_notice = format!("{}, {}", current_year, get_deb_author().unwrap_or_default());
         files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
     }
 
-    if let Some(o) = overrides {
-        if let Some(f) = o.file_section_for("*") {
-            files.insert(0, f);
-        }
+
+    if let Some(f) = overrides.file_section_for("*") {
+        files.insert(0, f);
     } else {
         // Insert catch all block as the first block of copyright file. Capture
         // copyright notice from git log of the upstream repository.
@@ -409,22 +413,18 @@ pub fn debian_copyright(package: &package::Package,
                 format!("{}", author_notices.join("\n ").trim())
             }
         };
-        files.insert(
-            0,
-            Files::new(
-                "*",
-                &notice,
-                &crate_license,
-                concat!(
+        files.insert(0,
+                     Files::new("*",
+                                &notice,
+                                &crate_license,
+                                concat!(
                                 "Since upstream copyright period is not ",
                                 "available in Cargo.toml, copyright period\n",
                                 "is extracted from upstream Git repository. ",
                                 "This may not be correct information\nso",
                                 " maintainer should review and fix this ",
                                 "information before uploading to\narchive. FIXME",
-                            ),
-            ),
-        );
+                            )));
 
     }
 

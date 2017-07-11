@@ -3,18 +3,19 @@ use toml;
 use std::io::Read;
 use std::collections::HashMap;
 use std::path::Path;
+use std::default::Default;
 use std::fs::File;
 use copyright::Files as CFiles;
 use errors::*;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Overrides {
     source: Option<Source>,
     packages: Option<HashMap<String, Package>>,
     files: Option<HashMap<String, Files>>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Source {
     section: Option<String>,
     policy: Option<String>,
@@ -22,7 +23,7 @@ pub struct Source {
     build_depends: Option<Vec<String>>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Package {
     summary: Option<String>,
     description: Option<String>,
@@ -30,6 +31,7 @@ pub struct Package {
 }
 
 #[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Files {
     copyright: Vec<String>,
     license: String,
@@ -39,6 +41,16 @@ pub trait OverrideDefaults {
     fn apply_overrides(&mut self, overrides: &Overrides);
 }
 
+
+impl Default for Overrides {
+    fn default() -> Self {
+        Overrides {
+            source: None,
+            packages: None,
+            copyright: None,
+        }
+    }
+}
 impl Overrides {
     pub fn is_source_present(&self) -> bool {
         self.source.is_some()
