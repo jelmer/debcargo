@@ -210,8 +210,13 @@ macro_rules! default_files {
     }}
 }
 
-fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
+fn gen_files(debsrcdir: &Path, ignores: Option<Vec<&str>>) -> Result<Vec<Files>> {
     let mut copyright_notices = HashMap::new();
+    let ignores = match ignores {
+        Some(ignores) => ignores,
+        None => vec![],
+    };
+
     let copyright_notice_re =
         try!(regex::Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b(\d{4}\b.*)$"));
 
@@ -229,22 +234,25 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
         let entry = try!(entry);
         if entry.file_type().is_file() {
             let copyright_file = entry.path().to_str().unwrap();
-            let file = try!(fs::File::open(entry.path()));
-            let reader = BufReader::new(file);
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    if let Some(m) = copyright_notice_re.captures(&line) {
-                        let m = m.get(1).unwrap();
-                        let start = m.start();
-                        let end = m.end();
-                        let notice = line[start..end]
-                            .trim_right()
-                            .trim_right_matches(". See the COPYRIGHT")
-                            .to_string();
-                        copyright_notices.insert(copyright_file.to_string(), notice);
+            let file_name = entry.file_name().to_str().unwrap();
+            if !ignores.contains(&file_name) {
+                let file = try!(fs::File::open(entry.path()));
+                let reader = BufReader::new(file);
+                for line in reader.lines() {
+                    if let Ok(line) = line {
+                        if let Some(m) = copyright_notice_re.captures(&line) {
+                            let m = m.get(1).unwrap();
+                            let start = m.start();
+                            let end = m.end();
+                            let notice = line[start..end]
+                                .trim_right()
+                                .trim_right_matches(". See the COPYRIGHT")
+                                .to_string();
+                            copyright_notices.insert(copyright_file.to_string(), notice);
+                        }
+                    } else {
+                        break;
                     }
-                } else {
-                    break;
                 }
             }
         }
@@ -375,8 +383,8 @@ pub fn debian_copyright(package: &package::Package,
         debcargo_bail!("Crate has no license or license_file");
     }
 
-    let mut files = gen_files(srcdir)?;
-    if let Some(o) = overrides {
+    let ignores = overrides.copyright_ignores();
+    let mut files = gen_files(srcdir, ignores)?;
     if overrides.is_files_present() {
         for file in &mut files {
             file.apply_overrides(&overrides);
