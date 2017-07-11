@@ -12,7 +12,7 @@ use errors::*;
 pub struct Overrides {
     source: Option<Source>,
     packages: Option<HashMap<String, Package>>,
-    files: Option<HashMap<String, Files>>,
+    copyright: Option<Copyright>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -30,7 +30,13 @@ pub struct Package {
     depends: Option<Vec<String>>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
+pub struct Copyright {
+    source: Option<String>,
+    ignore: Option<Vec<String>>,
+    files: Option<HashMap<String, Files>>,
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Files {
     copyright: Vec<String>,
@@ -51,6 +57,31 @@ impl Default for Overrides {
         }
     }
 }
+
+impl Default for Copyright {
+    fn default() -> Self {
+        Copyright {
+            source: None,
+            files: None,
+            ignore: None,
+        }
+    }
+}
+
+impl Copyright {
+    pub fn is_files_present(&self) -> bool {
+        self.files.is_some()
+    }
+
+    pub fn files(&self) -> Option<&HashMap<String, Files>> {
+        self.files.as_ref()
+    }
+
+    pub fn ignore(&self) -> Option<&Vec<String>> {
+        self.ignore.as_ref()
+    }
+}
+
 impl Overrides {
     pub fn is_source_present(&self) -> bool {
         self.source.is_some()
@@ -60,25 +91,46 @@ impl Overrides {
         self.packages.is_some()
     }
 
+    pub fn is_copyright_present(&self) -> bool {
+        self.copyright.is_some()
+    }
+
     pub fn is_files_present(&self) -> bool {
-        self.files.is_some()
+        match self.copyright {
+            Some(ref copyright) => copyright.is_files_present(),
+            None => false,
+        }
     }
 
     pub fn file_section_for(&self, filename: &str) -> Option<CFiles> {
-        match self.files {
-            Some(ref files) => {
-                if files.contains_key(filename) {
-                    let value = files.get(filename).unwrap();
-                    Some(CFiles::new(filename,
-                                     value.copyright.join("\n ").as_str(),
-                                     &value.license,
-                                     ""))
-                } else {
-                    None
+        if self.is_copyright_present() {
+            let copyright = self.copyright.to_owned();
+            match copyright.unwrap().files() {
+                Some(ref files) => {
+                    if files.contains_key(filename) {
+                        let value = files.get(filename).unwrap();
+                        return Some(CFiles::new(filename,
+                                                value.copyright.join("\n ").as_str(),
+                                                &value.license,
+                                                ""));
+                    }
+                }
+                None => return None,
+            }
+        }
+        None
+    }
+
+    pub fn copyright_ignores(&self) -> Option<Vec<&str>> {
+        if self.is_copyright_present() {
+            if let Some(ref copyright) = self.copyright {
+                if let Some(ignores) = copyright.ignore() {
+                    let ignore = ignores.iter().map(|x| x.as_str()).collect();
+                    return Some(ignore);
                 }
             }
-            None => None,
         }
+        None
     }
 
     pub fn summary_description_for(&self, pkgname: &str) -> Option<(&str, &str)> {
