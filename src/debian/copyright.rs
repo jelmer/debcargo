@@ -14,8 +14,9 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 
 use errors::*;
-use debian::get_deb_author;
+use debian::control::get_deb_author;
 use overrides::{Overrides, OverrideDefaults};
+
 
 const DEB_COPYRIGHT_FORMAT: &'static str = "https://www.debian.\
                                             org/doc/packaging-manuals/copyright-format/1.0/";

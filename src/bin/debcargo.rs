@@ -22,7 +22,7 @@ use std::io::{BufReader, BufRead};
 
 use debcargo::errors::*;
 use debcargo::crates::CrateInfo;
-use debcargo::debian::{self, PkgBase};
+use debcargo::debian::{self, BaseInfo};
 use debcargo::overrides::parse_overrides;
 
 
@@ -69,19 +69,15 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
 
     let crate_info = CrateInfo::new(crate_name, version)?;
-    let pkgid = crate_info.package_id();
-
-    let version_suffix = crate_info.version_suffix();
-    let pkgbase = PkgBase::new(crate_name,
-                               &version_suffix,
-                               pkgid.version(),
-                               crate_version!())?;
+    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!());
 
 
+    let pkg_srcdir = pkgbase.package_source_dir();
+    let orig_tar_gz = pkgbase.orig_tarball_path();
 
-    let source_modified = crate_info.extract_crate(pkgbase.srcdir.as_path())?;
+    let source_modified = crate_info.extract_crate(pkg_srcdir)?;
     debian::prepare_orig_tarball(crate_info.crate_file(),
-                                 pkgbase.orig_tar_gz.as_path(),
+                                 orig_tar_gz,
                                  source_modified)?;
     debian::prepare_debian_folder(&pkgbase,
                                   &crate_info,
@@ -92,9 +88,9 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
 
     debcargo_info!(concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
-                   pkgbase.srcdir.to_str().unwrap(),
-                   pkgbase.orig_tar_gz.to_str().unwrap());
-    let fixmes = lookup_fixmes(pkgbase.srcdir.join("debian").as_path());
+                   pkg_srcdir.to_str().unwrap(),
+                   orig_tar_gz.to_str().unwrap());
+    let fixmes = lookup_fixmes(pkg_srcdir.join("debian").as_path());
     if let Ok(fixmes) = fixmes {
         if fixmes.len() > 0 {
             debcargo_warn!("Please update the sections marked FIXME in following files.");

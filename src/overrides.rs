@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::default::Default;
 use std::fs::File;
-use copyright::Files as CFiles;
+use debian::copyright::Files as CFiles;
 use errors::*;
+
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Overrides {

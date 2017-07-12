@@ -18,7 +18,6 @@ extern crate git2;
 
 #[macro_use]
 pub mod errors;
-pub mod copyright;
 pub mod crates;
 pub mod debian;
 pub mod overrides;
