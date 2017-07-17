@@ -419,7 +419,7 @@ pub fn debian_copyright(package: &package::Package,
                     .iter()
                     .map(|s| format!("{} {}", period, s))
                     .collect();
-                format!("{}", author_notices.join("\n ").trim())
+                author_notices.join("\n ").trim().to_owned()
             }
         };
         files.insert(0,

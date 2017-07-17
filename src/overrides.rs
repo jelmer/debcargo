@@ -107,7 +107,7 @@ impl Overrides {
         if self.is_copyright_present() {
             let copyright = self.copyright.to_owned();
             match copyright.unwrap().files() {
-                Some(ref files) => {
+                Some(files) => {
                     if files.contains_key(filename) {
                         let value = files.get(filename).unwrap();
                         return Some(CFiles::new(filename,

@@ -128,7 +128,7 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
                              pkg_lib_binaries: bool,
                              bin_name: &str,
                              distribution: &str,
-                             overrides: Option<Overrides>)
+                             overrides: Option<&Overrides>)
                              -> Result<()> {
     let lib = crate_info.is_lib();
     let mut bins = crate_info.get_binary_targets();
@@ -224,7 +224,7 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
                                      build_deps.as_slice())?;
 
         // If source overrides are present update related parts.
-        if let Some(ref overrides) = overrides {
+        if let Some(overrides) = overrides {
             source.apply_overrides(overrides);
         }
 
@@ -251,8 +251,8 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
                                                None);
 
             // Apply overrides if any
-            if let Some(ref overrides) = overrides {
-                lib_package.apply_overrides(&overrides);
+            if let Some(overrides) = overrides {
+                lib_package.apply_overrides(overrides);
             }
             writeln!(control, "{}", lib_package)?;
 
@@ -272,8 +272,8 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
                                                        Some(feature));
 
                 // If any overrides present for this package it will be taken care.
-                if let Some(ref overrides) = overrides {
-                    feature_package.apply_overrides(&overrides);
+                if let Some(overrides) = overrides {
+                    feature_package.apply_overrides(overrides);
                 }
                 writeln!(control, "{}", feature_package)?;
             }
@@ -300,8 +300,8 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
                                                });
 
             // Binary package overrides.
-            if let Some(ref overrides) = overrides {
-                bin_pkg.apply_overrides(&overrides);
+            if let Some(overrides) = overrides {
+                bin_pkg.apply_overrides(overrides);
             }
 
             writeln!(control, "{}", bin_pkg)?;

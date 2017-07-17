@@ -75,9 +75,9 @@ impl Source {
             // .chain(bdeps)
             .join(",\n ");
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
-            upstream_name.clone()
+            upstream_name.to_string()
         } else {
-            ""
+            "".to_string()
         };
         Ok(Source {
             name: source,
@@ -90,7 +90,7 @@ impl Source {
             vcs_git: vcs_git,
             vcs_browser: vcs_browser,
             homepage: home.to_string(),
-            x_cargo: cargo_crate.to_string(),
+            x_cargo: cargo_crate,
             version: format!("{}-1", version),
         })
     }

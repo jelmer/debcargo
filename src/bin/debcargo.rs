@@ -12,7 +12,7 @@ extern crate tar;
 extern crate tempdir;
 extern crate ansi_term;
 extern crate walkdir;
-extern crate regex;
+
 
 use clap::{App, AppSettings, ArgMatches, SubCommand};
 use std::fs;
@@ -27,7 +27,6 @@ use debcargo::overrides::parse_overrides;
 
 
 fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
-    let fixme_regex = regex::Regex::new(r"(?:FIXME)")?;
     let mut fixme_files = Vec::new();
     for entry in walkdir::WalkDir::new(srcdir) {
         let entry = entry?;
@@ -39,7 +38,7 @@ fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
             // is only to find files with FIXME strings in it.
             for line in reader.lines() {
                 if let Ok(line) = line {
-                    if fixme_regex.is_match(&line) {
+                    if line.contains("FIXME") {
                         fixme_files.push(filename.to_string());
                         break;
                     }
@@ -62,7 +61,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let override_file = matches.value_of("override").unwrap_or("");
     let override_path = Path::new(override_file);
 
-    let overrides = match parse_overrides(&override_path) {
+    let overrides = match parse_overrides(override_path) {
         Ok(o) => Some(o),
         Err(_) => None,
     };
@@ -76,15 +75,13 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let orig_tar_gz = pkgbase.orig_tarball_path();
 
     let source_modified = crate_info.extract_crate(pkg_srcdir)?;
-    debian::prepare_orig_tarball(crate_info.crate_file(),
-                                 orig_tar_gz,
-                                 source_modified)?;
+    debian::prepare_orig_tarball(crate_info.crate_file(), orig_tar_gz, source_modified)?;
     debian::prepare_debian_folder(&pkgbase,
                                   &crate_info,
                                   package_lib_binaries,
                                   bin_name,
                                   distribution,
-                                  overrides)?;
+                                  overrides.as_ref())?;
 
 
     debcargo_info!(concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
@@ -92,7 +89,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                    orig_tar_gz.to_str().unwrap());
     let fixmes = lookup_fixmes(pkg_srcdir.join("debian").as_path());
     if let Ok(fixmes) = fixmes {
-        if fixmes.len() > 0 {
+        if !fixmes.is_empty() {
             debcargo_warn!("Please update the sections marked FIXME in following files.");
             for f in fixmes {
                 debcargo_warn!(format!("\t• {}", f));
