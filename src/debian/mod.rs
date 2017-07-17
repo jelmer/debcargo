@@ -18,7 +18,7 @@ use errors::*;
 use overrides::{Overrides, OverrideDefaults};
 
 use self::control::deb_version;
-use self::control::{Source, Package, deb_feature_name};
+use self::control::{Source, Package};
 use self::copyright::debian_copyright;
 
 pub mod control;
@@ -135,8 +135,8 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
 
     let meta = crate_info.metadata();
 
-    let (default_features, _) = crate_info.default_deps_features().unwrap();
-    let non_default_features = crate_info.non_default_features(&default_features).unwrap();
+    let (default_features, _) = crate_info.default_deps_features();
+    let non_default_features = crate_info.non_default_features(&default_features);
     let deps = crate_info.non_dev_dependencies()?;
 
     let build_deps = if !bins.is_empty() {
@@ -158,7 +158,6 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
     let base_pkgname = pkgbase.package_basename();
     let pkg_srcdir = pkgbase.package_source_dir();
     let upstream_name = pkgbase.upstream_name();
-    let deb_feature = &|f: &str| deb_feature_name(base_pkgname, f);
 
 
     {
@@ -179,9 +178,9 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
         // debian/copyright
         let mut copyright = io::BufWriter::new(file("copyright")?);
         let dep5_copyright = debian_copyright(crate_info.package(),
-                                              &pkg_srcdir,
+                                              pkg_srcdir,
                                               crate_info.manifest(),
-                                              overrides.as_ref())?;
+                                              overrides)?;
         writeln!(copyright, "{}", dep5_copyright)?;
 
         // debian/watch
@@ -235,20 +234,7 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
         let (summary, description) = crate_info.get_summary_description();
 
         if lib {
-            let ndf = non_default_features.clone();
-            let ndf = if ndf.is_empty() { None } else { Some(&ndf) };
-
-            let df = default_features.clone();
-            let df = if df.is_empty() { None } else { Some(&df) };
-
-            let mut lib_package = Package::new(base_pkgname,
-                                               upstream_name,
-                                               &deps,
-                                               ndf,
-                                               df,
-                                               &summary,
-                                               &description,
-                                               None);
+            let mut lib_package = Package::new(base_pkgname, upstream_name, crate_info, None)?;
 
             // Apply overrides if any
             if let Some(overrides) = overrides {
@@ -257,19 +243,8 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
             writeln!(control, "{}", lib_package)?;
 
             for feature in non_default_features {
-                let mut feature_deps = vec![format!("{} (= ${{binary:Version}})",
-                                                    lib_package.name())];
-
-                crate_info.get_feature_dependencies(feature, deb_feature, &mut feature_deps)?;
-
-                let mut feature_package = Package::new(base_pkgname,
-                                                       upstream_name,
-                                                       &feature_deps,
-                                                       None,
-                                                       None,
-                                                       &summary,
-                                                       &description,
-                                                       Some(feature));
+                let mut feature_package =
+                    Package::new(base_pkgname, upstream_name, &crate_info, Some(feature))?;
 
                 // If any overrides present for this package it will be taken care.
                 if let Some(overrides) = overrides {

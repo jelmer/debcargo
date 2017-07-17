@@ -124,7 +124,7 @@ impl CrateInfo {
         self.manifest.dependencies()
     }
 
-    pub fn default_deps_features(&self) -> Option<(HashSet<&str>, HashSet<&str>)> {
+    pub fn default_deps_features(&self) -> (HashSet<&str>, HashSet<&str>) {
         let mut default_features = HashSet::new();
         let mut default_deps = HashSet::new();
 
@@ -154,12 +154,12 @@ impl CrateInfo {
             }
         }
 
-        Some((default_features, default_deps))
+        (default_features, default_deps)
     }
 
-    pub fn non_default_features(&self, default_features: &HashSet<&str>) -> Option<Vec<&str>> {
+    pub fn non_default_features(&self, default_features: &HashSet<&str>) -> Vec<&str> {
         let features = self.summary.features();
-        Some(features.keys().map(String::as_str).filter(|f| !default_features.contains(f)).sorted())
+        features.keys().map(String::as_str).filter(|f| !default_features.contains(f)).sorted()
     }
 
     pub fn is_lib(&self) -> bool {
@@ -232,14 +232,14 @@ impl CrateInfo {
     }
 
     pub fn non_dev_dependencies(&self) -> Result<Vec<String>> {
-        let (_, default_deps) = self.default_deps_features().unwrap();
+        let (_, default_deps) = self.default_deps_features();
         let dev_deps = self.dev_dependencies();
         let mut deps = Vec::new();
 
         for dep in self.dependencies().iter() {
             if !dev_deps.contains(dep.name()) &&
                (!dep.is_optional() || default_deps.contains(dep.name())) {
-                deps.push(try!(deb_dep(dep)));
+                deps.push(deb_dep(dep)?);
             }
         }
 
@@ -283,7 +283,7 @@ impl CrateInfo {
                                        -> Result<()>
         where F: Fn(&str) -> String
     {
-        let (default_features, _) = self.default_deps_features().unwrap();
+        let (default_features, _) = self.default_deps_features();
         let dev_deps = self.dev_dependencies();
         let all_deps = self.non_build_dependencies()?;
 

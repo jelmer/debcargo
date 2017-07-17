@@ -1,8 +1,9 @@
 use std::fmt;
-use std::collections::HashSet;
 
 use itertools::Itertools;
 
+use errors::*;
+use crates::CrateInfo;
 use overrides::{Overrides, OverrideDefaults};
 use debian::control::{deb_name, deb_feature_name};
 
@@ -44,27 +45,40 @@ impl fmt::Display for Package {
 impl Package {
     pub fn new(basename: &str,
                upstream_name: &str,
-               deps: &[String],
-               non_default_features: Option<&Vec<&str>>,
-               default_features: Option<&HashSet<&str>>,
-               summary: &Option<String>,
-               description: &Option<String>,
+               crate_info: &CrateInfo,
                feature: Option<&str>)
-               -> Package {
+               -> Result<Package> {
         let deb_feature = &|f: &str| deb_feature_name(basename, f);
-        let suggests = match non_default_features {
-            Some(ndf) => ndf.iter().cloned().map(deb_feature).join(",\n "),
-            None => "".to_string(),
+
+        let deps = match feature {
+            None => crate_info.non_dev_dependencies()?,
+            Some(f) => {
+                let mut feature_deps = vec![format!("{} (= ${{binary:Version}})",
+                                                    deb_name(basename))];
+                crate_info.get_feature_dependencies(f, deb_feature, &mut feature_deps)?;
+                feature_deps
+            }
         };
 
-        let provides = match default_features {
-            Some(df) => {
-                df.into_iter()
-                    .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
-                    .join(",\n ")
-            }
-            None => "".to_string(),
+        let (default_features, _) = crate_info.default_deps_features();
+        let non_default_features = crate_info.non_default_features(&default_features);
+        let (summary, description) = crate_info.get_summary_description();
 
+
+        // Suggests is needed only for main package and not feature package.
+        let suggests = if feature.is_none() {
+            non_default_features.iter().cloned().map(deb_feature).join(",\n ")
+        } else {
+            "".to_string()
+        };
+
+        // Provides is also only for main package and not feature package.
+        let provides = if feature.is_none() {
+            default_features.into_iter()
+                .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
+                .join(",\n ")
+        } else {
+            "".to_string()
         };
 
         let depends = vec!["${misc:Depends}".to_string()]
@@ -72,7 +86,7 @@ impl Package {
             .chain(deps.iter())
             .join(",\n ");
 
-        let short_desc = match *summary {
+        let short_desc = match summary {
             None => format!("Source of Rust {} crate", basename),
             Some(ref s) => {
                 format!("{} - {}",
@@ -86,7 +100,7 @@ impl Package {
             Some(s) => deb_feature(s),
         };
 
-        let long_desc = match *description {
+        let long_desc = match description {
             None => "".to_string(),
             Some(ref s) => s.to_string(),
         };
@@ -109,7 +123,7 @@ impl Package {
             }
         };
 
-        Package {
+        Ok(Package {
             name: name,
             arch: "all".to_string(),
             section: "".to_string(),
@@ -119,7 +133,7 @@ impl Package {
             summary: short_desc,
             description: long_desc,
             boilerplate: boilerplate,
-        }
+        })
     }
 
     pub fn new_bin(upstream_name: &str,
