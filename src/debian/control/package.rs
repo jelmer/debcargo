@@ -4,6 +4,7 @@ use itertools::Itertools;
 
 use errors::*;
 use crates::CrateInfo;
+use textwrap::fill;
 use overrides::{Overrides, OverrideDefaults};
 use debian::control::{deb_name, deb_feature_name};
 
@@ -87,11 +88,11 @@ impl Package {
             .join(",\n ");
 
         let short_desc = match summary {
-            None => format!("Source of Rust {} crate", basename),
-            Some(ref s) => {
-                format!("{} - {}",
-                        s,
-                        if let Some(f) = feature { f } else { "Source" })
+            None => format!("Rust source code for crate \"{}\"", basename),
+            Some(ref s) => if let Some(f) = feature {
+                format!("{} - feature \"{}\"", s, f)
+            } else {
+                format!("{} - Rust source code", s)
             }
         };
 
@@ -102,24 +103,22 @@ impl Package {
 
         let long_desc = match description {
             None => "".to_string(),
-            Some(ref s) => s.to_string(),
+            Some(ref s) => s.to_string().replace("\n", " "),
         };
 
         let boilerplate = match feature {
             None => {
-                format!(concat!("This package contains the source for the",
-                                " Rust {} crate,\npackaged for use with",
-                                " cargo, debcargo, and dh-cargo."),
+                format!(concat!("This package contains the source for the ",
+                                "Rust {} crate, packaged by debcargo for use ",
+                                "with cargo and dh-cargo."),
                         upstream_name)
             }
             Some(f) => {
-                format!(concat!("This package enables feature {} for the",
-                                " Rust {} crate. Purpose of this package",
-                                " is\nto pull the additional dependency",
-                                " needed to enable feature {}."),
+                format!(concat!("This package enables feature {} for the ",
+                                "Rust {} crate, by pulling in any additional ",
+                                "dependencies needed by that feature."),
                         f,
-                        upstream_name,
-                        f)
+                        upstream_name)
             }
         };
 
@@ -131,8 +130,8 @@ impl Package {
             suggests: suggests,
             provides: provides,
             summary: short_desc,
-            description: long_desc,
-            boilerplate: boilerplate,
+            description: fill(&long_desc, 79),
+            boilerplate: fill(&boilerplate, 79),
         })
     }
 

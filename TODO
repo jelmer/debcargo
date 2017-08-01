@@ -18,19 +18,6 @@ i.e. debcargo-CURRENT, cargo-0.19, and their dependencies
 Bugs
 ====
 
-Unrepresentable dependency version predicate: libz-sys Predicate { op: GtEq, major: 0, minor: None, patch: None, pre: [] }
-
-P: rust-regex-0.2 source: duplicate-in-relation-field in librust-regex-0.2+simd-accel-dev depends: ${misc:Depends}, ${misc:Depends}
-
-I: rust-regex-0.2 source: duplicate-short-description librust-regex-0.2-dev librust-regex-0.2+simd-accel-dev
-I: rust-regex-0.2 source: duplicate-long-description librust-regex-0.2-dev librust-regex-0.2+simd-accel-dev
-"Feature" packages should mention this in their package description
-
-"Comment:" paragraphs in d/copyright should have FIXME for easy grepping
-
-If there are no FIXMEs emitted, debcargo's output should not prompt the user to
-"Please update the sections marked FIXME"
-
 libgit2-sys:
 Unrepresentable dependency version predicate: libz-sys Predicate { op: GtEq, major: 0, minor: None, patch: None, pre: [] }
 psapi-sys:

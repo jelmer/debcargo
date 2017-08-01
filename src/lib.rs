@@ -11,6 +11,7 @@ extern crate semver;
 extern crate semver_parser;
 extern crate tar;
 extern crate tempdir;
+extern crate textwrap;
 extern crate walkdir;
 extern crate ansi_term;
 extern crate toml;

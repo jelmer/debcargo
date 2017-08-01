@@ -3,6 +3,7 @@ use regex;
 use chrono::{self, Datelike, NaiveDateTime, DateTime, Utc};
 use cargo::core::{manifest, package};
 use tempdir::TempDir;
+use textwrap::fill;
 use git2::Repository;
 
 use std::fmt;
@@ -201,13 +202,13 @@ impl License {
 
 macro_rules! default_files {
     ($file:expr, $notice:expr) => {{
+        let comment = concat!(
+            "FIXME: These notices are extracted from files. Please review ",
+            "them before uploading to the archive. Also delete this comment.");
         Files::new($file,
                    $notice,
                    "UNKNOWN; FIXME",
-                   concat!("These notices are extracted from ",
-                           "files. Please review them before ",
-                           "uploading to\n archive. Also delete",
-                           " this comment. FIXME"))
+                   &fill(comment, 79))
     }}
 }
 
@@ -422,18 +423,16 @@ pub fn debian_copyright(package: &package::Package,
                 author_notices.join("\n ").trim().to_owned()
             }
         };
-        files.insert(0,
-                     Files::new("*",
-                                &notice,
-                                &crate_license,
-                                concat!(
-                                "Since upstream copyright period is not ",
-                                "available in Cargo.toml, copyright period\n",
-                                "is extracted from upstream Git repository. ",
-                                "This may not be correct information\nso",
-                                " maintainer should review and fix this ",
-                                "information before uploading to\narchive. FIXME",
-                            )));
+        let comment = concat!(
+            "FIXME: Since upstream copyright period is not available in ",
+            "Cargo.toml, copyright period is extracted from upstream Git ",
+            "repository. This may not be correct information so you should ",
+            "review and fix this before uploading to the archive."
+        );
+        files.insert(
+            0,
+            Files::new("*", &notice, &crate_license, &fill(comment, 79)),
+        );
 
     }
 
