@@ -408,24 +408,24 @@ pub fn debian_copyright(package: &package::Package,
     } else {
         // Insert catch all block as the first block of copyright file. Capture
         // copyright notice from git log of the upstream repository.
-        let period = if !repository.is_empty() {
+        let years = if !repository.is_empty() {
             copyright_fromgit(repository)?
         } else {
             "".to_string()
         };
         let notice = match meta.authors.len() {
-            1 => format!("{} {}", period, &meta.authors[0]),
+            1 => format!("{} {}", years, &meta.authors[0]),
             _ => {
                 let author_notices: Vec<String> = meta.authors
                     .iter()
-                    .map(|s| format!("{} {}", period, s))
+                    .map(|s| format!("{} {}", years, s))
                     .collect();
                 author_notices.join("\n ").trim().to_owned()
             }
         };
         let comment = concat!(
-            "FIXME: Since upstream copyright period is not available in ",
-            "Cargo.toml, copyright period is extracted from upstream Git ",
+            "FIXME: Since upstream copyright years are not available in ",
+            "Cargo.toml, they were extracted from the upstream Git ",
             "repository. This may not be correct information so you should ",
             "review and fix this before uploading to the archive."
         );
