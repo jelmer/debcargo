@@ -115,6 +115,30 @@ Below is a sample TOML value
     license = "MIT"
 ```
 
+## Testing ##
+
+To test the `debcargo` produced source you can run the following script.
+
+`test/lintian-source.sh crate[s]`
+
+Where you can provide list of crate and the script builds the package source and
+prepapres source only changes and runs lintian over it. If you find any issue
+with source please feel free to add the bugs to TODO.md file.
+
+It is also possible to provide a `Cargo.toml` to this script and it runs
+`debcargo` on individual dependencies listed in the `Cargo.toml`. This can be
+done as follows
+
+`test/lintian-source.sh` Cargo.toml
+
+It is also possible to provide override files for test script. You can put
+override files under `test/overrides` directory and name of the file should be
+*<cratename>_overrides.toml*. You can put it in arbitrary directory also, in
+that case you need to set directory path to `OVERRIDE_DIR` environment variable.
+
+`OVERRIDE_DIR=/path/to/dir test/lintian-source.sh crate[s]`
+
+
 ## License ##
 
 Debcargo is licensed under `MIT/Apache-2.0`. It is written by `Josh Tripplet`
