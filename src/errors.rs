@@ -10,7 +10,8 @@ use git2;
 error_chain! {
     foreign_links {
         Io(io::Error);
-        Cargo(Box<cargo::CargoError>);
+        CargoBox(Box<cargo::CargoError>);
+        Cargo(cargo::CargoError);
         Regex(regex::Error);
         WalkDir(walkdir::Error);
         String(string::FromUtf8Error);

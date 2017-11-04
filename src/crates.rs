@@ -45,7 +45,7 @@ impl CrateInfo {
         let dependency = Dependency::parse_no_deprecated(crate_name,
                                                          version.as_ref().map(String::as_str),
                                                          &crates_io)?;
-        let summaries = registry.query(&dependency)?;
+        let summaries = registry.query_vec(&dependency)?;
         let registry_name = format!("{}-{:016x}",
                                     crates_io.url().host_str().unwrap_or(""),
                                     hash(&crates_io).swap_bytes());
@@ -315,8 +315,9 @@ impl CrateInfo {
                 if dep_features.is_empty() {
                     feature_deps.push(try!(deb_dep(dep_dependency)));
                 } else {
-                    let inner = dep_dependency.clone_inner().set_features(dep_features);
-                    feature_deps.push(try!(deb_dep(&inner.into_dependency())));
+                    let mut dep_dependency = dep_dependency.clone();
+                    let inner = dep_dependency.set_features(dep_features);
+                    feature_deps.push(try!(deb_dep(&inner)));
                 }
             } else if dev_deps.contains(dep_name) {
                 continue;
