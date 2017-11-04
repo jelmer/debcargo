@@ -56,12 +56,12 @@ impl CrateInfo {
         let summary = summaries.iter()
             .max_by_key(|s| s.package_id())
             .ok_or_else(|| {
-                format!(concat!("Couldn't find any crate matching {} {}\n Try `debcargo \
-                                 cargo-update` to",
-                                "update the crates.io index"),
-                        dependency.name(),
-                        dependency.version_req())
-            })?;
+                            format!(concat!("Couldn't find any crate matching {} {}\n Try `cargo ",
+                                            "update` to",
+                                            "update the crates.io index"),
+                                    dependency.name(),
+                                    dependency.version_req())
+                        })?;
 
         let pkgid = summary.package_id();
         let package = registry.download(pkgid)?;
