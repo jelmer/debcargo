@@ -106,7 +106,7 @@ impl Source {
                            selfversion: &str)
                            -> String {
         format!(concat!("{} ({}) {}; urgency=medium\n\n",
-                        "  * Package {} {} from crates.io with debcargo {}\n\n",
+                        "  * Package {} {} from crates.io using  debcargo {}\n\n",
                         " -- {}  {}\n"),
                 self.name,
                 self.version,
