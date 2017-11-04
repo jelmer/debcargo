@@ -26,6 +26,7 @@ Below list is found by running test/lintian-source.sh with `debcargo`'s
 - [ ] Ability to provide ITP number to be closed for `debian/changelog`
 - [ ] Refactor `debian/changelog` into its own representation module similar to
       `debian/control`.
+- [ ] Ability to override debian/compat value to allow easier backporting
 - [ ] Integrate `apt-pkg-native` crate to check if the crate or its dependency
       is already in archive and display information.
 - [ ] Display first level dependency with equivalent Debian names at the end
