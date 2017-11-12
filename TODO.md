@@ -49,3 +49,11 @@ Below list is found by running `tests/sh/lintian-source.sh -r ./`.
       level and recursive using `cargo` API.
 - [ ] Employ `licensecheck` tool to look for license and copyright information.
       Currently we use regex to grep through sources.
+
+
+## Code review ##
+
+infinity0:
+
+src/debian/control/ could be collapsed into control.rs, no need to split into
+too many different files, makes things confusing to navigate..

@@ -59,13 +59,10 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let bin_name = matches.value_of("bin-name").unwrap_or(&crate_name_dashed);
     let directory = matches.value_of("directory");
     let distribution = matches.value_of("distribution").unwrap_or("unstable");
-    let override_file = matches.value_of("override").unwrap_or("");
-    let override_path = Path::new(override_file);
-
-    let overrides = match parse_overrides(override_path) {
-        Ok(o) => Some(o),
-        Err(_) => None,
-    };
+    let overrides = matches.value_of("override").map(|p| {
+        debcargo_warn!("Overrides are not yet stable, follow the mailing list for changes.");
+        parse_overrides(Path::new(p)).unwrap()
+    });
 
 
     let crate_info = CrateInfo::new(crate_name, version)?;

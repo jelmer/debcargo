@@ -5,3 +5,4 @@ license-problem-undefined-license unknown; fixme (paragraph at line *)
 out-of-date-standards-version * (current is *)
 testsuite-autopkgtest-missing
 debian-watch-may-check-gpg-signature
+unused-override *
