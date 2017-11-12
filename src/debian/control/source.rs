@@ -99,6 +99,10 @@ impl Source {
         &self.name
     }
 
+    pub fn uploader(&self) -> &str {
+        &self.uploaders
+    }
+
     pub fn changelog_entry(&self,
                            crate_name: &str,
                            crate_version: &Version,

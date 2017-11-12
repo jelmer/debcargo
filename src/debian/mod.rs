@@ -20,10 +20,12 @@ use overrides::{Overrides, OverrideDefaults};
 use self::control::deb_version;
 use self::control::{Source, Package};
 use self::copyright::debian_copyright;
+use self::changelog::Changelog;
 
 pub mod control;
 mod dependency;
 pub mod copyright;
+pub mod changelog;
 
 
 pub struct BaseInfo {
@@ -283,18 +285,28 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
         }
 
         // debian/changelog
+        let entries = vec![
+            format!(
+                "Package {} {} from crates.io using debcargo {}",
+                crate_info.package_id().name(),
+                crate_info.package_id().version(),
+                pkgbase.debcargo_version()
+            ),
+        ];
+
+        let changelog_entries = Changelog::new(
+            source.srcname(),
+            pkgbase.debian_version(),
+            distribution,
+            "medium",
+            source.uploader(),
+            entries.as_slice(),
+        );
+
         let mut changelog = try!(file("changelog"));
-        let pkgid = crate_info.package_id();
-        write!(changelog,
-               "{}",
-               source.changelog_entry(pkgid.name(),
-                                      pkgid.version(),
-                                      distribution,
-                                      pkgbase.debcargo_version()))?;
+        write!(changelog, "{}", changelog_entries)?;
 
+        fs::rename(tempdir.path(), pkg_srcdir.join("debian"))?;
+        Ok(())
     }
-
-    fs::rename(tempdir.path(), pkg_srcdir.join("debian"))?;
-    tempdir.into_path();
-    Ok(())
 }
