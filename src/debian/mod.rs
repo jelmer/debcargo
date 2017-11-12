@@ -85,10 +85,11 @@ impl BaseInfo {
     }
 }
 
-pub fn prepare_orig_tarball(crate_file: &FileLock,
-                            tarball: &Path,
-                            src_modified: bool)
-                            -> Result<()> {
+pub fn prepare_orig_tarball(
+    crate_file: &FileLock,
+    tarball: &Path,
+    src_modified: bool,
+) -> Result<()> {
     let tempdir = TempDir::new_in(".", "debcargo")?;
     let temp_archive_path = tempdir.path().join(tarball);
 
@@ -106,8 +107,8 @@ pub fn prepare_orig_tarball(crate_file: &FileLock,
         let mut f = crate_file.file();
         f.seek(io::SeekFrom::Start(0))?;
         let mut archive = Archive::new(GzDecoder::new(f)?);
-        let mut new_archive = Builder::new(GzEncoder::new(create.open(&tarball)?,
-                                                          Compression::Best));
+        let mut new_archive =
+            Builder::new(GzEncoder::new(create.open(&tarball)?, Compression::Best));
         for entry in archive.entries()? {
             let entry = entry?;
             if !remove_path(&entry.path()?) {
@@ -125,13 +126,14 @@ pub fn prepare_orig_tarball(crate_file: &FileLock,
     Ok(())
 }
 
-pub fn prepare_debian_folder(pkgbase: &BaseInfo,
-                             crate_info: &CrateInfo,
-                             pkg_lib_binaries: bool,
-                             bin_name: &str,
-                             distribution: &str,
-                             overrides: Option<&Overrides>)
-                             -> Result<()> {
+pub fn prepare_debian_folder(
+    pkgbase: &BaseInfo,
+    crate_info: &CrateInfo,
+    pkg_lib_binaries: bool,
+    bin_name: &str,
+    distribution: &str,
+    overrides: Option<&Overrides>,
+) -> Result<()> {
     let lib = crate_info.is_lib();
     let mut bins = crate_info.get_binary_targets();
 
@@ -148,8 +150,10 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
     };
 
     if lib && !bins.is_empty() && !pkg_lib_binaries {
-        debcargo_info!("Ignoring binaries from lib crate; pass --bin to package: {}",
-                       bins.join(", "));
+        debcargo_info!(
+            "Ignoring binaries from lib crate; pass --bin to package: {}",
+            bins.join(", ")
+        );
         bins.clear();
     }
 
@@ -166,12 +170,15 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
         let file = |name: &str| create.open(tempdir.path().join(name));
 
         // debian/cargo-checksum.json
-        let checksum = crate_info.checksum()
-            .unwrap_or("Could not get crate checksum");
+        let checksum = crate_info.checksum().unwrap_or(
+            "Could not get crate checksum",
+        );
         let mut cargo_checksum_json = file("cargo-checksum.json")?;
-        writeln!(cargo_checksum_json,
-                 r#"{{"package":"{}","files":{{}}}}"#,
-                 checksum)?;
+        writeln!(
+            cargo_checksum_json,
+            r#"{{"package":"{}","files":{{}}}}"#,
+            checksum
+        )?;
 
         // debian/compat
         let mut compat = file("compat")?;
@@ -179,23 +186,31 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
 
         // debian/copyright
         let mut copyright = io::BufWriter::new(file("copyright")?);
-        let dep5_copyright = debian_copyright(crate_info.package(),
-                                              pkg_srcdir,
-                                              crate_info.manifest(),
-                                              overrides)?;
+        let dep5_copyright = debian_copyright(
+            crate_info.package(),
+            pkg_srcdir,
+            crate_info.manifest(),
+            overrides,
+        )?;
         writeln!(copyright, "{}", dep5_copyright)?;
 
         // debian/watch
         let mut watch = file("watch")?;
-        writeln!(watch,
-                 "{}",
-                 format!(concat!("version=4\n",
-                                 "opts=filenamemangle=s/.*\\/(.*)\\/download/{name}-$1\\.\
+        writeln!(
+            watch,
+            "{}",
+            format!(
+                concat!(
+                    "version=4\n",
+                    "opts=filenamemangle=s/.*\\/(.*)\\/download/{name}-$1\\.\
                                   tar\\.gz/g\\ \n",
-                                 " https://qa.debian.org/cgi-bin/fakeupstream.\
+                    " https://qa.debian.org/cgi-bin/fakeupstream.\
                                   cgi?upstream=crates.io/{name} ",
-                                 ".*/crates/{name}/@ANY_VERSION@/download\n"),
-                         name = upstream_name))?;
+                    ".*/crates/{name}/@ANY_VERSION@/download\n"
+                ),
+                name = upstream_name
+            )
+        )?;
 
         // debian/source/format
         fs::create_dir(tempdir.path().join("source"))?;
@@ -206,23 +221,29 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
         let mut create_exec = create.clone();
         create_exec.mode(0o777);
         let mut rules = create_exec.open(tempdir.path().join("rules"))?;
-        write!(rules,
-               "{}",
-               concat!("#!/usr/bin/make -f\n",
-                       "%:\n",
-                       "\tdh $@ --buildsystem cargo\n"))?;
+        write!(
+            rules,
+            "{}",
+            concat!(
+                "#!/usr/bin/make -f\n",
+                "%:\n",
+                "\tdh $@ --buildsystem cargo\n"
+            )
+        )?;
 
         // debian/control
-        let mut source = Source::new(upstream_name,
-                                     base_pkgname,
-                                     pkgbase.debian_version(),
-                                     if let Some(ref home) = meta.homepage {
-                                         home
-                                     } else {
-                                         ""
-                                     },
-                                     &lib,
-                                     build_deps.as_slice())?;
+        let mut source = Source::new(
+            upstream_name,
+            base_pkgname,
+            pkgbase.debian_version(),
+            if let Some(ref home) = meta.homepage {
+                home
+            } else {
+                ""
+            },
+            &lib,
+            build_deps.as_slice(),
+        )?;
 
         // If source overrides are present update related parts.
         if let Some(overrides) = overrides {
@@ -258,23 +279,27 @@ pub fn prepare_debian_folder(pkgbase: &BaseInfo,
 
         if !bins.is_empty() {
             let boilerplate = if bins.len() > 1 || bins[0] != bin_name {
-                Some(format!("This package contains the following binaries built
+                Some(format!(
+                    "This package contains the following binaries built
         from \
                               the\nRust \"{}\" crate:\n- {}",
-                             upstream_name,
-                             bins.join("\n- ")))
+                    upstream_name,
+                    bins.join("\n- ")
+                ))
             } else {
                 None
             };
 
-            let mut bin_pkg = Package::new_bin(upstream_name,
-                                               bin_name,
-                                               &summary,
-                                               &description,
-                                               match boilerplate {
-                                                   Some(ref s) => s,
-                                                   None => "",
-                                               });
+            let mut bin_pkg = Package::new_bin(
+                upstream_name,
+                bin_name,
+                &summary,
+                &description,
+                match boilerplate {
+                    Some(ref s) => s,
+                    None => "",
+                },
+            );
 
             // Binary package overrides.
             if let Some(overrides) = overrides {
