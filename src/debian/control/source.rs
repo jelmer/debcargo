@@ -99,6 +99,10 @@ impl Source {
         &self.name
     }
 
+    pub fn version(&self) -> &String {
+        &self.version
+    }
+
     pub fn uploader(&self) -> &str {
         &self.uploaders
     }

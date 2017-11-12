@@ -321,7 +321,7 @@ pub fn prepare_debian_folder(
 
         let changelog_entries = Changelog::new(
             source.srcname(),
-            pkgbase.debian_version(),
+            source.version(),
             distribution,
             "medium",
             source.uploader(),
