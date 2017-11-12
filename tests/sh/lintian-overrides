@@ -1,0 +1,7 @@
+file-contains-fixme-placeholder debian/copyright:* FIXME
+missing-license-paragraph-in-dep5-copyright unknown; fixme (paragraph at line *)
+space-in-std-shortname-in-dep5-copyright unknown; fixme (paragraph at line *)
+license-problem-undefined-license unknown; fixme (paragraph at line *)
+out-of-date-standards-version * (current is *)
+testsuite-autopkgtest-missing
+debian-watch-may-check-gpg-signature
