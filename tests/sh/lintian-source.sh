@@ -7,14 +7,16 @@ allow_failures="$scriptdir/build-allow-fail"
 directory=tmp
 failures_file=""
 lintian_overrides="$scriptdir/lintian-overrides"
+keepfiles=false
 override_dir="$scriptdir/overrides"
 recursive=false
 update=false
-while getopts 'a:d:f:l:o:ruh?' o; do
+while getopts 'a:d:f:kl:o:ruh?' o; do
 	case $o in
 	a ) allow_failures=$OPTARG;;
 	d ) directory=$OPTARG;;
 	f ) failures_file=$OPTARG;;
+	k ) keepfiles=true;;
 	l ) lintian_overrides=$OPTARG;;
 	o ) override_dir=$OPTARG;;
 	r ) recursive=true;;
@@ -25,16 +27,18 @@ Usage: $0 [-ru] (<crate name>|<path/to/crate>) [..]
 Run debcargo, do a source-only build, and call lintian on the results.
 
   -h            This help text.
-  -a            File that lists crate names to ignore failures for, default:
+  -a FILE       File that lists crate names to ignore failures for, default:
                 $allow_failures.
-  -d            Output directory, default: $directory. Warning: this will be
+  -d DIR        Output directory, default: $directory. Warning: this will be
                 wiped at the start of the test!
-  -f            File to output failed crates in, instead of exiting non-zero.
+  -f FILE       File to output failed crates in, instead of exiting non-zero.
                 Relative paths are taken relative to the output directory.
-  -l            Install this file as debian/source/lintian-overrides, to
+  -k            Don't wipe the output directory at the start of the test, and
+                don't rebuild a crate if its directory already exists.
+  -l FILE       Install this file as debian/source/lintian-overrides, to
                 override some generic stuff we haven't fixed yet. Default:
                 $lintian_overrides.
-  -o            Path to overrides directory.
+  -o DIR        Path to overrides directory, default: $override_dir.
   -r            For crates specified by path, operate on all transitive
                 dependencies. Requires cargo-tree.
   -u            With -r, run "cargo update" before calculating dependencies.
@@ -52,9 +56,10 @@ allow_failures=$(readlink -f "$allow_failures")
 lintian_overrides=$(readlink -f "$lintian_overrides")
 override_dir=$(readlink -f "$override_dir")
 
-if [ -z "$NOCLEAN" ]; then
-	rm -rf "$directory" && mkdir -p "$directory"
+if ! $keepfiles; then
+	rm -rf "$directory"
 fi
+mkdir -p "$directory"
 cd "$directory"
 
 allow_fail() {
@@ -84,6 +89,12 @@ build_source() {
 	local crate="$1"
 	local version="$2"
 	local cratedir="$crate${version:+-$version}"
+
+	if $keepfiles && [ -d "$cratedir" ]; then
+		echo >&2 "skipping already-built ${cratedir}"
+		return 0
+	fi
+
 	if [ -f "$override_dir/${crate}_overrides.toml" ]; then
 		option="--override ${override_dir}/${crate}_overrides.toml"
 	fi
