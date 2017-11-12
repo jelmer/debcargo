@@ -57,6 +57,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let version = matches.value_of("version");
     let package_lib_binaries = matches.is_present("bin") || matches.is_present("bin-name");
     let bin_name = matches.value_of("bin-name").unwrap_or(&crate_name_dashed);
+    let directory = matches.value_of("directory");
     let distribution = matches.value_of("distribution").unwrap_or("unstable");
     let override_file = matches.value_of("override").unwrap_or("");
     let override_path = Path::new(override_file);
@@ -71,7 +72,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!());
 
 
-    let pkg_srcdir = pkgbase.package_source_dir();
+    let pkg_srcdir = directory.map(|s| Path::new(s)).unwrap_or(pkgbase.package_source_dir());
     let orig_tar_gz = pkgbase.orig_tarball_path();
 
     let source_modified = crate_info.extract_crate(pkg_srcdir)?;
@@ -80,6 +81,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                                   &crate_info,
                                   package_lib_binaries,
                                   bin_name,
+                                  pkg_srcdir,
                                   distribution,
                                   overrides.as_ref())?;
 
@@ -115,10 +117,12 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("--bin 'Package binaries from library crates'")
                               .arg_from_usage("--bin-name [name] 'Set package name for \
                                                binaries (implies --bin)'")
+                              .arg_from_usage("--directory [directory] 'Output directory.'")
                               .arg_from_usage("--distribution [name] 'Set target distribution \
                                                for package (default: unstable)'")
                               .arg_from_usage("--override [files] 'TOML file providing \
-                                               override values for debcargo")])
+                                               override values for debcargo. Warning: \
+                                               experimental, may change in the future.'")])
         .get_matches();
     match m.subcommand() {
         ("package", Some(sm)) => do_package(sm),

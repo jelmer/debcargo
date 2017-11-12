@@ -20,6 +20,27 @@ packaging [policy](https://wiki.debian.org/Teams/RustPackaging/Policy).
  * Provide different name to the binary developed by the crate.
  * With proper override values creates lintian clean Debian source package.
 
+
+## Dependencies
+
+For building:
+
+  $ apt-get build-dep cargo
+  $ apt-get install libssl-dev libcurl4-gnutls-dev
+
+For running / testing:
+
+  # As above, then:
+  $ cargo install cargo-tree
+  $ apt-get install dh-cargo lintian
+
+For development:
+
+  # As above, then:
+  $ cargo install rustfmt cargo-graph
+  $ cargo graph | dot -T png > graph.png
+
+
 ## Examples ##
 
 Following will download and unpack the latest `clap` crate and prepare the
@@ -36,6 +57,7 @@ Following will provide override for downloading and packaging latest `clap`
 crate from the crates.io.
 
 `debcargo package --override clap_overrides.toml clap`
+
 
 ## Overrides ##
 
@@ -115,11 +137,12 @@ Below is a sample TOML value
     license = "MIT"
 ```
 
+
 ## Testing ##
 
 To test the `debcargo` produced source you can run the following script.
 
-`test/lintian-source.sh crate[s]`
+`tests/sh/lintian-source.sh crate[s]`
 
 Where you can provide list of crate and the script builds the package source and
 prepapres source only changes and runs lintian over it. If you find any issue
@@ -129,14 +152,14 @@ It is also possible to provide a `Cargo.toml` to this script and it runs
 `debcargo` on individual dependencies listed in the `Cargo.toml`. This can be
 done as follows
 
-`test/lintian-source.sh` Cargo.toml
+`tests/sh/lintian-source.sh` Cargo.toml
 
 It is also possible to provide override files for test script. You can put
-override files under `test/overrides` directory and name of the file should be
+override files under `tests/sh/overrides` directory and name of the file should be
 *<cratename>_overrides.toml*. You can put it in arbitrary directory also, in
-that case you need to set directory path to `OVERRIDE_DIR` environment variable.
+that case you need to give the `-o` option.
 
-`OVERRIDE_DIR=/path/to/dir test/lintian-source.sh crate[s]`
+`tests/sh/lintian-source.sh -o /path/to/override/dir crate[s]`
 
 
 ## License ##

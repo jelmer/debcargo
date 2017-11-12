@@ -131,6 +131,7 @@ pub fn prepare_debian_folder(
     crate_info: &CrateInfo,
     pkg_lib_binaries: bool,
     bin_name: &str,
+    pkg_srcdir: &Path,
     distribution: &str,
     overrides: Option<&Overrides>,
 ) -> Result<()> {
@@ -162,7 +163,6 @@ pub fn prepare_debian_folder(
 
     let tempdir = TempDir::new_in(".", "debcargo")?;
     let base_pkgname = pkgbase.package_basename();
-    let pkg_srcdir = pkgbase.package_source_dir();
     let upstream_name = pkgbase.upstream_name();
 
 

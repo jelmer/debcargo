@@ -8,8 +8,7 @@ If a task is completed put a `x` between `[]`.
 
 ## Bugs ##
 
-Below list is found by running test/lintian-source.sh with `debcargo`'s
-`Cargo.toml` file as input.
+Below list is found by running `tests/sh/lintian-source.sh -r ./`.
 
  - [ ] libgit2-sys: Unrepresentable dependency version predicate: libz-sys
    Predicate { op: GtEq, major: 0, minor: None, patch: None, pre: [] }
