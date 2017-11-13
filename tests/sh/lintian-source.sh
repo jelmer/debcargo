@@ -49,19 +49,6 @@ eof
 done
 shift $(expr $OPTIND - 1)
 
-cargo build
-
-oldpwd="$PWD"
-allow_failures=$(readlink -f "$allow_failures")
-lintian_overrides=$(readlink -f "$lintian_overrides")
-override_dir=$(readlink -f "$override_dir")
-
-if ! $keepfiles; then
-	rm -rf "$directory"
-fi
-mkdir -p "$directory"
-cd "$directory"
-
 allow_fail() {
 	local crate="$1"
 	local version="$2"
@@ -76,19 +63,22 @@ allow_fail() {
 	fi
 }
 
-run_lintian() {
+run_lintian() {(
 	local crate="$1"
 	local version="$2"
 	local cratedir="$crate${version:+-$version}"
+	cd "$directory"
+
 	allow_fail "$crate" $version && return 0
 	changes="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion)_source.changes)"
 	lintian -EIL +pedantic "$changes" || true
-}
+)}
 
-build_source() {
+build_source() {(
 	local crate="$1"
 	local version="$2"
 	local cratedir="$crate${version:+-$version}"
+	cd "$directory"
 
 	if $keepfiles && [ -d "$cratedir" ]; then
 		echo >&2 "skipping already-built ${cratedir}"
@@ -99,7 +89,7 @@ build_source() {
 		option="--override ${override_dir}/${crate}_overrides.toml"
 	fi
 
-	if ../target/debug/debcargo package --directory $cratedir $option "${crate}" $version; then
+	if $debcargo package --directory $cratedir $option "${crate}" $version; then
 		:
 	else
 		local x=$?
@@ -114,12 +104,11 @@ build_source() {
 			return $x
 		fi
 	fi
-	( cd "${cratedir}"
+	cd "${cratedir}"
 	mkdir -p debian/source
 	cp "$lintian_overrides" debian/source/lintian-overrides
 	dpkg-buildpackage -d -S --no-sign
-	)
-}
+)}
 
 cargo_tree() {(
 	cd "$1"
@@ -152,6 +141,24 @@ run_x_or_deps() {
 		"$@" "$x";;
 	esac
 }
+
+# make all paths absolute so things don't mess up when we switch dirs
+allow_failures=$(readlink -f "$allow_failures")
+lintian_overrides=$(readlink -f "$lintian_overrides")
+override_dir=$(readlink -f "$override_dir")
+directory=$(readlink -f "$directory")
+scriptdir=$(readlink -f "$scriptdir")
+
+# ensure $directory exists and maybe wipe it
+if ! $keepfiles; then
+	# don't rm the directory itself, in case it's a symlink
+	rm -rf "$directory"/*
+fi
+mkdir -p "$directory"
+
+cargo build
+debcargo="$scriptdir/../../target/debug/debcargo"
+test -x $debcargo
 
 for i in "$@"; do run_x_or_deps "$i" build_source; done
 for i in "$@"; do run_x_or_deps "$i" run_lintian; done
