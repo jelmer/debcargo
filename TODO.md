@@ -16,7 +16,7 @@ Below list is found by running `tests/sh/lintian-source.sh -r ./`.
  - [ ] curl-sys: Unrepresentable dependency version predicate: libz-sys
    Predicate { op: GtEq, major: 0, minor: None, patch: None, pre: [] }
  - [ ] globset: HTTP 404
- - [ ] hex: Unrecognized crate license: mit or apache-2.0 (parsed from MIT OR
+ - [x] hex: Unrecognized crate license: mit or apache-2.0 (parsed from MIT OR
    Apache-2.0)
  - [ ] ignore: HTTP 404
  - [ ] libgit2-sys: Unrepresentable dependency version predicate: libz-sys
@@ -26,7 +26,7 @@ Below list is found by running `tests/sh/lintian-source.sh -r ./`.
  - [ ] psapi-sys: Unrepresentable dependency version predicate: winapi Predicate
    { op: Wildcard(Major), major: 0, minor: None, patch: None, pre: [] }
  - [ ] termcolor: HTTP 404
- - [ ] term_size-0.3.0: Unrecognized crate license: mit or apache-2.0 (parsed
+ - [x] term_size-0.3.0: Unrecognized crate license: mit or apache-2.0 (parsed
    from MIT OR Apache-2.0)
 
 
