@@ -277,9 +277,11 @@ fn gen_files(debsrcdir: &Path, ignores: Option<Vec<&str>>) -> Result<Vec<Files>>
 
 fn get_licenses(license: &str) -> Result<Vec<License>> {
     let mut licenses = HashMap::new();
+    let sep = regex::Regex::new(r"(?i:[or|/])")?;
 
-    for ls in license.trim().replace("/", " or ").split(" or ") {
-        let text = match ls.trim().to_lowercase().trim_right_matches('+') {
+    let lses: Vec<&str> = sep.split(license).filter(|s| s.len() != 0).collect();
+    for ls in lses {
+        let text: &str = match ls.trim().to_lowercase().trim_right_matches('+') {
             "agpl-3.0" => include_str!("licenses/AGPL-3.0"),
             "apache-2.0" => include_str!("licenses/Apache-2.0"),
             "bsd-2-clause" => include_str!("licenses/BSD-2-Clause"),
