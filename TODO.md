@@ -1,14 +1,13 @@
 # TODO #
 
-We manually review output `debcargo` based on this we add things to "Bugs" or
-"Features" section below. See **Testing** section in README file for details on
-how to run tests.
+We manually review output `debcargo`, and based on this we add things to "Bugs"
+or "Features" section below. See **Testing** section in README file for details
+on how to run tests, e.g. `tests/sh/integrate.sh -rb ./`.
 
 If a task is completed put a `x` between `[]`.
 
-## Bugs ##
 
-Below list is found by running `tests/sh/lintian-source.sh -r ./`.
+## Bugs ##
 
 Known issues:
 

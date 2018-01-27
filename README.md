@@ -141,26 +141,26 @@ Below is a sample TOML value
 
 ## Testing ##
 
-To test the `debcargo` produced source you can run the following script.
+To test the `debcargo` produced packages, you can run the following script.
 
-`tests/sh/lintian-source.sh crate[s]`
+`tests/sh/integrate.sh crate[s]`
 
-Where you can provide list of crate and the script builds the package source and
-prepapres source only changes and runs lintian over it. If you find any issue
-with source please feel free to add the bugs to TODO.md file.
+where you can provide a list of crate names or local directories containing
+crates, and the script will run debcargo to create a source package (`.dsc`)
+and run lintian over it. If you find any issues, please add to the bugs in
+TODO.md file.
 
-It is also possible to provide a `Cargo.toml` to this script and it runs
-`debcargo` on individual dependencies listed in the `Cargo.toml`. This can be
-done as follows
+`tests/sh/integrate.sh -b crate[s]`
 
-`tests/sh/lintian-source.sh` Cargo.toml
+will additionally run [sbuild](https://wiki.debian.org/sbuild) on the source
+package to build binary Debian packages (`.deb`) and run lintian over that too.
 
-It is also possible to provide override files for test script. You can put
-override files under `tests/sh/overrides` directory and name of the file should be
-*<cratename>_overrides.toml*. You can put it in arbitrary directory also, in
-that case you need to give the `-o` option.
+`tests/sh/integrate.sh -r crate[s]`
 
-`tests/sh/lintian-source.sh -o /path/to/override/dir crate[s]`
+will run the tests recursively over the listed crate(s) and all of their
+transitive dependencies.
+
+See `-h` for other options.
 
 
 ## License ##

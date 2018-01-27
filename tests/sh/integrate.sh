@@ -3,48 +3,66 @@ set -e
 
 scriptdir="$(dirname "$0")"
 
-allow_failures="$scriptdir/build-allow-fail"
+# outputs
 directory=tmp
 failures_file=""
+# inputs
+allow_failures="$scriptdir/build-allow-fail"
 lintian_overrides="$scriptdir/lintian-overrides"
-keepfiles=false
 override_dir="$scriptdir/overrides"
+# tweaks
+run_lintian=true
+run_sbuild=false
+keepfiles=false
 recursive=false
 update=false
 extraargs=
+
 while getopts 'a:d:f:kl:o:rux:h?' o; do
 	case $o in
-	a ) allow_failures=$OPTARG;;
 	d ) directory=$OPTARG;;
 	f ) failures_file=$OPTARG;;
-	k ) keepfiles=true;;
+
+	a ) allow_failures=$OPTARG;;
 	l ) lintian_overrides=$OPTARG;;
 	o ) override_dir=$OPTARG;;
+
+	b ) run_sbuild=true;;
+	k ) keepfiles=true;;
 	r ) recursive=true;;
-	x ) extraargs="$extraargs $OPTARG";;
 	u ) update=true;;
+	x ) extraargs="$extraargs $OPTARG";;
 	h|\? ) cat >&2 <<eof
 Usage: $0 [-ru] (<crate name>|<path/to/crate>) [..]
 
 Run debcargo, do a source-only build, and call lintian on the results.
 
   -h            This help text.
-  -a FILE       File that lists crate names to ignore failures for, default:
-                $allow_failures.
+
+Options for output:
   -d DIR        Output directory, default: $directory. Warning: this will be
                 wiped at the start of the test!
   -f FILE       File to output failed crates in, instead of exiting non-zero.
                 Relative paths are taken relative to the output directory.
-  -k            Don't wipe the output directory at the start of the test, and
-                don't rebuild a crate if its directory already exists.
+
+Options for input:
+  -a FILE       File that lists crate names to ignore failures for, default:
+                $allow_failures.
   -l FILE       Install this file as debian/source/lintian-overrides, to
                 override some generic stuff we haven't fixed yet. Default:
                 $lintian_overrides.
   -o DIR        Path to overrides directory, default: $override_dir.
+
+Options to control running:
+  -b            Run sbuild on the resulting dsc package.
+  -k            Don't wipe the output directory at the start of the test, and
+                don't rebuild a crate if its directory already exists.
   -r            For crates specified by path, operate on all transitive
                 dependencies. Requires cargo-tree.
   -u            With -r, run "cargo update" before calculating dependencies.
                 Otherwise, cargo-tree uses the versions listed in Cargo.lock.
+  -x ARG        Give ARG as an extra argument to debcargo, e.g. like
+                -x--copyright-guess-harder.
 eof
 		exit 2;;
 	esac
@@ -73,6 +91,31 @@ run_lintian() {(
 
 	allow_fail "$crate" $version && return 0
 	changes="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion)_source.changes)"
+	lintian -EIL +pedantic "$changes" || true
+)}
+
+chroot=debcargo-unstable-amd64-sbuild
+run_sbuild() {(
+	local crate="$1"
+	local version="$2"
+	local cratedir="$crate${version:+-$version}"
+	cd "$directory"
+
+	allow_fail "$crate" $version && return 0
+	base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
+	dsc="${base}.dsc"
+	build="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).build"
+	if ! schroot -i -c "$chroot" >/dev/null; then
+		echo >&2 "create the $chroot schroot by running e.g.:"
+		echo >&2 "  sudo sbuild-createchroot unstable --chroot-prefix=debcargo-unstable /srv/chroot/$chroot http://deb.debian.org/debian"
+		echo >&2 "  sudo schroot -c source:$chroot -- apt-get -y install dh-cargo"
+		echo >&2 "  sudo sbuild-update -udr $chroot"
+		echo >&2 "See https://wiki.debian.org/sbuild for more details"
+		return 1
+	fi
+	echo >&2 "sbuild $dsc logging to $build"
+	sbuild --arch-all --arch-any -c "$chroot" --extra-package=. "$dsc"
+	changes="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).changes"
 	lintian -EIL +pedantic "$changes" || true
 )}
 
@@ -123,11 +166,6 @@ run_x_or_deps() {
 	case "$x" in
 	*/*)
 		test -d "$x" || local x=$(dirname "$x")
-		# 2>/dev/null is needed because of https://github.com/sfackler/cargo-tree/issues/25
-		cargo_tree "$x" 2>/dev/null | head -n1 | while read pkg ver extras; do
-			echo >&2 "warning: using version $ver from crates.io instead of $extras"
-			"$@" "$pkg" "${ver#v}"
-		done
 		if $recursive; then
 			if $update; then
 				( cd "$x"; cargo update )
@@ -137,6 +175,11 @@ run_x_or_deps() {
 				"$@" "$pkg" "${ver#v}"
 			done
 		fi
+		# 2>/dev/null is needed because of https://github.com/sfackler/cargo-tree/issues/25
+		cargo_tree "$x" 2>/dev/null | head -n1 | while read pkg ver extras; do
+			echo >&2 "warning: using version $ver from crates.io instead of $extras"
+			"$@" "$pkg" "${ver#v}"
+		done
 	;;
 	*-[0-9]*)
 		"$@" "${x%-[0-9]*}" "${x##*-}";;
@@ -164,4 +207,5 @@ debcargo="$scriptdir/../../target/debug/debcargo"
 test -x $debcargo
 
 for i in "$@"; do run_x_or_deps "$i" build_source; done
-for i in "$@"; do run_x_or_deps "$i" run_lintian; done
+if run_lintian; then for i in "$@"; do run_x_or_deps "$i" run_lintian; done; fi
+if run_sbuild; then for i in "$@"; do run_x_or_deps "$i" run_sbuild; done; fi
