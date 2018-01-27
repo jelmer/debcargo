@@ -134,6 +134,7 @@ pub fn prepare_debian_folder(
     pkg_srcdir: &Path,
     distribution: &str,
     overrides: Option<&Overrides>,
+    copyright_guess_harder: bool,
 ) -> Result<()> {
     let lib = crate_info.is_lib();
     let mut bins = crate_info.get_binary_targets();
@@ -191,6 +192,7 @@ pub fn prepare_debian_folder(
             pkg_srcdir,
             crate_info.manifest(),
             overrides,
+            copyright_guess_harder,
         )?;
         writeln!(copyright, "{}", dep5_copyright)?;
 

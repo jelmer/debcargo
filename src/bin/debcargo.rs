@@ -63,7 +63,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         debcargo_warn!("Overrides are not yet stable, follow the mailing list for changes.");
         parse_overrides(Path::new(p)).unwrap()
     });
-
+    let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
     let crate_info = CrateInfo::new(crate_name, version)?;
     let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!());
@@ -79,7 +79,8 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                                   bin_name,
                                   pkg_srcdir,
                                   distribution,
-                                  overrides.as_ref())?;
+                                  overrides.as_ref(),
+                                  copyright_guess_harder)?;
 
     debcargo_info!(concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
                    pkg_srcdir.to_str().unwrap(),
@@ -113,6 +114,7 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("--bin-name [name] 'Set package name for \
                                                binaries (implies --bin)'")
                               .arg_from_usage("--directory [directory] 'Output directory.'")
+                              .arg_from_usage("--copyright-guess-harder 'Guess extra values for d/copyright. Might be slow.'")
                               .arg_from_usage("--distribution [name] 'Set target distribution \
                                                for package (default: unstable)'")
                               .arg_from_usage("--override [files] 'TOML file providing \

@@ -356,7 +356,8 @@ fn copyright_fromgit(repo_url: &str) -> Result<String> {
 pub fn debian_copyright(package: &package::Package,
                         srcdir: &Path,
                         manifest: &manifest::Manifest,
-                        overrides: Option<&Overrides>)
+                        overrides: Option<&Overrides>,
+                        guess_harder: bool)
                         -> Result<DebCopyright> {
     let meta = manifest.metadata().clone();
     let repository = match meta.repository {
@@ -411,11 +412,11 @@ pub fn debian_copyright(package: &package::Package,
     } else {
         // Insert catch all block as the first block of copyright file. Capture
         // copyright notice from git log of the upstream repository.
-        let years = if !repository.is_empty() {
+        let years = if guess_harder && !repository.is_empty() {
             match copyright_fromgit(repository) {
                 Ok(x) => x,
                 Err(e) => {
-                    debcargo_warn!("When generating d/copyright, failed to clone repository {}: {}\n", repository, e);
+                    debcargo_warn!("Failed to generate d/copyright from git repository {}: {}\n", repository, e);
                     "".to_string()
                 }
             }
