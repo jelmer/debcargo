@@ -51,7 +51,7 @@ macro_rules! debcargo_warn {
     ($fmt:expr, $( $arg:tt)+) => {
         {
             use ansi_term::Colour::RGB;
-            let print_string = RGB(255,165,0).bold.paint(format!($fmt, $($arg)+));
+            let print_string = RGB(255,165,0).bold().paint(format!($fmt, $($arg)+));
             println!("{}", print_string);
         }
     };

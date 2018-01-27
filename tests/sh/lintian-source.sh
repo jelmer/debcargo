@@ -112,7 +112,7 @@ build_source() {(
 
 cargo_tree() {(
 	cd "$1"
-	cargo tree --no-indent -q -a
+	cargo tree --no-indent -q -a | grep -v '\['
 )}
 
 run_x_or_deps() {

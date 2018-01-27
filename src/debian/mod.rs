@@ -151,7 +151,7 @@ pub fn prepare_debian_folder(
     };
 
     if lib && !bins.is_empty() && !pkg_lib_binaries {
-        debcargo_info!(
+        debcargo_warn!(
             "Ignoring binaries from lib crate; pass --bin to package: {}",
             bins.join(", ")
         );
