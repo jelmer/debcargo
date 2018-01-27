@@ -156,8 +156,8 @@ build_source() {(
 )}
 
 cargo_tree() {(
-	cd "$1"
-	cargo tree --no-indent -q -a | grep -v '\['
+	if [ "$1" = "--cd" ]; then cd "$2"; shift 2; fi
+	cargo tree "$@" --all-features --all-targets --no-indent -q -a | grep -v '\['
 )}
 
 run_x_or_deps() {
@@ -165,27 +165,39 @@ run_x_or_deps() {
 	shift
 	case "$x" in
 	*/*)
-		test -d "$x" || local x=$(dirname "$x")
-		if $recursive; then
-			if $update; then
-				( cd "$x"; cargo update )
-			fi
-			# tac|awk gives us reverse-topological ordering https://stackoverflow.com/a/11532197
-			cargo_tree "$x" | tail -n+2 | tac | awk '!x[$0]++' | while read pkg ver; do
-				"$@" "$pkg" "${ver#v}"
-			done
+		test -d "$x" || x=$(dirname "$x")
+		spec=$(cargo_tree --cd "$x" 2>/dev/null | head -n1)
+		tree_args="--cd $x"
+		echo $spec | while read pkg ver extras; do
+			echo >&2 "warning: using version $ver from crates.io instead of $x"
+		done
+		;;
+	*-[0-9]*)
+		spec="${x%-[0-9]*} ${x##*-}"
+		tree_args=
+		;;
+	*)
+		spec="$x"
+		tree_args="-p $x"
+		;;
+	esac
+	if $recursive; then
+		if [ -z "$tree_args" ]; then
+			echo >&2 "-r not supported when giving \$pkg-\$ver, due to cargo-tree"
+			return 1
 		fi
-		# 2>/dev/null is needed because of https://github.com/sfackler/cargo-tree/issues/25
-		cargo_tree "$x" 2>/dev/null | head -n1 | while read pkg ver extras; do
-			echo >&2 "warning: using version $ver from crates.io instead of $extras"
+		if $update && -d "$spec"; then
+			( cd "$spec"; cargo update )
+		fi
+		# tac|awk gives us reverse-topological ordering https://stackoverflow.com/a/11532197
+		cargo_tree $tree_args | tail -n+2 | tac | awk '!x[$0]++' | while read pkg ver; do
 			"$@" "$pkg" "${ver#v}"
 		done
-	;;
-	*-[0-9]*)
-		"$@" "${x%-[0-9]*}" "${x##*-}";;
-	*)
-		"$@" "$x";;
-	esac
+	fi
+	# 2>/dev/null is needed because of https://github.com/sfackler/cargo-tree/issues/25
+	echo $spec | while read pkg ver extras; do
+		"$@" "$pkg" "${ver#v}"
+	done
 }
 
 # make all paths absolute so things don't mess up when we switch dirs
