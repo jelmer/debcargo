@@ -36,7 +36,7 @@ Minor issues, could leave for later:
 - [x] Ability to override/add to detected values in `debian/control`
 - [x] Display FIXME warning only if there is any FIXME's present in debian folder.
 - [ ] Ability to provide ITP number to be closed for `debian/changelog`
-- [ ] Refactor `debian/changelog` into its own representation module similar to
+- [x] Refactor `debian/changelog` into its own representation module similar to
       `debian/control`.
 - [ ] Ability to override debian/compat value to allow easier backporting
 - [ ] Integrate `apt-pkg-native` crate to check if the crate or its dependency
