@@ -9,7 +9,7 @@ use tar::Archive;
 use tempdir::TempDir;
 
 use std;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::io;
@@ -92,7 +92,7 @@ impl CrateInfo {
         &self.manifest
     }
 
-    pub fn features(&self) -> &HashMap<String, Vec<String>> {
+    pub fn features(&self) -> &BTreeMap<String, Vec<String>> {
         self.summary.features()
     }
 
