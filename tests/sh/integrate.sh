@@ -114,7 +114,7 @@ run_sbuild() {(
 		return 1
 	fi
 	echo >&2 "sbuild $dsc logging to $build"
-	sbuild --arch-all --arch-any -c "$chroot" --extra-package=. "$dsc"
+	sbuild --arch-all --arch-any --no-run-lintian -c "$chroot" --extra-package=. "$dsc"
 	changes="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).changes"
 	lintian -EIL +pedantic "$changes" || true
 )}
