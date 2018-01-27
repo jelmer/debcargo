@@ -10,9 +10,13 @@ If a task is completed put a `x` between `[]`.
 
 Below list is found by running `tests/sh/lintian-source.sh -r ./`.
 
+Known issues:
+
  - [ ] crates-io: Dependency on prerelease version: error-chain Predicate { op:
    Compatible, major: 0, minor: Some(11), patch: Some(0), pre:
    [AlphaNumeric("rc"), Numeric(2)] }
+   - Feature of debcargo and not a bug; fixed in newer versions of crates-io
+     (and cargo 0.25)
 
 Minor issues, could leave for later:
 
