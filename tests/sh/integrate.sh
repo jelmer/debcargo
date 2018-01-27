@@ -207,5 +207,5 @@ debcargo="$scriptdir/../../target/debug/debcargo"
 test -x $debcargo
 
 for i in "$@"; do run_x_or_deps "$i" build_source; done
-if run_lintian; then for i in "$@"; do run_x_or_deps "$i" run_lintian; done; fi
-if run_sbuild; then for i in "$@"; do run_x_or_deps "$i" run_sbuild; done; fi
+if $run_lintian; then for i in "$@"; do run_x_or_deps "$i" run_lintian; done; fi
+if $run_sbuild; then for i in "$@"; do run_x_or_deps "$i" run_sbuild; done; fi
