@@ -11,7 +11,8 @@ keepfiles=false
 override_dir="$scriptdir/overrides"
 recursive=false
 update=false
-while getopts 'a:d:f:kl:o:ruh?' o; do
+extraargs=
+while getopts 'a:d:f:kl:o:rux:h?' o; do
 	case $o in
 	a ) allow_failures=$OPTARG;;
 	d ) directory=$OPTARG;;
@@ -20,6 +21,7 @@ while getopts 'a:d:f:kl:o:ruh?' o; do
 	l ) lintian_overrides=$OPTARG;;
 	o ) override_dir=$OPTARG;;
 	r ) recursive=true;;
+	x ) extraargs="$extraargs $OPTARG";;
 	u ) update=true;;
 	h|\? ) cat >&2 <<eof
 Usage: $0 [-ru] (<crate name>|<path/to/crate>) [..]
@@ -89,7 +91,7 @@ build_source() {(
 		option="--override ${override_dir}/${crate}_overrides.toml"
 	fi
 
-	if $debcargo package --directory $cratedir $option "${crate}" $version; then
+	if $debcargo package $extraargs --directory $cratedir $option "${crate}" $version; then
 		:
 	else
 		local x=$?
@@ -130,7 +132,8 @@ run_x_or_deps() {
 			if $update; then
 				( cd "$x"; cargo update )
 			fi
-			cargo_tree "$x" | tail -n+2 | sort -u | while read pkg ver; do
+			# tac|awk gives us reverse-topological ordering https://stackoverflow.com/a/11532197
+			cargo_tree "$x" | tail -n+2 | tac | awk '!x[$0]++' | while read pkg ver; do
 				"$@" "$pkg" "${ver#v}"
 			done
 		fi
