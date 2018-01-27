@@ -108,16 +108,17 @@ pub fn prepare_orig_tarball(
         f.seek(io::SeekFrom::Start(0))?;
         let mut archive = Archive::new(GzDecoder::new(f));
         let mut new_archive =
-            Builder::new(GzEncoder::new(create.open(&tarball)?, Compression::best()));
+            Builder::new(GzEncoder::new(create.open(&temp_archive_path)?, Compression::best()));
         for entry in archive.entries()? {
             let entry = entry?;
             if !remove_path(&entry.path()?) {
                 new_archive.append(&entry.header().clone(), entry)?;
+            } else {
+                writeln!(io::stderr(), "Filtered out files from .orig.tar.gz: {:?}", &entry.path()?)?;
             }
         }
 
         new_archive.finish()?;
-        writeln!(io::stderr(), "Filtered out files from .orig.tar.gz")?;
     } else {
         fs::copy(crate_file.path(), &temp_archive_path)?;
     }
