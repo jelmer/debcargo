@@ -332,7 +332,7 @@ impl CrateInfo {
     }
 
     pub fn extract_crate(&self, path: &Path) -> Result<bool> {
-        let mut archive = Archive::new(GzDecoder::new(self.crate_file.file())?);
+        let mut archive = Archive::new(GzDecoder::new(self.crate_file.file()));
         let tempdir = TempDir::new_in(".", "debcargo")?;
         let mut source_modified = false;
 

@@ -106,9 +106,9 @@ pub fn prepare_orig_tarball(
     if src_modified {
         let mut f = crate_file.file();
         f.seek(io::SeekFrom::Start(0))?;
-        let mut archive = Archive::new(GzDecoder::new(f)?);
+        let mut archive = Archive::new(GzDecoder::new(f));
         let mut new_archive =
-            Builder::new(GzEncoder::new(create.open(&tarball)?, Compression::Best));
+            Builder::new(GzEncoder::new(create.open(&tarball)?, Compression::best()));
         for entry in archive.entries()? {
             let entry = entry?;
             if !remove_path(&entry.path()?) {
