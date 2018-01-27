@@ -18,7 +18,7 @@ recursive=false
 update=false
 extraargs=
 
-while getopts 'a:d:f:kl:o:rux:h?' o; do
+while getopts 'd:f:a:l:o:bkrux:h?' o; do
 	case $o in
 	d ) directory=$OPTARG;;
 	f ) failures_file=$OPTARG;;

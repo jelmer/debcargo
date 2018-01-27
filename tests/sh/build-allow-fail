@@ -1,10 +1,1 @@
 crates-io
-curl-sys
-globset
-hex
-ignore
-libgit2-sys
-libssh2-sys
-psapi-sys
-termcolor
-term_size-0.3.0
