@@ -68,7 +68,6 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let crate_info = CrateInfo::new(crate_name, version)?;
     let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!());
 
-
     let pkg_srcdir = directory.map(|s| Path::new(s)).unwrap_or(pkgbase.package_source_dir());
     let orig_tar_gz = pkgbase.orig_tarball_path();
 
@@ -81,7 +80,6 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                                   pkg_srcdir,
                                   distribution,
                                   overrides.as_ref())?;
-
 
     debcargo_info!(concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
                    pkg_srcdir.to_str().unwrap(),
@@ -129,7 +127,7 @@ fn real_main() -> Result<()> {
 
 fn main() {
     if let Err(e) = real_main() {
-        println!("{}", e);
+        println!("Something failed: {}", e);
         std::process::exit(1);
     }
 }

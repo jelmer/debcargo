@@ -412,7 +412,13 @@ pub fn debian_copyright(package: &package::Package,
         // Insert catch all block as the first block of copyright file. Capture
         // copyright notice from git log of the upstream repository.
         let years = if !repository.is_empty() {
-            copyright_fromgit(repository)?
+            match copyright_fromgit(repository) {
+                Ok(x) => x,
+                Err(e) => {
+                    debcargo_warn!("When generating d/copyright, failed to clone repository {}: {}\n", repository, e);
+                    "".to_string()
+                }
+            }
         } else {
             "".to_string()
         };

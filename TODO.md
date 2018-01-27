@@ -13,9 +13,15 @@ Below list is found by running `tests/sh/lintian-source.sh -r ./`.
  - [ ] crates-io: Dependency on prerelease version: error-chain Predicate { op:
    Compatible, major: 0, minor: Some(11), patch: Some(0), pre:
    [AlphaNumeric("rc"), Numeric(2)] }
- - [ ] globset: HTTP 404
- - [ ] ignore: HTTP 404
- - [ ] termcolor: HTTP 404
+
+Minor issues, could leave for later:
+
+ - [ ] globset: When generating d/copyright, failed to clone repository
+       https://github.com/BurntSushi/ripgrep/tree/master/globset: unexpected HTTP status code: 404; class=Net (12)
+ - [ ] ignore: When generating d/copyright, failed to clone repository
+       https://github.com/BurntSushi/ripgrep/tree/master/ignore: unexpected HTTP status code: 404; class=Net (12)
+ - [ ] termcolor: When generating d/copyright, failed to clone repository
+       https://github.com/BurntSushi/ripgrep/tree/master/termcolor: unexpected HTTP status code: 404; class=Net (12)
 
 
 ## Features ##
