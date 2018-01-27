@@ -15,7 +15,7 @@ enum V {
 }
 
 impl V {
-    fn new(p: &Predicate, dep: &str) -> Result<Self> {
+    fn new(p: &Predicate) -> Result<Self> {
         use self::V::*;
         let mmp = match (p.minor, p.patch) {
             (None, None) => M(p.major),
@@ -23,12 +23,6 @@ impl V {
             (Some(minor), Some(patch)) => MMP(p.major, minor, patch),
             (None, Some(_)) => panic!("semver had patch without minor"),
         };
-        if mmp == M(0) && p.op != Gt {
-            debcargo_bail!("Unrepresentable dependency version predicate: {} {:?}",
-                           dep,
-                           p);
-        }
-
         Ok(mmp)
     }
 
@@ -92,9 +86,23 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
                 debcargo_bail!("Dependency on prerelease version: {} {:?}", dep.name(), p);
             }
 
-            let mmp = V::new(p, dep.name())?;
+            let mmp = V::new(p)?;
+            let op = match (&p.op, &mmp) {
+                (&Gt, &M(0)) => &p.op,
+                (&GtEq, &M(0)) => {
+                    debcargo_warn!("Coercing unrepresentable dependency version predicate 'GtEq 0' to 'Gt 0': {} {:?}",
+                       dep.name(),
+                       p);
+                    &Gt
+                    },
+                (_, &M(0)) =>
+                    debcargo_bail!("Unrepresentable dependency version predicate: {} {:?}",
+                       dep.name(),
+                       p),
+                (_, _) => &p.op,
+            };
 
-            match (&p.op, &mmp) {
+            match (op, &mmp) {
                 (&Ex, &M(..)) => deps.push(pkg(&mmp)),
                 (&Ex, &MM(..)) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
                 (&Ex, &MMP(..)) => {
