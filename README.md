@@ -37,8 +37,9 @@ For running / testing:
 For development:
 
   # As above, then:
-  $ cargo install rustfmt cargo-graph
+  $ cargo install rustfmt cargo-graph cargo-outdated
   $ cargo graph | dot -T png > graph.png
+  $ cargo outdated -R
 
 
 ## Examples ##
