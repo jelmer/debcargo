@@ -90,7 +90,11 @@ run_lintian() {(
 	cd "$directory"
 
 	allow_fail "$crate" $version && return 0
-	changes="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion)_source.changes)"
+
+	base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
+	changes="${base}_source.changes"
+	lintian -EIL +pedantic "$changes" || true
+	changes="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).changes"
 	lintian -EIL +pedantic "$changes" || true
 )}
 
@@ -105,18 +109,15 @@ run_sbuild() {(
 	base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
 	dsc="${base}.dsc"
 	build="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).build"
-	if ! schroot -i -c "$chroot" >/dev/null; then
-		echo >&2 "create the $chroot schroot by running e.g.:"
-		echo >&2 "  sudo sbuild-createchroot unstable --chroot-prefix=debcargo-unstable /srv/chroot/$chroot http://deb.debian.org/debian"
-		echo >&2 "  sudo schroot -c source:$chroot -- apt-get -y install dh-cargo"
-		echo >&2 "  sudo sbuild-update -udr $chroot"
-		echo >&2 "See https://wiki.debian.org/sbuild for more details"
-		return 1
+	changes="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).changes"
+
+	if $keepfiles && [ -f "$changes" ]; then
+		echo >&2 "skipping already-built ${dsc}"
+		return 0
 	fi
+
 	echo >&2 "sbuild $dsc logging to $build"
 	sbuild --arch-all --arch-any --no-run-lintian -c "$chroot" --extra-package=. "$dsc"
-	changes="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).changes"
-	lintian -EIL +pedantic "$changes" || true
 )}
 
 build_source() {(
@@ -219,5 +220,17 @@ debcargo="$scriptdir/../../target/debug/debcargo"
 test -x $debcargo
 
 for i in "$@"; do run_x_or_deps "$i" build_source; done
-if $run_lintian; then for i in "$@"; do run_x_or_deps "$i" run_lintian; done; fi
-if $run_sbuild; then for i in "$@"; do run_x_or_deps "$i" run_sbuild; done; fi
+if $run_sbuild; then
+	if ! schroot -i -c "$chroot" >/dev/null; then
+		echo >&2 "create the $chroot schroot by running e.g.:"
+		echo >&2 "  sudo sbuild-createchroot unstable --chroot-prefix=debcargo-unstable /srv/chroot/$chroot http://deb.debian.org/debian"
+		echo >&2 "  sudo schroot -c source:$chroot -- apt-get -y install dh-cargo"
+		echo >&2 "  sudo sbuild-update -udr $chroot"
+		echo >&2 "See https://wiki.debian.org/sbuild for more details"
+		return 1
+	fi
+	for i in "$@"; do run_x_or_deps "$i" run_sbuild; done
+fi
+if $run_lintian; then
+	for i in "$@"; do run_x_or_deps "$i" run_lintian; done
+fi
