@@ -372,11 +372,11 @@ pub fn debian_copyright(package: &package::Package,
             Ok(x) => x,
             Err(e) => {
                 debcargo_warn!("Failed to generate d/copyright from git repository {}: {}\n", repository, e);
-                "".to_string()
+                "FIXME UNKNOWN".to_string()
             }
         }
     } else {
-        "".to_string()
+        "FIXME UNKNOWN".to_string()
     };
     let notice = match meta.authors.len() {
         1 => format!("{} {}", years, &meta.authors[0]),

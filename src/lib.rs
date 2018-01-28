@@ -23,3 +23,4 @@ pub mod errors;
 pub mod crates;
 pub mod debian;
 pub mod config;
+pub mod util;

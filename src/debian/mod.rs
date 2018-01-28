@@ -1,7 +1,7 @@
 pub use self::dependency::deb_dep;
 
 use std::fs;
-use std::io::{self, Seek, Write as IoWrite};
+use std::io::{self, Seek, Write as IoWrite, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::os::unix::fs::OpenOptionsExt;
 
@@ -12,10 +12,10 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use tar::{Archive, Builder};
 
-
 use crates::CrateInfo;
 use errors::*;
 use config::{Config, OverrideDefaults};
+use util::copy_tree;
 
 use self::control::deb_version;
 use self::control::{Source, Package};
@@ -173,16 +173,22 @@ pub fn prepare_debian_folder(
     let upstream_name = pkgbase.upstream_name();
 
     let overlay = config.overlay.as_ref().map(|p| {
-        let config_dir = config_path.unwrap().parent().unwrap();
-        debcargo_warn!(
-            "FIXME: Overlay {:?} set but this is not yet implemented",
-            config_dir.join(p)
-        );
-        config_dir.join(p)
+        config_path.unwrap().parent().unwrap().join(p)
+    });
+
+    overlay.map(|p| {
+        copy_tree(p.as_path(), tempdir.path()).unwrap();
     });
 
     {
-        let file = |name: &str| create.open(tempdir.path().join(name));
+        let file = |name: &str| {
+            let path = tempdir.path();
+            create.open(path.join(name)).or_else(|e| match e.kind() {
+                ErrorKind::AlreadyExists =>
+                    create.open(path.join(name.to_owned() + ".debcargo.hint")),
+                _ => Err(e)
+            })
+        };
 
         // debian/cargo-checksum.json
         let checksum = crate_info.checksum().unwrap_or(
