@@ -154,10 +154,12 @@ pub fn prepare_debian_folder(
     }
     let default_bin_name = crate_info.package().name().to_string().replace('_', "-");
     let bin_name = if config.bin_name.eq(&Config::default().bin_name) {
-        debcargo_info!(
-            "Generate binary crate with default name '{}', set bin_name to override or bin = false to disable.",
-            &default_bin_name
-        );
+        if !bins.is_empty() {
+            debcargo_info!(
+                "Generate binary crate with default name '{}', set bin_name to override or bin = false to disable.",
+                &default_bin_name
+            );
+        }
         &default_bin_name
     } else {
         &config.bin_name
