@@ -130,16 +130,12 @@ pub fn prepare_orig_tarball(
 pub fn prepare_debian_folder(
     pkgbase: &BaseInfo,
     crate_info: &CrateInfo,
-    pkg_lib_binaries: bool,
-    bin_name: &str,
     pkg_srcdir: &Path,
-    distribution: &str,
-    config: Option<&Config>,
+    config: &Config,
     copyright_guess_harder: bool,
 ) -> Result<()> {
     let lib = crate_info.is_lib();
     let mut bins = crate_info.get_binary_targets();
-
     let meta = crate_info.metadata();
 
     let (default_features, _) = crate_info.default_deps_features();
@@ -152,13 +148,19 @@ pub fn prepare_debian_folder(
         [].iter()
     };
 
-    if lib && !bins.is_empty() && !pkg_lib_binaries {
-        debcargo_warn!(
-            "Ignoring binaries from lib crate; pass --bin to package: {}",
-            bins.join(", ")
-        );
+    if lib && !bins.is_empty() && !config.bin {
         bins.clear();
     }
+    let default_bin_name = crate_info.package().name().to_string().replace('_', "-");
+    let bin_name = if config.bin_name.eq(&Config::default().bin_name) {
+        debcargo_info!(
+            "Generate binary crate with default name '{}', set bin_name to override or bin = false to disable.",
+            &default_bin_name
+        );
+        &default_bin_name
+    } else {
+        &config.bin_name
+    };
 
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
@@ -248,9 +250,7 @@ pub fn prepare_debian_folder(
         )?;
 
         // If source overrides are present update related parts.
-        if let Some(config) = config {
-            source.apply_overrides(config);
-        }
+        source.apply_overrides(config);
 
         let mut control = io::BufWriter::new(file("control")?);
         write!(control, "{}", source)?;
@@ -262,9 +262,7 @@ pub fn prepare_debian_folder(
             let mut lib_package = Package::new(base_pkgname, upstream_name, crate_info, None)?;
 
             // Apply overrides if any
-            if let Some(config) = config {
-                lib_package.apply_overrides(config);
-            }
+            lib_package.apply_overrides(config);
             writeln!(control, "{}", lib_package)?;
 
             for feature in non_default_features {
@@ -272,9 +270,7 @@ pub fn prepare_debian_folder(
                     Package::new(base_pkgname, upstream_name, &crate_info, Some(feature))?;
 
                 // If any overrides present for this package it will be taken care.
-                if let Some(config) = config {
-                    feature_package.apply_overrides(config);
-                }
+                feature_package.apply_overrides(config);
                 writeln!(control, "{}", feature_package)?;
             }
         }
@@ -304,10 +300,7 @@ pub fn prepare_debian_folder(
             );
 
             // Binary package overrides.
-            if let Some(config) = config {
-                bin_pkg.apply_overrides(config);
-            }
-
+            bin_pkg.apply_overrides(config);
             writeln!(control, "{}", bin_pkg)?;
         }
 
@@ -324,7 +317,7 @@ pub fn prepare_debian_folder(
         let changelog_entries = Changelog::new(
             source.srcname(),
             source.version(),
-            distribution,
+            &config.distribution,
             "medium",
             source.uploader(),
             entries.as_slice(),

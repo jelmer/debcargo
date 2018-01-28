@@ -3,18 +3,20 @@ use toml;
 use std::io::Read;
 use std::collections::HashMap;
 use std::path::Path;
-use std::default::Default;
 use std::fs::File;
 use errors::*;
 
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
-    source: Option<SourceOverride>,
-    packages: Option<HashMap<String, PackageOverride>>,
+    pub bin: bool,
+    pub bin_name: String,
+    pub distribution: String,
+    pub source: Option<SourceOverride>,
+    pub packages: Option<HashMap<String, PackageOverride>>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct SourceOverride {
     section: Option<String>,
     policy: Option<String>,
@@ -22,7 +24,7 @@ pub struct SourceOverride {
     build_depends: Option<Vec<String>>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct PackageOverride {
     summary: Option<String>,
     description: Option<String>,
@@ -33,10 +35,12 @@ pub trait OverrideDefaults {
     fn apply_overrides(&mut self, config: &Config);
 }
 
-
 impl Default for Config {
     fn default() -> Self {
         Config {
+            bin: true,
+            bin_name: "<default>".to_string(),
+            distribution: "unstable".to_string(),
             source: None,
             packages: None,
         }

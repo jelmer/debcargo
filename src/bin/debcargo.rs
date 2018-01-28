@@ -23,7 +23,7 @@ use std::io::{BufReader, BufRead};
 use debcargo::errors::*;
 use debcargo::crates::CrateInfo;
 use debcargo::debian::{self, BaseInfo};
-use debcargo::config::parse_config;
+use debcargo::config::{Config, parse_config};
 
 
 fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
@@ -53,16 +53,12 @@ fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
 
 fn do_package(matches: &ArgMatches) -> Result<()> {
     let crate_name = matches.value_of("crate").unwrap();
-    let crate_name_dashed = crate_name.replace('_', "-");
     let version = matches.value_of("version");
-    let package_lib_binaries = matches.is_present("bin") || matches.is_present("bin-name");
-    let bin_name = matches.value_of("bin-name").unwrap_or(&crate_name_dashed);
     let directory = matches.value_of("directory");
-    let distribution = matches.value_of("distribution").unwrap_or("unstable");
     let config = matches.value_of("config").map(|p| {
-        debcargo_warn!("Config is not yet stable, follow the mailing list for changes.");
+        debcargo_warn!("--config is not yet stable, follow the mailing list for changes.");
         parse_config(Path::new(p)).unwrap()
-    });
+    }).unwrap_or(Config::default());
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
     let crate_info = CrateInfo::new(crate_name, version)?;
@@ -75,11 +71,8 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     debian::prepare_orig_tarball(crate_info.crate_file(), orig_tar_gz, source_modified)?;
     debian::prepare_debian_folder(&pkgbase,
                                   &crate_info,
-                                  package_lib_binaries,
-                                  bin_name,
                                   pkg_srcdir,
-                                  distribution,
-                                  config.as_ref(),
+                                  &config,
                                   copyright_guess_harder)?;
 
     debcargo_info!(concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
@@ -110,13 +103,8 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("<crate> 'Name of the crate to package'")
                               .arg_from_usage("[version] 'Version of the crate to package; may \
                                                include dependency operators'")
-                              .arg_from_usage("--bin 'Package binaries from library crates'")
-                              .arg_from_usage("--bin-name [name] 'Set package name for \
-                                               binaries (implies --bin)'")
                               .arg_from_usage("--directory [directory] 'Output directory.'")
                               .arg_from_usage("--copyright-guess-harder 'Guess extra values for d/copyright. Might be slow.'")
-                              .arg_from_usage("--distribution [name] 'Set target distribution \
-                                               for package (default: unstable)'")
                               .arg_from_usage("--config [file] 'TOML file providing additional \
                                                package-specific options.'")])
         .get_matches();

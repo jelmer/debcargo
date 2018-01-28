@@ -1,3 +1,13 @@
+# Whether to generate a package for the binary crate.
+bin = true
+
+# Name for the binary crate. Defaults to "<default>" which means the crate
+# name, with no "rust-" prefix and with underscores replaced by hyphens.
+bin_name = "<default>"
+
+# Target distribution for the package
+distribution = "unstable"
+
 [source]
 
 # Debian Standards-Version to use. By default debcargo uses latest policy version.
@@ -17,7 +27,7 @@
 # debcargo).
 #build_depends = ["PLACEHOLDER", "PLACEHOLDER"]
 
-[packages."librust-clap-2-dev"]
+[packages."librust-PACKAGE-SEMVER-dev"]
 
 # This is the short description for package. By default `debcargo` will try to
 # use a description from `Cargo.toml` but sometimes this may lead to a
