@@ -13,6 +13,7 @@ pub struct Config {
     pub bin_name: String,
     pub distribution: String,
     pub overlay: Option<PathBuf>,
+    pub allow_prerelease_deps: bool,
     pub source: Option<SourceOverride>,
     pub packages: Option<HashMap<String, PackageOverride>>,
 }
@@ -43,6 +44,7 @@ impl Default for Config {
             bin_name: "<default>".to_string(),
             distribution: "unstable".to_string(),
             overlay: None,
+            allow_prerelease_deps: false,
             source: None,
             packages: None,
         }

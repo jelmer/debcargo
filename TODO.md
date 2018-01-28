@@ -7,40 +7,46 @@ on how to run tests, e.g. `tests/sh/integrate.sh -rb ./`.
 If a task is completed put a `x` between `[]`.
 
 
-## Bugs ##
+## Code review ##
 
- - [ ] Go through tests/sh/build-allow-fail and make them not fail.
+by infinity0, for copyninja:
 
-Minor issues, could leave for later:
+- src/debian/control/ could be collapsed into control.rs, no need to split into
+  too many different files, makes things confusing to navigate..
 
- - [ ] globset: When generating d/copyright, failed to clone repository
-       https://github.com/BurntSushi/ripgrep/tree/master/globset: unexpected HTTP status code: 404; class=Net (12)
- - [ ] ignore: When generating d/copyright, failed to clone repository
-       https://github.com/BurntSushi/ripgrep/tree/master/ignore: unexpected HTTP status code: 404; class=Net (12)
- - [ ] termcolor: When generating d/copyright, failed to clone repository
-       https://github.com/BurntSushi/ripgrep/tree/master/termcolor: unexpected HTTP status code: 404; class=Net (12)
+- src/crates.rs needs better names for the methods as well as comments
+  explaining what they do. also it mixes up crate deps vs debian deps; code for
+  debian deps should be moved into debian/
 
 
-## Known issues / (probably) not a bug
+## Important features
 
- - [ ] crates-io: Dependency on prerelease version: error-chain Predicate { op:
-   Compatible, major: 0, minor: Some(11), patch: Some(0), pre:
-   [AlphaNumeric("rc"), Numeric(2)] }
-   - Feature of debcargo and not a bug; fixed in newer versions of crates-io
-     (and cargo 0.25)
+- See debcargo.toml.example and the TODOs listed there
+
+  - allow_prerelease_deps will solve this error for cargo 0.24:
+
+    crates-io: Dependency on prerelease version: error-chain Predicate { op:
+    Compatible, major: 0, minor: Some(11), patch: Some(0), pre:
+    [AlphaNumeric("rc"), Numeric(2)] }
+
+    It is already fixed in cargo 0.25
+
+    This would allow us to delete `tests/sh/build-allow-fail`
+
+- Run `tests/sh/integrate.sh -rb ./` and fix the lintian errors that occur in
+  the Debian binary packages.
 
 
-## Features ##
+## Lower-priority tasks
 
-- [x] Ability to override detected values in `debian/copyright`.
-- [x] Display warnings when detected value is different than override value in
-      `debian/copyright`
-- [x] Ability to override/add to detected values in `debian/control`
-- [x] Display FIXME warning only if there is any FIXME's present in debian folder.
-- [ ] Ability to provide ITP number to be closed for `debian/changelog`
-- [x] Refactor `debian/changelog` into its own representation module similar to
-      `debian/control`.
-- [ ] Ability to override debian/compat value to allow easier backporting
+Minor issues
+
+- [ ] globset, ignore, termcolor:
+      When generating d/copyright, failed to clone repository
+      https://github.com/BurntSushi/ripgrep/tree/master/XXX: unexpected HTTP status code: 404; class=Net (12)
+
+Features for later
+
 - [ ] Integrate `apt-pkg-native` crate to check if the crate or its dependency
       is already in archive and display information.
 - [ ] Display first level dependency with equivalent Debian names at the end
@@ -49,11 +55,3 @@ Minor issues, could leave for later:
       level and recursive using `cargo` API.
 - [ ] Employ `licensecheck` tool to look for license and copyright information.
       Currently we use regex to grep through sources.
-
-
-## Code review ##
-
-infinity0:
-
-src/debian/control/ could be collapsed into control.rs, no need to split into
-too many different files, makes things confusing to navigate..
