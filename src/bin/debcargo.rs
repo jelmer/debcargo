@@ -23,7 +23,7 @@ use std::io::{BufReader, BufRead};
 use debcargo::errors::*;
 use debcargo::crates::CrateInfo;
 use debcargo::debian::{self, BaseInfo};
-use debcargo::overrides::parse_overrides;
+use debcargo::config::parse_config;
 
 
 fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
@@ -59,9 +59,9 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let bin_name = matches.value_of("bin-name").unwrap_or(&crate_name_dashed);
     let directory = matches.value_of("directory");
     let distribution = matches.value_of("distribution").unwrap_or("unstable");
-    let overrides = matches.value_of("override").map(|p| {
-        debcargo_warn!("Overrides are not yet stable, follow the mailing list for changes.");
-        parse_overrides(Path::new(p)).unwrap()
+    let config = matches.value_of("config").map(|p| {
+        debcargo_warn!("Config is not yet stable, follow the mailing list for changes.");
+        parse_config(Path::new(p)).unwrap()
     });
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
@@ -79,7 +79,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                                   bin_name,
                                   pkg_srcdir,
                                   distribution,
-                                  overrides.as_ref(),
+                                  config.as_ref(),
                                   copyright_guess_harder)?;
 
     debcargo_info!(concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
@@ -117,9 +117,8 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("--copyright-guess-harder 'Guess extra values for d/copyright. Might be slow.'")
                               .arg_from_usage("--distribution [name] 'Set target distribution \
                                                for package (default: unstable)'")
-                              .arg_from_usage("--override [files] 'TOML file providing \
-                                               override values for debcargo. Warning: \
-                                               experimental, may change in the future.'")])
+                              .arg_from_usage("--config [file] 'TOML file providing additional \
+                                               package-specific options.'")])
         .get_matches();
     match m.subcommand() {
         ("package", Some(sm)) => do_package(sm),

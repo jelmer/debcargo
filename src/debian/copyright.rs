@@ -16,7 +16,6 @@ use std::io::{BufRead, BufReader, Read};
 
 use errors::*;
 use debian::control::get_deb_author;
-use overrides::{Overrides, OverrideDefaults};
 
 
 const DEB_COPYRIGHT_FORMAT: &'static str = "https://www.debian.\
@@ -144,22 +143,6 @@ impl fmt::Display for Files {
     }
 }
 
-impl OverrideDefaults for Files {
-    fn apply_overrides(&mut self, overrides: &Overrides) {
-        if let Some(ofile) = overrides.file_section_for(&self.files) {
-            if self.copyright != ofile.copyright {
-                debcargo_info!("Auto detected copyright: {} is different from \
-                                your supplied override",
-                               self.copyright);
-            }
-
-            self.copyright = ofile.copyright;
-            self.license = ofile.license;
-            self.comment.clear();
-        }
-    }
-}
-
 impl Files {
     pub fn new(name: &str, notice: &str, license: &str, comment: &str) -> Files {
         Files {
@@ -212,12 +195,8 @@ macro_rules! default_files {
     }}
 }
 
-fn gen_files(debsrcdir: &Path, ignores: Option<Vec<&str>>) -> Result<Vec<Files>> {
+fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     let mut copyright_notices = HashMap::new();
-    let ignores = match ignores {
-        Some(ignores) => ignores,
-        None => vec![],
-    };
 
     let copyright_notice_re =
         try!(regex::Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b(\d{4}\b.*)$"));
@@ -236,25 +215,22 @@ fn gen_files(debsrcdir: &Path, ignores: Option<Vec<&str>>) -> Result<Vec<Files>>
         let entry = try!(entry);
         if entry.file_type().is_file() {
             let copyright_file = entry.path().to_str().unwrap();
-            let file_name = entry.file_name().to_str().unwrap();
-            if !ignores.contains(&file_name) {
-                let file = try!(fs::File::open(entry.path()));
-                let reader = BufReader::new(file);
-                for line in reader.lines() {
-                    if let Ok(line) = line {
-                        if let Some(m) = copyright_notice_re.captures(&line) {
-                            let m = m.get(1).unwrap();
-                            let start = m.start();
-                            let end = m.end();
-                            let notice = line[start..end]
-                                .trim_right()
-                                .trim_right_matches(". See the COPYRIGHT")
-                                .to_string();
-                            copyright_notices.insert(copyright_file.to_string(), notice);
-                        }
-                    } else {
-                        break;
+            let file = try!(fs::File::open(entry.path()));
+            let reader = BufReader::new(file);
+            for line in reader.lines() {
+                if let Ok(line) = line {
+                    if let Some(m) = copyright_notice_re.captures(&line) {
+                        let m = m.get(1).unwrap();
+                        let start = m.start();
+                        let end = m.end();
+                        let notice = line[start..end]
+                            .trim_right()
+                            .trim_right_matches(". See the COPYRIGHT")
+                            .to_string();
+                        copyright_notices.insert(copyright_file.to_string(), notice);
                     }
+                } else {
+                    break;
                 }
             }
         }
@@ -356,18 +332,12 @@ fn copyright_fromgit(repo_url: &str) -> Result<String> {
 pub fn debian_copyright(package: &package::Package,
                         srcdir: &Path,
                         manifest: &manifest::Manifest,
-                        overrides: Option<&Overrides>,
                         guess_harder: bool)
                         -> Result<DebCopyright> {
     let meta = manifest.metadata().clone();
     let repository = match meta.repository {
         None => "",
         Some(ref r) => r,
-    };
-
-    let overrides: Overrides = match overrides {
-        Some(o) => o.to_owned(),
-        None => Overrides::default(),
     };
 
     let upstream = UpstreamInfo::new(manifest.name().to_string(), &meta.authors, repository);
@@ -389,62 +359,45 @@ pub fn debian_copyright(package: &package::Package,
         debcargo_bail!("Crate has no license or license_file");
     }
 
-    let ignores = overrides.copyright_ignores();
-    let mut files = gen_files(srcdir, ignores)?;
-    if overrides.is_files_present() {
-        for file in &mut files {
-            file.apply_overrides(&overrides);
+    let mut files = gen_files(srcdir)?;
+
+    let current_year = chrono::Local::now().year();
+    let deb_notice = format!("{}, {}", current_year, get_deb_author().unwrap_or_default());
+    files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
+
+    // Insert catch all block as the first block of copyright file. Capture
+    // copyright notice from git log of the upstream repository.
+    let years = if guess_harder && !repository.is_empty() {
+        match copyright_fromgit(repository) {
+            Ok(x) => x,
+            Err(e) => {
+                debcargo_warn!("Failed to generate d/copyright from git repository {}: {}\n", repository, e);
+                "".to_string()
+            }
         }
-    }
-
-
-    if let Some(f) = overrides.file_section_for("debian/*") {
-        files.push(f);
     } else {
-        let current_year = chrono::Local::now().year();
-        let deb_notice = format!("{}, {}", current_year, get_deb_author().unwrap_or_default());
-        files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
-    }
-
-
-    if let Some(f) = overrides.file_section_for("*") {
-        files.insert(0, f);
-    } else {
-        // Insert catch all block as the first block of copyright file. Capture
-        // copyright notice from git log of the upstream repository.
-        let years = if guess_harder && !repository.is_empty() {
-            match copyright_fromgit(repository) {
-                Ok(x) => x,
-                Err(e) => {
-                    debcargo_warn!("Failed to generate d/copyright from git repository {}: {}\n", repository, e);
-                    "".to_string()
-                }
-            }
-        } else {
-            "".to_string()
-        };
-        let notice = match meta.authors.len() {
-            1 => format!("{} {}", years, &meta.authors[0]),
-            _ => {
-                let author_notices: Vec<String> = meta.authors
-                    .iter()
-                    .map(|s| format!("{} {}", years, s))
-                    .collect();
-                author_notices.join("\n ").trim().to_owned()
-            }
-        };
-        let comment = concat!(
-            "FIXME: Since upstream copyright years are not available in ",
-            "Cargo.toml, they were extracted from the upstream Git ",
-            "repository. This may not be correct information so you should ",
-            "review and fix this before uploading to the archive."
-        );
-        files.insert(
-            0,
-            Files::new("*", &notice, &crate_license, &fill(comment, 79)),
-        );
-
-    }
+        "".to_string()
+    };
+    let notice = match meta.authors.len() {
+        1 => format!("{} {}", years, &meta.authors[0]),
+        _ => {
+            let author_notices: Vec<String> = meta.authors
+                .iter()
+                .map(|s| format!("{} {}", years, s))
+                .collect();
+            author_notices.join("\n ").trim().to_owned()
+        }
+    };
+    let comment = concat!(
+        "FIXME: Since upstream copyright years are not available in ",
+        "Cargo.toml, they were extracted from the upstream Git ",
+        "repository. This may not be correct information so you should ",
+        "review and fix this before uploading to the archive."
+    );
+    files.insert(
+        0,
+        Files::new("*", &notice, &crate_license, &fill(comment, 79)),
+    );
 
     Ok(DebCopyright::new(upstream, &files, &licenses))
 }

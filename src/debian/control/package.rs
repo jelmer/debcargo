@@ -5,7 +5,7 @@ use itertools::Itertools;
 use errors::*;
 use crates::CrateInfo;
 use textwrap::fill;
-use overrides::{Overrides, OverrideDefaults};
+use config::{Config, OverrideDefaults};
 use debian::control::{deb_name, deb_feature_name};
 
 pub struct Package {
@@ -194,8 +194,8 @@ impl Package {
 }
 
 impl OverrideDefaults for Package {
-    fn apply_overrides(&mut self, overrides: &Overrides) {
-        if let Some((s, d)) = overrides.summary_description_for(&self.name) {
+    fn apply_overrides(&mut self, config: &Config) {
+        if let Some((s, d)) = config.summary_description_for(&self.name) {
             if !s.is_empty() {
                 self.summary = s.to_string();
             }

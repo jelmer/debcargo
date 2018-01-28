@@ -3,7 +3,7 @@ use chrono;
 use itertools::Itertools;
 use semver::Version;
 
-use overrides::{Overrides, OverrideDefaults};
+use config::{Config, OverrideDefaults};
 use errors::*;
 
 use debian::control::get_deb_author;
@@ -128,22 +128,22 @@ impl Source {
 }
 
 impl OverrideDefaults for Source {
-    fn apply_overrides(&mut self, overrides: &Overrides) {
-        if let Some(section) = overrides.section() {
+    fn apply_overrides(&mut self, config: &Config) {
+        if let Some(section) = config.section() {
             self.section = section.to_string();
         }
 
-        if let Some(policy) = overrides.policy_version() {
+        if let Some(policy) = config.policy_version() {
             self.standards = policy.to_string();
         }
 
-        if let Some(bdeps) = overrides.build_depends() {
+        if let Some(bdeps) = config.build_depends() {
             let deps = bdeps.iter().join(",\n ");
             self.build_deps.push_str(",\n ");
             self.build_deps.push_str(&deps);
         }
 
-        if let Some(homepage) = overrides.homepage() {
+        if let Some(homepage) = config.homepage() {
             self.homepage = homepage.to_string();
         }
     }

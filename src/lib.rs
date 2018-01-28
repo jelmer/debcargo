@@ -21,4 +21,4 @@ extern crate git2;
 pub mod errors;
 pub mod crates;
 pub mod debian;
-pub mod overrides;
+pub mod config;
