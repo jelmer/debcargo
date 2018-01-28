@@ -6,14 +6,18 @@ use std::path::{Path,PathBuf};
 use std::fs::File;
 use errors::*;
 
-
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
+    #[serde(default)]
     pub bin: bool,
+    #[serde(default)]
     pub bin_name: String,
+    #[serde(default)]
     pub distribution: String,
     pub overlay: Option<PathBuf>,
+    #[serde(default)]
     pub allow_prerelease_deps: bool,
+
     pub source: Option<SourceOverride>,
     pub packages: Option<HashMap<String, PackageOverride>>,
 }

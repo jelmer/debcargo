@@ -13,22 +13,3 @@ This package provides clap with following default features.
  * color: turns on colored error messages.
  * wrap_help: Wrap the help at actual terminal width when available.
 """
-
-[copyright]
-source = "https://github.com/clap/clap.rs"
-ignore = ["LICENSE-MIT"]
-[copyright.files."*"]
-copyright = ["2015-2016, Kevin B. Knapp <kbknapp@gmail.com"]
-license = "MIT"
-
-[copyright.files."debian/*"]
-copyright = ["2017, Vasudev Kamath <vasudev@copyninja.info"]
-license = "MIT"
-
-[copyright.files."./LICENSE-MIT"]
-copyright = ["2015-2016, Kvin B. Knapp <kbknapp@gmail.com>"]
-license = "MIT"
-
-[copyright.files."./src/args/arg_matches.rs"]
-copyright = ["2015, The Rust Project Developers"]
-license = "MIT"

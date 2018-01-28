@@ -2,6 +2,7 @@
 extern crate error_chain;
 #[macro_use]
 extern crate serde_derive;
+extern crate serde;
 extern crate cargo;
 extern crate chrono;
 extern crate flate2;
