@@ -16,6 +16,8 @@ pub struct Config {
     pub distribution: String,
     pub overlay: Option<PathBuf>,
     #[serde(default)]
+    pub overlay_write_back: bool,
+    #[serde(default)]
     pub allow_prerelease_deps: bool,
 
     pub source: Option<SourceOverride>,
@@ -48,6 +50,7 @@ impl Default for Config {
             bin_name: "<default>".to_string(),
             distribution: "unstable".to_string(),
             overlay: None,
+            overlay_write_back: true,
             allow_prerelease_deps: false,
             source: None,
             packages: None,
