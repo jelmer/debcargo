@@ -117,7 +117,7 @@ run_sbuild() {(
 	fi
 
 	echo >&2 "sbuild $dsc logging to $build"
-	sbuild --arch-all --arch-any --no-run-lintian -c "$chroot" --extra-package=. "$dsc"
+	sbuild --arch-all --arch-any --no-run-lintian -c "$chroot" -d unstable --extra-package=. "$dsc"
 )}
 
 build_source() {(
