@@ -1,12 +1,12 @@
 # Whether to generate a package for the binary crate.
-bin = true
+#bin = true
 
 # Name for the binary crate. Defaults to "<default>" which means the crate
 # name, with no "rust-" prefix and with underscores replaced by hyphens.
-bin_name = "<default>"
+#bin_name = "<default>"
 
 # Target distribution for the package.
-distribution = "unstable"
+#distribution = "unstable"
 # TODO: implement overlay/overlay_write_back and remove this
 
 # TODO:
@@ -29,7 +29,7 @@ distribution = "unstable"
 #
 # It is strongly recommended that you keep the overlay directory tracked in
 # version control, and set this to false if it is not.
-overlay_write_back = true
+#overlay_write_back = true
 
 # TODO:
 # Whether to allow prerelease deps, by rewriting these to the released version.
@@ -37,7 +37,7 @@ overlay_write_back = true
 # you should check that they can actually build when this is enabled.
 # TODO: this needs src/crates.rs to be cleaned up first, see
 # TODO.md "code review" near the bottom for details
-allow_prerelease_deps = false
+#allow_prerelease_deps = false
 
 [source]
 
