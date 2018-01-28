@@ -2,7 +2,7 @@ use toml;
 
 use std::io::Read;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path,PathBuf};
 use std::fs::File;
 use errors::*;
 
@@ -12,6 +12,7 @@ pub struct Config {
     pub bin: bool,
     pub bin_name: String,
     pub distribution: String,
+    pub overlay: Option<PathBuf>,
     pub source: Option<SourceOverride>,
     pub packages: Option<HashMap<String, PackageOverride>>,
 }
@@ -41,6 +42,7 @@ impl Default for Config {
             bin: true,
             bin_name: "<default>".to_string(),
             distribution: "unstable".to_string(),
+            overlay: None,
             source: None,
             packages: None,
         }

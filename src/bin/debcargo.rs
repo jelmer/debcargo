@@ -55,10 +55,11 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let crate_name = matches.value_of("crate").unwrap();
     let version = matches.value_of("version");
     let directory = matches.value_of("directory");
-    let config = matches.value_of("config").map(|p| {
+    let (config_path, config) = matches.value_of("config").map(|p| {
         debcargo_warn!("--config is not yet stable, follow the mailing list for changes.");
-        parse_config(Path::new(p)).unwrap()
-    }).unwrap_or(Config::default());
+        let path = Path::new(p);
+        (Some(path), parse_config(path).unwrap())
+    }).unwrap_or((None, Config::default()));
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
     let crate_info = CrateInfo::new(crate_name, version)?;
@@ -72,6 +73,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     debian::prepare_debian_folder(&pkgbase,
                                   &crate_info,
                                   pkg_srcdir,
+                                  config_path,
                                   &config,
                                   copyright_guess_harder)?;
 

@@ -131,6 +131,7 @@ pub fn prepare_debian_folder(
     pkgbase: &BaseInfo,
     crate_info: &CrateInfo,
     pkg_srcdir: &Path,
+    config_path: Option<&Path>,
     config: &Config,
     copyright_guess_harder: bool,
 ) -> Result<()> {
@@ -169,6 +170,14 @@ pub fn prepare_debian_folder(
     let base_pkgname = pkgbase.package_basename();
     let upstream_name = pkgbase.upstream_name();
 
+    let overlay = config.overlay.as_ref().map(|p| {
+        let config_dir = config_path.unwrap().parent().unwrap();
+        debcargo_warn!(
+            "FIXME: Overlay {:?} set but this is not yet implemented",
+            config_dir.join(p)
+        );
+        config_dir.join(p)
+    });
 
     {
         let file = |name: &str| create.open(tempdir.path().join(name));
