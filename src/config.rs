@@ -7,17 +7,12 @@ use std::fs::File;
 use errors::*;
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct Config {
-    #[serde(default)]
     pub bin: bool,
-    #[serde(default)]
     pub bin_name: String,
-    #[serde(default)]
-    pub distribution: String,
     pub overlay: Option<PathBuf>,
-    #[serde(default)]
     pub overlay_write_back: bool,
-    #[serde(default)]
     pub allow_prerelease_deps: bool,
 
     pub source: Option<SourceOverride>,
@@ -48,7 +43,6 @@ impl Default for Config {
         Config {
             bin: true,
             bin_name: "<default>".to_string(),
-            distribution: "unstable".to_string(),
             overlay: None,
             overlay_write_back: true,
             allow_prerelease_deps: false,
