@@ -21,6 +21,9 @@ by infinity0, for copyninja:
 
 ## Important features
 
+- sbuild of aho-corasick fails (with bin = true) because `cargo install` wants
+  dev-dependencies (e.g. csv) but debcargo doesn't take them into account yet.
+
 - See debcargo.toml.example and the TODOs listed there
 
   - allow_prerelease_deps will solve this error for cargo 0.24:
