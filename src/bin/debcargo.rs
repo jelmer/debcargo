@@ -97,6 +97,17 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
+fn do_deb_src_name(matches: &ArgMatches) -> Result<()> {
+    let crate_name = matches.value_of("crate").unwrap();
+    let version = matches.value_of("version");
+
+    let crate_info = CrateInfo::new(crate_name, version)?;
+    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!());
+    println!("{}", pkgbase.package_basename());
+
+    Ok(())
+}
+
 fn real_main() -> Result<()> {
     let m = App::new("debcargo")
         .author(crate_authors!())
@@ -115,9 +126,16 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("--config [file] 'TOML file providing additional \
                                                package-specific options.'")
                      ])
+        .subcommands(vec![SubCommand::with_name("deb-src-name")
+                              .about("Prints the Debian package name for a crate")
+                              .arg_from_usage("<crate> 'Name of the crate to package'")
+                              .arg_from_usage("[version] 'Version of the crate to package; may \
+                                               include dependency operators'")
+                     ])
         .get_matches();
     match m.subcommand() {
         ("package", Some(sm)) => do_package(sm),
+        ("deb-src-name", Some(sm)) => do_deb_src_name(sm),
         _ => unreachable!(),
     }
 }

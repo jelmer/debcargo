@@ -53,40 +53,41 @@ See `debcargo.toml.example` for a sample TOML file.
 
 New package:
 
- $ PKG=debcargo
- $ TMPDIR=/tmp
- $ debcargo="debcargo package --config $PKG/debian/debcargo.toml --directory $TMPDIR/$PKG"
+ $ PKG=the-crate-you-want-to-package
+ $ PKGDIR=$(debcargo deb-src-name $PKG)
+ $ BUILDDIR=$PWD/build/$PKGDIR
+ $ PKGCFG=$PKGDIR/debian/debcargo.toml
 
- $ mkdir -p $PKG/debian
- $ cp /path/to/debcargo.git/debcargo.toml.example $PKG/debian/debcargo.toml
- $ sed -i -e 's/^#overlay =/overlay =/' $PKG/debian/debcargo.toml
- $ touch $PKG/debian/copyright
- $ $debcargo $PKG
- $ ls $PKG/debian/{changelog,copyright.debcargo.hint} # both should have been created
+ $ mkdir -p $PKGDIR/debian $BUILDDIR
+ $ cp /path/to/debcargo.git/debcargo.toml.example $PKGCFG
+ $ sed -i -e 's/^#overlay =/overlay =/' $PKGCFG
+ $ touch $PKGDIR/debian/copyright
+ $ debcargo package --config $PKGCFG --directory $BUILDDIR $PKG
+ $ ls $PKGDIR/debian/{changelog,copyright.debcargo.hint} # both should have been created
 
- $ cd $PKG
- $PKG$ # update debian/copyright based on debian/copyight.debcargo.hint
- $PKG$ # hack hack hack, deal with any FIXMEs
- $PKG$ dch -r -D experimental
- $ cd ..
- $ rm -rf $TMPDIR/$PKG && $debcargo --changelog-ready $PKG
- $ git add $PKG
+ $ cd $PKGDIR
+ $PKGDIR$ ### update debian/copyright based on debian/copyight.debcargo.hint
+ $PKGDIR$ ### hack hack hack, deal with any FIXMEs
+ $PKGDIR$ dch -r -D experimental
+ $PKGDIR$ cd ..
+ $ rm -rf $BUILDDIR && debcargo package --config $PKGCFG --directory $BUILDDIR --changelog-ready $PKG
+ $ git add $PKGDIR
  $ git commit -m "New package $PKG, it does A, B and C."
  $ dput [etc]
 
 Updating a package:
 
- $ rm -rf $TMPDIR/$PKG && $debcargo $PKG
- $ cd $PKG
- $PKG$ git diff
- $PKG$ # examine (any) differences in the hint files, e.g. d/copyright.debcargo.hint
- $PKG$ # apply these differences to the real files, e.g. d/copyright
- $PKG$ # hack hack hack, deal with any FIXMEs
- $PKG$ dch -r -D unstable
- $ cd ..
- $ rm -rf $TMPDIR/$PKG && $debcargo --changelog-ready $PKG
- $ git add $PKG
- $ git commit -m "New package $PKG, it does A, B and C."
+ $ rm -rf $BUILDDIR && debcargo package --config $PKGCFG --directory $BUILDDIR $PKG
+ $ cd $PKGDIR
+ $PKGDIR$ git diff
+ $PKGDIR$ ### examine (any) differences in the hint files, e.g. d/copyright.debcargo.hint
+ $PKGDIR$ ### apply these differences to the real files, e.g. d/copyright
+ $PKGDIR$ ### hack hack hack, deal with any FIXMEs
+ $PKGDIR$ dch -r -D unstable
+ $PKGDIR$ cd ..
+ $ rm -rf $BUILDDIR && debcargo package --config $PKGCFG --directory $BUILDDIR --changelog-ready $PKG
+ $ git add $PKGDIR
+ $ git commit -m "Updated package $PKG, new changes: D, E, F."
  $ dput [etc]
 
 
