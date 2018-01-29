@@ -28,19 +28,6 @@ For building:
   $ apt-get build-dep cargo
   $ apt-get install libssl-dev libcurl4-gnutls-dev
 
-For running / testing:
-
-  # As above, then:
-  $ cargo install cargo-tree
-  $ apt-get install dh-cargo lintian
-
-For development:
-
-  # As above, then:
-  $ cargo install rustfmt cargo-graph cargo-outdated
-  $ cargo graph | dot -T png > graph.png
-  $ cargo outdated -R
-
 
 ## Examples ##
 
@@ -62,28 +49,45 @@ packaging latest `clap` crate from the crates.io.
 See `debcargo.toml.example` for a sample TOML file.
 
 
-## Testing ##
+### Long-term maintenance workflow
 
-To test the `debcargo` produced packages, you can run the following script.
+New package:
 
-`tests/sh/integrate.sh crate[s]`
+ $ PKG=debcargo
+ $ TMPDIR=/tmp
+ $ debcargo="debcargo package --config $PKG/debian/debcargo.toml --directory $TMPDIR/$PKG"
 
-where you can provide a list of crate names or local directories containing
-crates, and the script will run debcargo to create a source package (`.dsc`)
-and run lintian over it. If you find any issues, please add to the bugs in
-TODO.md file.
+ $ mkdir -p $PKG/debian
+ $ cp /path/to/debcargo.git/debcargo.toml.example $PKG/debian/debcargo.toml
+ $ sed -i -e 's/^#overlay =/overlay =/' $PKG/debian/debcargo.toml
+ $ touch $PKG/debian/copyright
+ $ $debcargo $PKG
+ $ ls $PKG/debian/{changelog,copyright.debcargo.hint} # both should have been created
 
-`tests/sh/integrate.sh -b crate[s]`
+ $ cd $PKG
+ $PKG$ # update debian/copyright based on debian/copyight.debcargo.hint
+ $PKG$ # hack hack hack, deal with any FIXMEs
+ $PKG$ dch -r -D experimental
+ $ cd ..
+ $ rm -rf $TMPDIR/$PKG && $debcargo --changelog-ready $PKG
+ $ git add $PKG
+ $ git commit -m "New package $PKG, it does A, B and C."
+ $ dput [etc]
 
-will additionally run [sbuild](https://wiki.debian.org/sbuild) on the source
-package to build binary Debian packages (`.deb`) and run lintian over that too.
+Updating a package:
 
-`tests/sh/integrate.sh -r crate[s]`
-
-will run the tests recursively over the listed crate(s) and all of their
-transitive dependencies.
-
-See `-h` for other options.
+ $ rm -rf $TMPDIR/$PKG && $debcargo $PKG
+ $ cd $PKG
+ $PKG$ git diff
+ $PKG$ # examine (any) differences in the hint files, e.g. d/copyright.debcargo.hint
+ $PKG$ # apply these differences to the real files, e.g. d/copyright
+ $PKG$ # hack hack hack, deal with any FIXMEs
+ $PKG$ dch -r -D unstable
+ $ cd ..
+ $ rm -rf $TMPDIR/$PKG && $debcargo --changelog-ready $PKG
+ $ git add $PKG
+ $ git commit -m "New package $PKG, it does A, B and C."
+ $ dput [etc]
 
 
 ## License ##

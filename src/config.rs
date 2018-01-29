@@ -6,6 +6,7 @@ use std::path::{Path,PathBuf};
 use std::fs::File;
 use errors::*;
 
+
 #[derive(Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct Config {

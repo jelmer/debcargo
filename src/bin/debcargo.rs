@@ -24,13 +24,14 @@ use debcargo::errors::*;
 use debcargo::crates::CrateInfo;
 use debcargo::debian::{self, BaseInfo};
 use debcargo::config::{Config, parse_config};
+use debcargo::util;
 
 
 fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
     let mut fixme_files = Vec::new();
     for entry in walkdir::WalkDir::new(srcdir) {
         let entry = entry?;
-        if entry.file_type().is_file() {
+        if entry.file_type().is_file() && !util::is_hint_file(entry.file_name()) {
             let filename = entry.path().to_str().unwrap();
             let file = fs::File::open(entry.path())?;
             let reader = BufReader::new(file);
@@ -60,6 +61,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         let path = Path::new(p);
         (Some(path), parse_config(path).unwrap())
     }).unwrap_or((None, Config::default()));
+    let changelog_ready = matches.is_present("changelog-ready");
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
     let crate_info = CrateInfo::new(crate_name, version)?;
@@ -75,6 +77,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                                   pkg_srcdir,
                                   config_path,
                                   &config,
+                                  changelog_ready,
                                   copyright_guess_harder)?;
 
     debcargo_info!(concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
@@ -83,7 +86,8 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let fixmes = lookup_fixmes(pkg_srcdir.join("debian").as_path());
     if let Ok(fixmes) = fixmes {
         if !fixmes.is_empty() {
-            debcargo_warn!("Please update the sections marked FIXME in following files.");
+            debcargo_warn!("FIXME found in the following files.");
+            debcargo_warn!("Either supply an overlay or add extra overrides to your config file.");
             for f in fixmes {
                 debcargo_warn!(format!("\t• {}", f));
             }
@@ -106,9 +110,11 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("[version] 'Version of the crate to package; may \
                                                include dependency operators'")
                               .arg_from_usage("--directory [directory] 'Output directory.'")
+                              .arg_from_usage("--changelog-ready 'Assume the changelog is already bumped, and leave it alone.'")
                               .arg_from_usage("--copyright-guess-harder 'Guess extra values for d/copyright. Might be slow.'")
                               .arg_from_usage("--config [file] 'TOML file providing additional \
-                                               package-specific options.'")])
+                                               package-specific options.'")
+                     ])
         .get_matches();
     match m.subcommand() {
         ("package", Some(sm)) => do_package(sm),
