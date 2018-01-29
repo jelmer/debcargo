@@ -41,6 +41,12 @@ by infinity0, for copyninja:
 
 Minor issues
 
+- fs::rename cannot handle cross-device moves, e.g. if --directory is on a
+  different partition from . then debcargo fails
+
+- the ? syntax loses the stack, use Result.expect() to give context, or use
+  error-chain instead...
+
 - [ ] globset, ignore, termcolor:
       When generating d/copyright, failed to clone repository
       https://github.com/BurntSushi/ripgrep/tree/master/XXX: unexpected HTTP status code: 404; class=Net (12)

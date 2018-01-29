@@ -42,8 +42,8 @@
 #homepage = "https://clap.rs"
 
 # By default, library crates get section values as `rust` whereas binary crates
-# will get a "FIXME". This value can be used to avoid that.
-# FIXME: should be renamed binary_section, or put in packages."XXX" instead.
+# get a "FIXME". This config key can be used to avoid that.
+# TODO: this should be renamed binary_section, or put in packages."XXX" instead.
 #section = "PLACEHOLDER"
 
 # This is a TOML list value which appends to the default Build-Depends field
