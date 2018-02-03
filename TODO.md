@@ -11,8 +11,8 @@ If a task is completed put a `x` between `[]`.
 
 by infinity0, for copyninja:
 
-- src/debian/control/ could be collapsed into control.rs, no need to split into
-  too many different files, makes things confusing to navigate..
+- [x] src/debian/control/ could be collapsed into control.rs, no need to split into
+      too many different files, makes things confusing to navigate..
 
 - src/crates.rs needs better names for the methods as well as comments
   explaining what they do. also it mixes up crate deps vs debian deps; code for
