@@ -288,6 +288,7 @@ pub fn prepare_debian_folder(
             },
             &lib,
             build_deps.as_slice(),
+            &crate_info.non_dev_dependencies()?,
         )?;
 
         // If source overrides are present update related parts.

@@ -101,6 +101,7 @@ impl Source {
         home: &str,
         lib: &bool,
         bdeps: &[String],
+        tdeps: &[String],
     ) -> Result<Source> {
         let source = format!("rust-{}", basename);
         let section = if *lib { "rust" } else { "FIXME" };
@@ -109,11 +110,10 @@ impl Source {
         let uploaders = get_deb_author()?;
         let vcs_git = format!("{}{}.git", VCS_GIT, source);
         let vcs_browser = format!("{}{}.git", VCS_VIEW, source);
-        let mut build_deps = vec!["debhelper (>= 10)".to_string(), "dh-cargo".to_string()];
+        let mut build_deps = vec!["debhelper (>= 10)".to_string(), "dh-cargo (>= 3)".to_string()];
         build_deps.extend_from_slice(bdeps);
-        let build_deps = build_deps.iter()
-            // .chain(bdeps)
-            .join(",\n ");
+        build_deps.extend(tdeps.iter().map(|x| x.to_string() + " <!nocheck>"));
+        let build_deps = build_deps.iter().join(",\n ");
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
             upstream_name.to_string()
         } else {
