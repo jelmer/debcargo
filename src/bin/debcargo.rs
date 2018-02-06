@@ -71,7 +71,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let orig_tar_gz = pkgbase.orig_tarball_path();
 
     let source_modified = crate_info.extract_crate(pkg_srcdir)?;
-    debian::prepare_orig_tarball(crate_info.crate_file(), orig_tar_gz, source_modified)?;
+    debian::prepare_orig_tarball(crate_info.crate_file(), orig_tar_gz, source_modified, pkg_srcdir)?;
     debian::prepare_debian_folder(&pkgbase,
                                   &crate_info,
                                   pkg_srcdir,

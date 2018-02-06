@@ -1,7 +1,7 @@
 use cargo;
-use cargo::core::{Dependency, Source, SourceId, PackageId, Summary, Registry, TargetKind};
+use cargo::core::{Dependency, Source, SourceId, Package, PackageId, Summary, Registry, TargetKind};
 use cargo::util::FileLock;
-use cargo::core::{manifest, package};
+use cargo::core::manifest;
 use semver::Version;
 use itertools::Itertools;
 use flate2::read::GzDecoder;
@@ -12,14 +12,14 @@ use std;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::path::Path;
-use std::io;
+use std::io::{self, Read, Write};
 use std::fs;
 
 use errors::*;
 use debian::deb_dep;
 
 pub struct CrateInfo {
-    package: package::Package,
+    package: Package,
     manifest: manifest::Manifest,
     summary: Summary,
     crate_file: FileLock,
@@ -112,7 +112,7 @@ impl CrateInfo {
         &self.summary
     }
 
-    pub fn package(&self) -> &package::Package {
+    pub fn package(&self) -> &Package {
         &self.package
     }
 
@@ -369,6 +369,22 @@ impl CrateInfo {
                                     "To regenerate,move or remove {0}"),
                             path.display())
                 })?;
+        }
+
+        // Ensure that Cargo.toml is in standard form, e.g. does not contain
+        // path dependencies, so can be built standalone (see #4030).
+        let registry_toml = self.package().to_registry_toml()?;
+        let mut actual_toml = String::new();
+        let toml_path = path.join("Cargo.toml");
+        fs::File::open(&toml_path)?
+            .read_to_string(&mut actual_toml)?;
+
+        if actual_toml != registry_toml {
+            let old_toml_path = path.join("Cargo.toml.orig");
+            fs::rename(&toml_path, &old_toml_path)?;
+            fs::OpenOptions::new().create(true).write(true).open(&toml_path)?
+                .write_all(registry_toml.as_bytes())?;
+            source_modified = true;
         }
 
         Ok(source_modified)

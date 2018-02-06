@@ -89,6 +89,7 @@ pub fn prepare_orig_tarball(
     crate_file: &FileLock,
     tarball: &Path,
     src_modified: bool,
+    pkg_srcdir: &Path,
 ) -> Result<()> {
     let tempdir = TempDir::new_in(".", "debcargo")?;
     let temp_archive_path = tempdir.path().join(tarball);
@@ -109,9 +110,24 @@ pub fn prepare_orig_tarball(
         let mut archive = Archive::new(GzDecoder::new(f));
         let mut new_archive =
             Builder::new(GzEncoder::new(create.open(&temp_archive_path)?, Compression::best()));
+
         for entry in archive.entries()? {
             let entry = entry?;
-            if !remove_path(&entry.path()?) {
+            let path = entry.path()?.into_owned();
+            if path.ends_with("Cargo.toml") && path.iter().count() == 2 {
+                // Put the rewritten and original Cargo.toml back into the orig tarball
+                let mut new_archive_append = |name: &str| {
+                    let mut header = entry.header().clone();
+                    let srcpath = pkg_srcdir.join(name);
+                    header.set_path(path.parent().unwrap().join(name))?;
+                    header.set_size(fs::metadata(&srcpath)?.len());
+                    header.set_cksum();
+                    new_archive.append(&header, fs::File::open(&srcpath)?)
+                };
+                new_archive_append("Cargo.toml")?;
+                new_archive_append("Cargo.toml.orig")?;
+                writeln!(io::stderr(), "Rewrote {:?} to canonical form.", &entry.path()?)?;
+            } else if !remove_path(&entry.path()?) {
                 new_archive.append(&entry.header().clone(), entry)?;
             } else {
                 writeln!(io::stderr(), "Filtered out files from .orig.tar.gz: {:?}", &entry.path()?)?;
