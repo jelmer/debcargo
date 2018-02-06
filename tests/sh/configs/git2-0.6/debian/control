@@ -7,12 +7,18 @@ Build-Depends: debhelper (>= 10),
  dh-cargo (>= 3),
  librust-bitflags-0.9+default-dev <!nocheck>,
  librust-libc-0.2+default-dev <!nocheck>,
+ librust-libgit2-sys-0.6+default-dev (>= 0.6.19) <!nocheck>,
+ librust-url-1+default-dev <!nocheck>,
+# above are from librust-git2-0.6-dev
+# below are all from dependencies of librust-git2-0.6+default-dev
  librust-libgit2-sys-0.6+curl-dev (>= 0.6.19) <!nocheck>,
+# above are from librust-git2-0.6+curl-dev
  librust-libgit2-sys-0.6+https-dev (>= 0.6.19) <!nocheck>,
- librust-libgit2-sys-0.6+ssh-dev (>= 0.6.19) <!nocheck>,
  librust-openssl-probe-0.1+default-dev <!nocheck>,
  librust-openssl-sys-0.9+default-dev <!nocheck>,
- librust-url-1+default-dev <!nocheck>
+# above are from librust-git2-0.6+https-dev
+ librust-libgit2-sys-0.6+ssh-dev (>= 0.6.19) <!nocheck>,
+# above are from librust-git2-0.6+ssh-dev
 Maintainer: Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>
 Uploaders: Ximin Luo <infinity0@debian.org>
 Standards-Version: 4.0.0
@@ -40,6 +46,7 @@ Description: Bindings to libgit2 for interoperating with git repositories - Rust
 Package: librust-git2-0.6+default-dev
 Architecture: all
 Depends:
+ ${misc:Depends},
  librust-git2-0.6+curl-dev (= ${binary:Version}),
  librust-git2-0.6+ssh-dev (= ${binary:Version}),
  librust-git2-0.6+https-dev (= ${binary:Version})
@@ -51,6 +58,8 @@ Description: Bindings to libgit2 for interoperating with git repositories - feat
 Package: librust-git2-0.6+curl-dev
 Architecture: all
 Depends:
+ ${misc:Depends},
+ librust-git2-0.6-dev (= ${binary:Version}),
  librust-libgit2-sys-0.6+curl-dev (>= 0.6.19),
 Description: Bindings to libgit2 for interoperating with git repositories - feature "curl"
  .
@@ -60,6 +69,8 @@ Description: Bindings to libgit2 for interoperating with git repositories - feat
 Package: librust-git2-0.6+https-dev
 Architecture: all
 Depends:
+ ${misc:Depends},
+ librust-git2-0.6-dev (= ${binary:Version}),
  librust-libgit2-sys-0.6+https-dev (>= 0.6.19),
  librust-openssl-probe-0.1+default-dev,
  librust-openssl-sys-0.9+default-dev,
@@ -71,6 +82,8 @@ Description: Bindings to libgit2 for interoperating with git repositories - feat
 Package: librust-git2-0.6+ssh-dev
 Architecture: all
 Depends:
+ ${misc:Depends},
+ librust-git2-0.6-dev (= ${binary:Version}),
  librust-libgit2-sys-0.6+ssh-dev (>= 0.6.19),
 Description: Bindings to libgit2 for interoperating with git repositories - feature "ssh"
  .
