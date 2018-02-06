@@ -34,7 +34,17 @@ by infinity0, for copyninja:
     new real Package stanza for the +default package, that additionally pulls
     in these extra features.
 
-    Once this is fixed, we should be able to rm -rf tests/sh/configs/git2-*/
+    Once this is fixed, we should be able to rm -rf tests/sh/configs/git2-0*/
+
+  - rust-time package FTBFS because of a missing dependency on winapi:
+
+    [target."cfg(windows)".dependencies.winapi]
+
+    Even though we're not on windows, we still pull in these dependencies in
+    the general case, for simplicity and potentially in the future to support
+    cross-compiling. For some reason that isn't being achieved here.
+
+    Once this is fixed, we should be able to rm -rf tests/sh/configs/time-0*/
 
 - See debcargo.toml.example and the TODOs listed there
 
