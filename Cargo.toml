@@ -28,3 +28,8 @@ serde_derive = "1.0"
 textwrap = "0.9"
 toml = "0.4"
 git2 = "0.6"
+
+[dev-dependencies]
+# This is a hack that is needed to make tests/sh/integrate.sh -rb ./ work properly
+# See https://github.com/sfackler/cargo-tree/issues/34 for more details
+num = { version = "0.1", default-features = true }
