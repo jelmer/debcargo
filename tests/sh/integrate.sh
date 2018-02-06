@@ -158,7 +158,12 @@ build_source() {(
 
 cargo_tree() {(
 	if [ "$1" = "--cd" ]; then cd "$2"; shift 2; fi
-	cargo tree "$@" --all-features --all-targets --no-indent -q -a | grep -v '\['
+	# hacky way of preserving the error message of cargo_tree, which is suppressed by -q :(
+	if cargo tree "$@" --all-features --all-targets --no-indent -q -a >/dev/null; then
+		cargo tree "$@" --all-features --all-targets --no-indent -q -a | grep -v '\['
+	else
+		cargo tree "$@" --all-features --all-targets --no-indent -a >&2
+	fi
 )}
 
 run_x_or_deps() {
@@ -167,7 +172,8 @@ run_x_or_deps() {
 	case "$x" in
 	*/*)
 		test -d "$x" || x=$(dirname "$x")
-		spec=$(cargo_tree --cd "$x" 2>/dev/null | head -n1)
+		# might give spurious "broken pipe" errors, see @sfackler/cargo-tree#2
+		spec=$(cargo_tree --cd "$x" | head -n1)
 		tree_args="--cd $x"
 		echo $spec | while read pkg ver extras; do
 			echo >&2 "warning: using version $ver from crates.io instead of $x"
@@ -175,27 +181,24 @@ run_x_or_deps() {
 		;;
 	*-[0-9]*)
 		spec="${x%-[0-9]*} ${x##*-}"
-		tree_args=
+		tree_args="-p ${x%-[0-9]*}:${x##*-}"
 		;;
 	*)
 		spec="$x"
 		tree_args="-p $x"
 		;;
 	esac
+	if $update && -d "$spec"; then
+		( cd "$spec"; cargo update )
+	fi
 	if $recursive; then
-		if [ -z "$tree_args" ]; then
-			echo >&2 "-r not supported when giving \$pkg-\$ver, due to cargo-tree"
-			return 1
-		fi
-		if $update && -d "$spec"; then
-			( cd "$spec"; cargo update )
-		fi
+		set -o pipefail
 		# tac|awk gives us reverse-topological ordering https://stackoverflow.com/a/11532197
 		cargo_tree $tree_args | tail -n+2 | tac | awk '!x[$0]++' | while read pkg ver; do
 			"$@" "$pkg" "${ver#v}"
 		done
+		set +o pipefail
 	fi
-	# 2>/dev/null is needed because of https://github.com/sfackler/cargo-tree/issues/25
 	echo $spec | while read pkg ver extras; do
 		"$@" "$pkg" "${ver#v}"
 	done
