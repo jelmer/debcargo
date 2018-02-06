@@ -36,6 +36,9 @@ by infinity0, for copyninja:
 
     Once this is fixed, we should be able to rm -rf tests/sh/configs/git2-0*/
 
+    Same problem with num-bigint depending on rand as a default feature.
+    debcargo does not generate the correct control file here.
+
   - rust-time package FTBFS because of a missing dependency on winapi:
 
     [target."cfg(windows)".dependencies.winapi]
