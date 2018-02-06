@@ -48,7 +48,7 @@ impl fmt::Display for V {
 }
 
 /// Translates a Cargo dependency into a Debian package dependency.
-pub fn deb_dep(dep: &Dependency) -> Result<String> {
+pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> {
     use self::V::*;
     let dep_dashed = dep.name().replace('_', "-");
     let mut suffixes = Vec::new();
@@ -164,5 +164,5 @@ pub fn deb_dep(dep: &Dependency) -> Result<String> {
             }
         }
     }
-    Ok(deps.join(", "))
+    Ok(deps)
 }

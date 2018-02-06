@@ -239,7 +239,7 @@ impl CrateInfo {
         for dep in self.dependencies().iter() {
             if !dev_deps.contains(dep.name()) &&
                (!dep.is_optional() || default_deps.contains(dep.name())) {
-                deps.push(deb_dep(dep)?);
+                deps.extend(deb_dep(dep)?);
             }
         }
 
@@ -313,11 +313,11 @@ impl CrateInfo {
         for (dep_name, dep_features) in deps_features.into_iter().sorted() {
             if let Some(&dep_dependency) = all_deps.get(dep_name) {
                 if dep_features.is_empty() {
-                    feature_deps.push(try!(deb_dep(dep_dependency)));
+                    feature_deps.extend(deb_dep(dep_dependency)?);
                 } else {
                     let mut dep_dependency = dep_dependency.clone();
                     let inner = dep_dependency.set_features(dep_features);
-                    feature_deps.push(try!(deb_dep(&inner)));
+                    feature_deps.extend(deb_dep(&inner)?);
                 }
             } else if dev_deps.contains(dep_name) {
                 continue;
