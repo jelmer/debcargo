@@ -227,7 +227,7 @@ if $run_sbuild; then
 		echo >&2 "  sudo schroot -c source:$chroot -- apt-get -y install dh-cargo"
 		echo >&2 "  sudo sbuild-update -udr $chroot"
 		echo >&2 "See https://wiki.debian.org/sbuild for more details"
-		return 1
+		exit 1
 	fi
 	for i in "$@"; do run_x_or_deps "$i" run_sbuild; done
 fi
