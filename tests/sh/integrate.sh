@@ -57,8 +57,7 @@ Options to control running:
   -b            Run sbuild on the resulting dsc package.
   -k            Don't wipe the output directory at the start of the test, and
                 don't rebuild a crate if its directory already exists.
-  -r            For crates specified by path, operate on all transitive
-                dependencies. Requires cargo-tree.
+  -r            Operate on all transitive dependencies. Requires cargo-tree.
   -u            With -r, run "cargo update" before calculating dependencies.
                 Otherwise, cargo-tree uses the versions listed in Cargo.lock.
   -x ARG        Give ARG as an extra argument to debcargo, e.g. like
