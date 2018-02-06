@@ -3,7 +3,7 @@ pub use self::dependency::deb_dep;
 use std::fs;
 use std::io::{self, Seek, Read, Write as IoWrite, ErrorKind};
 use std::path::{Path, PathBuf};
-use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::fs::PermissionsExt;
 
 use cargo::util::FileLock;
 use tempdir::TempDir;
@@ -248,9 +248,8 @@ pub fn prepare_debian_folder(
         writeln!(source_format, "3.0 (quilt)")?;
 
         // debian/rules
-        let mut create_exec = create.clone();
-        create_exec.mode(0o777);
-        let mut rules = create_exec.open(tempdir.path().join("rules"))?;
+        let mut rules = file("rules")?;
+        rules.set_permissions(fs::Permissions::from_mode(0o777))?;
         write!(
             rules,
             "{}",

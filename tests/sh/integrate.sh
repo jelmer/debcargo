@@ -9,7 +9,7 @@ failures_file=""
 # inputs
 allow_failures="$scriptdir/build-allow-fail"
 lintian_overrides="$scriptdir/lintian-overrides"
-override_dir="$scriptdir/overrides"
+config_dir="$scriptdir/configs"
 # tweaks
 run_lintian=true
 run_sbuild=false
@@ -18,14 +18,14 @@ recursive=false
 update=false
 extraargs=
 
-while getopts 'd:f:a:l:o:bkrux:h?' o; do
+while getopts 'd:f:a:l:c:bkrux:h?' o; do
 	case $o in
 	d ) directory=$OPTARG;;
 	f ) failures_file=$OPTARG;;
 
 	a ) allow_failures=$OPTARG;;
 	l ) lintian_overrides=$OPTARG;;
-	o ) override_dir=$OPTARG;;
+	c ) config_dir=$OPTARG;;
 
 	b ) run_sbuild=true;;
 	k ) keepfiles=true;;
@@ -51,7 +51,7 @@ Options for input:
   -l FILE       Install this file as debian/source/lintian-overrides, to
                 override some generic stuff we haven't fixed yet. Default:
                 $lintian_overrides.
-  -o DIR        Path to overrides directory, default: $override_dir.
+  -c DIR        Path to config directory, default: $config_dir.
 
 Options to control running:
   -b            Run sbuild on the resulting dsc package.
@@ -131,10 +131,14 @@ build_source() {(
 		return 0
 	fi
 
-	if [ -f "$override_dir/${crate}_overrides.toml" ]; then
-		option="--override ${override_dir}/${crate}_overrides.toml"
+	local deb_src_name=$($debcargo deb-src-name $crate $version)
+	local config="$config_dir/${deb_src_name}/debian/debcargo.toml"
+	if [ -f "$config" ]; then
+		option="--config $config"
+		echo >&2 "using config: $config"
 	fi
 
+	echo $debcargo package $extraargs --directory $cratedir $option "${crate}" $version
 	if $debcargo package $extraargs --directory $cratedir $option "${crate}" $version; then
 		:
 	else
@@ -207,7 +211,7 @@ run_x_or_deps() {
 # make all paths absolute so things don't mess up when we switch dirs
 allow_failures=$(readlink -f "$allow_failures")
 lintian_overrides=$(readlink -f "$lintian_overrides")
-override_dir=$(readlink -f "$override_dir")
+config_dir=$(readlink -f "$config_dir")
 directory=$(readlink -f "$directory")
 scriptdir=$(readlink -f "$scriptdir")
 
