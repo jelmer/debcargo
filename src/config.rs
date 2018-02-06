@@ -62,29 +62,6 @@ impl Config {
         self.packages.is_some()
     }
 
-    pub fn summary_description_for(&self, pkgname: &str) -> Option<(&str, &str)> {
-        match self.packages {
-            Some(ref pkg) => {
-                if pkg.contains_key(pkgname) {
-                    let package = pkg.get(pkgname).unwrap();
-                    let s = match package.summary {
-                        Some(ref s) => s,
-                        None => "",
-                    };
-
-                    let d = match package.description {
-                        Some(ref d) => d,
-                        None => "",
-                    };
-                    Some((s, d))
-                } else {
-                    None
-                }
-            }
-            None => None,
-        }
-    }
-
     pub fn policy_version(&self) -> Option<&str> {
         if let Some(ref s) = self.source {
             if let Some(ref policy) = s.policy {
@@ -120,6 +97,30 @@ impl Config {
             }
         }
         None
+    }
+
+    pub fn package_summary(&self, pkgname: &str) -> Option<(&str, &str)> {
+        self.packages.as_ref().and_then(|pkg| {
+            pkg.get(pkgname).map(|package| {
+                let s = match package.summary {
+                    Some(ref s) => s,
+                    None => "",
+                };
+                let d = match package.description {
+                    Some(ref d) => d,
+                    None => "",
+                };
+                (s, d)
+            })
+        })
+    }
+
+    pub fn package_depends(&self, pkgname: &str) -> Option<&Vec<String>> {
+        self.packages.as_ref().and_then(|pkg| {
+            pkg.get(pkgname).and_then(|package| {
+                package.depends.as_ref()
+            })
+        })
     }
 }
 

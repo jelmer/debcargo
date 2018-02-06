@@ -359,7 +359,7 @@ impl Package {
 
 impl OverrideDefaults for Package {
     fn apply_overrides(&mut self, config: &Config) {
-        if let Some((s, d)) = config.summary_description_for(&self.name) {
+        if let Some((s, d)) = config.package_summary(&self.name) {
             if !s.is_empty() {
                 self.summary = s.to_string();
             }
@@ -367,6 +367,12 @@ impl OverrideDefaults for Package {
             if !d.is_empty() {
                 self.description = d.to_string();
             }
+        }
+
+        if let Some(depends) = config.package_depends(&self.name) {
+            let deps = depends.iter().join(",\n ");
+            self.depends.push_str(",\n ");
+            self.depends.push_str(&deps);
         }
     }
 }
