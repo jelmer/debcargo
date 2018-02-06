@@ -39,6 +39,10 @@ by infinity0, for copyninja:
     Same problem with num-bigint depending on rand as a default feature.
     debcargo does not generate the correct control file here.
 
+    Similar problem with semver package, it needs a +serde feature (which is
+    listed as an optional dependency in Cargo.toml, and not explicitly as a
+    feature) which debcargo is omitting.
+
   - rust-time package FTBFS because of a missing dependency on winapi:
 
     [target."cfg(windows)".dependencies.winapi]
