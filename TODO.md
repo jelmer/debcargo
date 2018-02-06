@@ -34,6 +34,8 @@ by infinity0, for copyninja:
     new real Package stanza for the +default package, that additionally pulls
     in these extra features.
 
+    Once this is fixed, we should be able to rm -rf tests/sh/configs/git2-*/
+
 - See debcargo.toml.example and the TODOs listed there
 
   - allow_prerelease_deps will solve this error for cargo 0.24:
