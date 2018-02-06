@@ -21,6 +21,19 @@ by infinity0, for copyninja:
 
 ## Important features
 
+- Run `tests/sh/integrate.sh -rb ./` and fix the build errors that occur in
+  the Debian binary packages.
+
+  - rust-git2 package FTBFS because our handling of default features is
+    incomplete. Currently, we generate "Provides: X+default-dev" for each main
+    library package, but this should only be the case if the default set of
+    features actually pulls in no extra dependencies.
+
+    By contrast, rust-git2's default feature set is ["ssh", "https", "curl"]
+    which pulls in extra dependencies. In this case we need to generate a
+    new real Package stanza for the +default package, that additionally pulls
+    in these extra features.
+
 - See debcargo.toml.example and the TODOs listed there
 
   - allow_prerelease_deps will solve this error for cargo 0.24:
