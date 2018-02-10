@@ -232,15 +232,51 @@ impl CrateInfo {
     }
 
     pub fn non_dev_dependencies(&self) -> Result<Vec<String>> {
+        use std::iter::FromIterator;
         let (_, default_deps) = self.default_deps_features();
         let dev_deps = self.dev_dependencies();
         let mut deps = Vec::new();
 
-        for dep in self.dependencies().iter() {
-            if !dev_deps.contains(dep.name()) &&
-               (!dep.is_optional() || default_deps.contains(dep.name())) {
-                deps.extend(deb_dep(dep)?);
+        // Collect dependencies that are not [dev-dependencies] and either not
+        // marked as optional or present in default_dep
+        let non_devdeps = self.dependencies()
+            .iter()
+            .filter(|d| {
+                (!dev_deps.contains(d.name())
+                    && (!d.is_optional() || default_deps.contains(d.name())))
+            })
+            .collect::<Vec<&Dependency>>();
+
+        let dep_names = HashSet::from_iter(non_devdeps.iter().map(|d| d.name()));
+
+        // We generate set of deps which are not captured in non_devdeps
+        let diff_deps: HashSet<_> = default_deps.difference(&dep_names).collect();
+
+        // Lets get the pending dependency and add them to above
+        for pending_dep in diff_deps {
+            // Check if we are using feature of existing dependencies
+            let mut tokens = pending_dep.splitn(2, '/');
+            let dep_name = tokens.next().unwrap();
+            for dep in self.dependencies() {
+                if dep.name() == dep_name {
+                    let mut tmpdep: Dependency = dep.clone();
+                    match tokens.next() {
+                        Some(feature) => {
+                            // We are using feature of above dep in format
+                            // dep/feature. So lets make  default-features =
+                            // false and set features = [`feature`]
+                            tmpdep.set_default_features(false);
+                            tmpdep.set_features(vec![feature.to_string()]);
+                        }
+                        None => {}
+                    }
+                    deps.extend(deb_dep(&tmpdep)?);
+                }
             }
+        }
+
+        for dep in non_devdeps {
+            deps.extend(deb_dep(dep)?);
         }
 
         deps.sort();
