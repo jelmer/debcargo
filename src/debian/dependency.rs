@@ -72,6 +72,82 @@ fn coerce_unacceptable_predicate<'a>(
     }
 }
 
+fn generate_package_name<F>(
+    dep: &Dependency,
+    pkg: &F,
+    p: &semver_parser::range::Predicate,
+    op: &semver_parser::range::Op,
+    mmp: &V,
+) -> Result<String>
+where
+    F: Fn(&V) -> String,
+{
+    use debian::dependency::V::*;
+    let mut deps = Vec::new();
+    match (op, mmp) {
+        (&Ex, &M(..)) => deps.push(pkg(&mmp)),
+        (&Ex, &MM(..)) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
+        (&Ex, &MMP(..)) => {
+            deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
+            deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast()));
+        }
+        // We can't represent every major version that satisfies an
+        // inequality, because each major version has a different
+        // package name, so we only allow the first major version that
+        // satisfies the inequality. This may result in a stricter
+        // dependency, but will never result in a looser one. We could
+        // represent some dependency ranges (such as >= x and < y)
+        // better with a disjunction on multiple package names, but that
+        // would break when depending on multiple features.
+        (&Gt, &M(_)) | (&Gt, &MM(0, _)) => deps.push(pkg(&mmp.inclast())),
+        (&Gt, _) => deps.push(format!("{} (>> {})", pkg(&mmp), mmp)),
+        (&GtEq, &M(_)) | (&GtEq, &MM(0, _)) => deps.push(pkg(&mmp)),
+        (&GtEq, _) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
+        (&Lt, &M(major)) => deps.push(pkg(&M(major - 1))),
+        (&Lt, &MM(0, 0)) => debcargo_bail!(
+            "Unrepresentable dependency version predicate: {} {:?}",
+            dep.name(),
+            p
+        ),
+        (&Lt, &MM(0, minor)) | (&Lt, &MMP(0, minor, 0)) => deps.push(pkg(&MM(0, minor - 1))),
+        (&Lt, _) => deps.push(format!("{} (<< {})", pkg(&mmp), mmp)),
+        (&LtEq, &M(_)) | (&LtEq, &MM(0, _)) => deps.push(pkg(&mmp)),
+        (&LtEq, _) => deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast())),
+        (&Tilde, &M(_)) | (&Tilde, &MM(0, _)) | (&Tilde, &MMP(0, _, 0)) => deps.push(pkg(&mmp)),
+        (&Tilde, &MM(..)) | (&Tilde, &MMP(0, _, _)) => {
+            deps.push(format!("{} (>= {})", pkg(&mmp), mmp))
+        }
+        (&Tilde, &MMP(major, minor, _)) => {
+            deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
+            deps.push(format!("{} (<< {})", pkg(&mmp), MM(major, minor + 1)));
+        }
+        (&Compatible, &MMP(0, 0, _)) => {
+            deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
+            deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast()));
+        }
+        (&Compatible, &M(_))
+        | (&Compatible, &MM(0, _))
+        | (&Compatible, &MM(_, 0))
+        | (&Compatible, &MMP(0, _, 0)) => deps.push(pkg(&mmp)),
+        (&Compatible, &MM(..)) | (&Compatible, &MMP(..)) => {
+            deps.push(format!("{} (>= {})", pkg(&mmp), mmp))
+        }
+        (&Wildcard(WildcardVersion::Major), _) => debcargo_bail!(
+            "Unrepresentable dependency wildcard: {} = \"{:?}\"",
+            dep.name(),
+            p
+        ),
+        (&Wildcard(WildcardVersion::Minor), _) => deps.push(pkg(&mmp)),
+        (&Wildcard(WildcardVersion::Patch), _) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
+    }
+
+    if deps.len() > 1 {
+        return Ok(deps.join("|"));
+    }
+
+    Ok(deps.join(""))
+}
+
 /// Translates a Cargo dependency into a Debian package dependency.
 pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> {
     use self::V::*;
