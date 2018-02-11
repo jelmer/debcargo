@@ -178,91 +178,28 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> {
             }
         };
 
-        for p in &req.predicates {
-            // Cargo/semver and Debian handle pre-release versions quite
-            // differently, so a versioned Debian dependency cannot properly
-            // handle pre-release crates. Don't package pre-release crates or
-            // crates that depend on pre-release crates.
-            if !p.pre.is_empty() {
-                debcargo_bail!("Dependency on prerelease version: {} {:?}", dep.name(), p);
-            }
-
+        if req.predicates.len() == 1 {
+            let p = &req.predicates[0];
             let mmp = V::new(p)?;
-            let op = match (&p.op, &mmp) {
-                (&Gt, &M(0)) => &p.op,
-                (&GtEq, &M(0)) => {
-                    debcargo_warn!("Coercing unrepresentable dependency version predicate 'GtEq 0' to 'Gt 0': {} {:?}",
-                       dep.name(),
-                       p);
-                    &Gt
-                    },
-                (_, &M(0)) =>
-                    debcargo_bail!("Unrepresentable dependency version predicate: {} {:?}",
-                       dep.name(),
-                       p),
-                (_, _) => &p.op,
-            };
+            let op = coerce_unacceptable_predicate(dep, &p, &mmp)?;
+            deps.push(generate_package_name(dep, &pkg, &p, op, &mmp)?);
+        } else {
+            let mut mdeps = Vec::new();
+            for p in &req.predicates {
+                // Cargo/semver and Debian handle pre-release versions quite
+                // differently, so a versioned Debian dependency cannot properly
+                // handle pre-release crates. Don't package pre-release crates or
+                // crates that depend on pre-release crates.
+                if !p.pre.is_empty() {
+                    debcargo_bail!("Dependency on prerelease version: {} {:?}", dep.name(), p)
+                }
 
-            match (op, &mmp) {
-                (&Ex, &M(..)) => deps.push(pkg(&mmp)),
-                (&Ex, &MM(..)) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
-                (&Ex, &MMP(..)) => {
-                    deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
-                    deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast()));
-                }
-                // We can't represent every major version that satisfies an
-                // inequality, because each major version has a different
-                // package name, so we only allow the first major version that
-                // satisfies the inequality. This may result in a stricter
-                // dependency, but will never result in a looser one. We could
-                // represent some dependency ranges (such as >= x and < y)
-                // better with a disjunction on multiple package names, but that
-                // would break when depending on multiple features.
-                (&Gt, &M(_)) | (&Gt, &MM(0, _)) => deps.push(pkg(&mmp.inclast())),
-                (&Gt, _) => deps.push(format!("{} (>> {})", pkg(&mmp), mmp)),
-                (&GtEq, &M(_)) |
-                (&GtEq, &MM(0, _)) => deps.push(pkg(&mmp)),
-                (&GtEq, _) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
-                (&Lt, &M(major)) => deps.push(pkg(&M(major - 1))),
-                (&Lt, &MM(0, 0)) => {
-                    debcargo_bail!("Unrepresentable dependency version predicate: {} {:?}",
-                                   dep.name(),
-                                   p)
-                }
-                (&Lt, &MM(0, minor)) => deps.push(pkg(&MM(0, minor - 1))),
-                (&Lt, _) => deps.push(format!("{} (<< {})", pkg(&mmp), mmp)),
-                (&LtEq, &M(_)) |
-                (&LtEq, &MM(0, _)) => deps.push(pkg(&mmp)),
-                (&LtEq, _) => deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast())),
-                (&Tilde, &M(_)) |
-                (&Tilde, &MM(0, _)) |
-                (&Tilde, &MMP(0, _, 0)) => deps.push(pkg(&mmp)),
-                (&Tilde, &MM(..)) |
-                (&Tilde, &MMP(0, _, _)) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
-                (&Tilde, &MMP(major, minor, _)) => {
-                    deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
-                    deps.push(format!("{} (<< {})", pkg(&mmp), MM(major, minor + 1)));
-                }
-                (&Compatible, &MMP(0, 0, _)) => {
-                    deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
-                    deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast()));
-                }
-                (&Compatible, &M(_)) |
-                (&Compatible, &MM(0, _)) |
-                (&Compatible, &MM(_, 0)) |
-                (&Compatible, &MMP(0, _, 0)) => deps.push(pkg(&mmp)),
-                (&Compatible, &MM(..)) |
-                (&Compatible, &MMP(..)) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
-                (&Wildcard(WildcardVersion::Major), _) => {
-                    debcargo_bail!("Unrepresentable dependency wildcard: {} = \"{:?}\"",
-                                   dep.name(),
-                                   p)
-                }
-                (&Wildcard(WildcardVersion::Minor), _) => deps.push(pkg(&mmp)),
-                (&Wildcard(WildcardVersion::Patch), _) => {
-                    deps.push(format!("{} (>= {})", pkg(&mmp), mmp))
-                }
+                let mmp = V::new(p)?;
+                let op = coerce_unacceptable_predicate(dep, &p, &mmp)?;
+                mdeps.push(generate_package_name(dep, &pkg, &p, op, &mmp)?)
             }
+
+            deps.push(mdeps.join(" | "));
         }
     }
     Ok(deps)
