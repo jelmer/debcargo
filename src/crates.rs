@@ -293,6 +293,14 @@ impl CrateInfo {
         Ok(deps)
     }
 
+    pub fn optional_dependency_names(&self) -> Vec<&str> {
+        self.dependencies()
+            .iter()
+            .filter(|d| d.is_optional())
+            .map(|d| d.name())
+            .collect::<Vec<&str>>()
+    }
+
     pub fn get_summary_description(&self) -> (Option<String>, Option<String>) {
         let (summary, description) = if let Some(ref description) = self.metadata().description {
             let mut description = description.trim();
