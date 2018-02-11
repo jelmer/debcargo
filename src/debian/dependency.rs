@@ -47,6 +47,31 @@ impl fmt::Display for V {
     }
 }
 
+fn coerce_unacceptable_predicate<'a>(
+    dep: &Dependency,
+    p: &'a semver_parser::range::Predicate,
+    mmp: &V,
+) -> Result<&'a semver_parser::range::Op> {
+    use debian::dependency::V::M;
+    match (&p.op, mmp) {
+        (&Gt, &M(0)) => Ok(&p.op),
+        (&GtEq, &M(0)) => {
+            debcargo_warn!(
+                "Coercing unrepresentable dependency version predicate 'GtEq 0' to 'Gt 0': {} {:?}",
+                dep.name(),
+                p
+            );
+            Ok(&Gt)
+        }
+        (_, &M(0)) => debcargo_bail!(
+            "Unrepresentable dependency version predicate: {} {:?}",
+            dep.name(),
+            p
+        ),
+        (_, _) => Ok(&p.op),
+    }
+}
+
 /// Translates a Cargo dependency into a Debian package dependency.
 pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> {
     use self::V::*;
