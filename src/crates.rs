@@ -159,7 +159,16 @@ impl CrateInfo {
 
     pub fn non_default_features(&self, default_features: &HashSet<&str>) -> Vec<&str> {
         let features = self.summary.features();
-        features.keys().map(String::as_str).filter(|f| !default_features.contains(f)).sorted()
+        let optional_deps = self.dependencies()
+            .iter()
+            .filter(|d| d.is_optional())
+            .map(|d| d.name());
+        features
+            .keys()
+            .map(String::as_str)
+            .filter(|f| !default_features.contains(f))
+            .chain(optional_deps)
+            .collect()
     }
 
     pub fn is_lib(&self) -> bool {
@@ -312,37 +321,49 @@ impl CrateInfo {
         (summary, description)
     }
 
-    pub fn get_feature_dependencies<F>(&self,
-                                       feature: &str,
-                                       deb_feature: &F,
-                                       feature_deps: &mut Vec<String>)
-                                       -> Result<()>
-        where F: Fn(&str) -> String
+    pub fn get_feature_dependencies<F>(
+        &self,
+        feature: &str,
+        deb_feature: &F,
+        feature_deps: &mut Vec<String>,
+    ) -> Result<()>
+    where
+        F: Fn(&str) -> String,
     {
         let (default_features, _) = self.default_deps_features();
         let dev_deps = self.dev_dependencies();
         let all_deps = self.non_build_dependencies()?;
+        let opt_deps = self.optional_dependency_names();
 
 
         // Track the (possibly empty) additional features required for each dep, to call
         // deb_dep once for all of them.
         let mut deps_features = HashMap::new();
         let features = self.summary().features();
-        for dep_str in features.get(feature).unwrap() {
-            let mut dep_tokens = dep_str.splitn(2, '/');
-            let dep_name = dep_tokens.next().unwrap();
-            match dep_tokens.next() {
-                None if features.contains_key(dep_name) => {
-                    if !default_features.contains(dep_name) {
-                        feature_deps
-                            .push(format!("{} (= ${{binary:Version}})", deb_feature(dep_name)));
+
+        if opt_deps.contains(&feature) {
+            // Given feature is actually a optional dependency and not found in
+            // features of crate. We insert the name of this optional dependency
+            // into our map with empty features.
+            deps_features.insert(feature, vec![]);
+
+        } else {
+            for dep_str in features.get(feature).unwrap() {
+                let mut dep_tokens = dep_str.splitn(2, '/');
+                let dep_name = dep_tokens.next().unwrap();
+                match dep_tokens.next() {
+                    None if features.contains_key(dep_name) => {
+                        if !default_features.contains(dep_name) {
+                            feature_deps
+                                .push(format!("{} (= ${{binary:Version}})", deb_feature(dep_name)));
+                        }
                     }
-                }
-                opt_dep_feature => {
-                    deps_features.entry(dep_name)
-                        .or_insert_with(|| vec![])
-                        .extend(opt_dep_feature.into_iter()
-                            .map(String::from));
+                    opt_dep_feature => {
+                        deps_features
+                            .entry(dep_name)
+                            .or_insert_with(|| vec![])
+                            .extend(opt_dep_feature.into_iter().map(String::from));
+                    }
                 }
             }
         }
