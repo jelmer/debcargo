@@ -1,0 +1,43 @@
+# FIXME: this file is temporary and works around an existing bug in debcargo
+# See TODO.md for details.
+Source: rust-time-0.1
+Section: rust
+Priority: optional
+Build-Depends: debhelper (>= 10),
+ dh-cargo (>= 3),
+ librust-libc-0.2+default-dev (>= 0.2.1) <!nocheck>,
+ librust-redox-syscall-0.1+default-dev <!nocheck>,
+ librust-winapi-0.3+std-dev <!nocheck>,
+ librust-winapi-0.3+minwinbase-dev <!nocheck>,
+ librust-winapi-0.3+minwindef-dev <!nocheck>,
+ librust-winapi-0.3+ntdef-dev <!nocheck>,
+ librust-winapi-0.3+profileapi-dev <!nocheck>,
+ librust-winapi-0.3+sysinfoapi-dev <!nocheck>,
+ librust-winapi-0.3+timezoneapi-dev <!nocheck>
+Maintainer: Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>
+Uploaders: Ximin Luo <infinity0@debian.org>
+Standards-Version: 4.0.0
+Vcs-Git: https://anonscm.debian.org/git/pkg-rust/rust-time-0.1.git
+Vcs-Browser: https://anonscm.debian.org/cgit/pkg-rust/rust-time-0.1.git
+Homepage: https://github.com/rust-lang/time
+
+Package: librust-time-0.1-dev
+Architecture: all
+Depends:
+ ${misc:Depends},
+ librust-libc-0.2+default-dev (>= 0.2.1),
+ librust-redox-syscall-0.1+default-dev,
+ librust-winapi-0.3+std-dev,
+ librust-winapi-0.3+minwinbase-dev,
+ librust-winapi-0.3+minwindef-dev,
+ librust-winapi-0.3+ntdef-dev,
+ librust-winapi-0.3+profileapi-dev,
+ librust-winapi-0.3+sysinfoapi-dev,
+ librust-winapi-0.3+timezoneapi-dev
+Provides:
+ librust-time-0.1+default-dev (= ${binary:Version})
+Description: Utilities for working with time-related functions in Rust - Rust source code
+ .
+ This package contains the source for the Rust time crate, packaged by debcargo
+ for use with cargo and dh-cargo.
+

@@ -24,24 +24,18 @@ by infinity0, for copyninja:
 - Run `tests/sh/integrate.sh -rb ./` and fix the build errors that occur in
   the Debian binary packages.
 
-  - rust-git2 package FTBFS because our handling of default features is
-    incomplete. Currently, we generate "Provides: X+default-dev" for each main
-    library package, but this should only be the case if the default set of
-    features actually pulls in no extra dependencies.
+  - We don't handle version ranges well yet:
 
-    By contrast, rust-git2's default feature set is ["ssh", "https", "curl"]
-    which pulls in extra dependencies. In this case we need to generate a
-    new real Package stanza for the +default package, that additionally pulls
-    in these extra features.
+    Cargo.toml dependency x (> a, < b) should convert to
+    d/control dependency x-a | x-(a+1) | .. | x-(b-1) | x-b
 
-    Once this is fixed, we should be able to rm -rf tests/sh/configs/git2-0*/
+    Cargo.toml dependency x (> a) should convert to
+    d/control dependency x-a | x-(a+1) | .. | x-(max(current version, a+4))
 
-    Same problem with num-bigint depending on rand as a default feature.
-    debcargo does not generate the correct control file here.
+    See ML thread starting 2018-02-18 for details:
+    "debcargo update handling alternative build depends"
 
-    Similar problem with semver package, it needs a +serde feature (which is
-    listed as an optional dependency in Cargo.toml, and not explicitly as a
-    feature) which debcargo is omitting.
+    Symptoms include sbuild failure like "unsat-dependency: dh-cargo:amd64 (>= 3)"
 
   - rust-time package FTBFS because of a missing dependency on winapi:
 
