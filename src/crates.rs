@@ -2,6 +2,7 @@ use cargo;
 use cargo::core::{Dependency, Source, SourceId, Package, PackageId, Summary, Registry, TargetKind};
 use cargo::util::FileLock;
 use cargo::core::manifest;
+use failure::Error;
 use semver::Version;
 use itertools::Itertools;
 use flate2::read::GzDecoder;
@@ -56,7 +57,7 @@ impl CrateInfo {
         let summary = summaries.iter()
             .max_by_key(|s| s.package_id())
             .ok_or_else(|| {
-                            format!(concat!("Couldn't find any crate matching {} {}\n Try `cargo ",
+                            format_err!(concat!("Couldn't find any crate matching {} {}\n Try `cargo ",
                                             "update` to",
                                             "update the crates.io index"),
                                     dependency.name(),
@@ -429,11 +430,10 @@ impl CrateInfo {
         }
 
         if let Err(e) = fs::rename(entries[0].path(), &path) {
-            Err(e).chain_err(|| {
-                    format!(concat!("Could not create source directory {0}\n",
-                                    "To regenerate,move or remove {0}"),
-                            path.display())
-                })?;
+            return Err(Error::from(Error::from(e).context(
+                format!(concat!("Could not create source directory {0}\n",
+                                "To regenerate,move or remove {0}"),
+                                path.display()))))
         }
 
         // Ensure that Cargo.toml is in standard form, e.g. does not contain

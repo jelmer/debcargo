@@ -1,25 +1,6 @@
-use std::io;
-use std::string;
-use std::num;
-use cargo;
-use walkdir;
-use regex;
-use toml;
-use git2;
+use failure;
 
-error_chain! {
-    foreign_links {
-        Io(io::Error);
-        CargoBox(Box<cargo::CargoError>);
-        Cargo(cargo::CargoError);
-        Regex(regex::Error);
-        WalkDir(walkdir::Error);
-        String(string::FromUtf8Error);
-        ParseInt(num::ParseIntError);
-        TomlError(toml::de::Error);
-        GitError(git2::Error);
-    }
-}
+pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
 #[macro_export]
 macro_rules! debcargo_info {
@@ -62,15 +43,14 @@ macro_rules! debcargo_warn {
 macro_rules! debcargo_bail {
     ($e:expr) => {{
         use ansi_term::Colour::Red;
-        let error_string = Red.bold().paint($e).to_string();
-        return Err(error_string.into());
+        return Err(format_err!("{}", Red.bold().paint($e)));
     }};
 
     ($fmt:expr, $( $arg:tt)+) => {
         {
             use ansi_term::Colour::Red;
             let error_string = format!($fmt, $($arg)+);
-            return Err(Red.bold().paint(error_string).to_string().into());
+            return Err(format_err!("{}", Red.bold().paint(error_string)));
         }
     };
 }

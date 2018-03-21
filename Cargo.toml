@@ -10,14 +10,14 @@ repository = "https://anonscm.debian.org/git/pkg-rust/debcargo.git"
 description = "Create a Debian package from a Cargo crate."
 
 [dependencies]
-cargo = "0.24"
+cargo = "0.25"
 clap = "2.18"
 chrono = "0.4"
-error-chain = "0.11"
+failure = "0.1"
 flate2 = "1"
 itertools = "0.7"
 regex = "0.2"
-semver = "0.8" # forced to be 0.8 because of cargo 0.24, else API type mismatch due to versions
+semver = "0.8" # forced to be 0.8 because of cargo 0.25, else API type mismatch due to versions
 semver-parser = "0.7"
 tar = "0.4"
 tempdir = "0.3"
