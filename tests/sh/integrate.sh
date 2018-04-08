@@ -97,7 +97,7 @@ run_lintian() {(
 	lintian -EIL +pedantic "$changes" || true
 )}
 
-chroot=debcargo-unstable-amd64-sbuild
+chroot=unstable-"$(dpkg-architecture -q DEB_HOST_ARCH)"-sbuild
 run_sbuild() {(
 	local crate="$1"
 	local version="$2"
@@ -229,7 +229,7 @@ for i in "$@"; do run_x_or_deps "$i" build_source; done
 if $run_sbuild; then
 	if ! schroot -i -c "$chroot" >/dev/null; then
 		echo >&2 "create the $chroot schroot by running e.g.:"
-		echo >&2 "  sudo sbuild-createchroot unstable --chroot-prefix=debcargo-unstable /srv/chroot/$chroot http://deb.debian.org/debian"
+		echo >&2 "  sudo sbuild-createchroot unstable /srv/chroot/$chroot http://deb.debian.org/debian"
 		echo >&2 "  sudo schroot -c source:$chroot -- apt-get -y install dh-cargo"
 		echo >&2 "  sudo sbuild-update -udr $chroot"
 		echo >&2 "See https://wiki.debian.org/sbuild for more details"
