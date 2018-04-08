@@ -1,0 +1,5 @@
+[source]
+build_depends = ["libssl-dev <!nocheck>"]
+
+[packages."librust-openssl-sys-0.9-dev"]
+depends = ["libssl-dev"]

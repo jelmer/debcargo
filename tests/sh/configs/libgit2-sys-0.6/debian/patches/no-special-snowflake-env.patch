@@ -1,0 +1,15 @@
+--- libgit2-sys-0.6.19/build.rs.orig	2018-02-06 14:11:05.758487595 +0100
++++ libgit2-sys-0.6.19/build.rs	2018-02-06 14:11:09.514541164 +0100
+@@ -31,10 +31,8 @@
+     }
+     let has_pkgconfig = Command::new("pkg-config").output().is_ok();
+ 
+-    if env::var("LIBGIT2_SYS_USE_PKG_CONFIG").is_ok() {
+-        if pkg_config::find_library("libgit2").is_ok() {
+-            return
+-        }
++    if pkg_config::find_library("libgit2").is_ok() {
++        return
+     }
+ 
+     if !Path::new("libgit2/.git").exists() {

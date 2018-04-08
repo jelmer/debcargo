@@ -42,7 +42,7 @@ fn source_package_override() {
 
 
     assert!(config.is_packages_present());
-    let sd = config.summary_description_for("debcargo");
+    let sd = config.package_summary("debcargo");
     assert!(sd.is_some());
 
     if let Some((s, d)) = sd {

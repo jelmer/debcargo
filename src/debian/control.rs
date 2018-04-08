@@ -2,6 +2,7 @@ use std::fmt::{self, Write};
 use std::env::{self, VarError};
 
 use chrono;
+use failure::Error;
 use itertools::Itertools;
 use semver::Version;
 use textwrap::fill;
@@ -101,6 +102,7 @@ impl Source {
         home: &str,
         lib: &bool,
         bdeps: &[String],
+        tdeps: &[String],
     ) -> Result<Source> {
         let source = format!("rust-{}", basename);
         let section = if *lib { "rust" } else { "FIXME" };
@@ -109,11 +111,10 @@ impl Source {
         let uploaders = get_deb_author()?;
         let vcs_git = format!("{}{}.git", VCS_GIT, source);
         let vcs_browser = format!("{}{}.git", VCS_VIEW, source);
-        let mut build_deps = vec!["debhelper (>= 10)".to_string(), "dh-cargo".to_string()];
+        let mut build_deps = vec!["debhelper (>= 10)".to_string(), "dh-cargo (>= 3)".to_string()];
         build_deps.extend_from_slice(bdeps);
-        let build_deps = build_deps.iter()
-            // .chain(bdeps)
-            .join(",\n ");
+        build_deps.extend(tdeps.iter().map(|x| x.to_string() + " <!nocheck>"));
+        let build_deps = build_deps.iter().join(",\n ");
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
             upstream_name.to_string()
         } else {
@@ -406,8 +407,9 @@ fn get_envs(keys: &[&str]) -> Result<Option<String>> {
                 return Ok(Some(val));
             }
             Err(e @ VarError::NotUnicode(_)) => {
-                return Err(e)
-                    .chain_err(|| format!("Environment variable ${} not valid UTF-8", key));
+                return Err(Error::from(Error::from(e).context(
+                    format!("Environment variable ${} not valid UTF-8", key)
+                    )));
             }
             Err(VarError::NotPresent) => {}
         }
@@ -417,9 +419,9 @@ fn get_envs(keys: &[&str]) -> Result<Option<String>> {
 
 /// Determine a name and email address from environment variables.
 pub fn get_deb_author() -> Result<String> {
-    let name = try!(try!(get_envs(&["DEBFULLNAME", "NAME"]))
-                        .ok_or("Unable to determine your name; please set $DEBFULLNAME or $NAME"));
-    let email = try!(try!(get_envs(&["DEBEMAIL", "EMAIL"]))
-                         .ok_or("Unable to determine your email; please set $DEBEMAIL or $EMAIL"));
+    let name = get_envs(&["DEBFULLNAME", "NAME"])?.ok_or(
+                format_err!("Unable to determine your name; please set $DEBFULLNAME or $NAME"))?;
+    let email = get_envs(&["DEBEMAIL", "EMAIL"])?.ok_or(
+                format_err!("Unable to determine your email; please set $DEBEMAIL or $EMAIL"))?;
     Ok(format!("{} <{}>", name, email))
 }

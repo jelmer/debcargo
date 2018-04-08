@@ -21,8 +21,37 @@ by infinity0, for copyninja:
 
 ## Important features
 
-- sbuild of aho-corasick fails (with bin = true) because `cargo install` wants
-  dev-dependencies (e.g. csv) but debcargo doesn't take them into account yet.
+- Run `tests/sh/integrate.sh -rb ./` and fix the build errors that occur in
+  the Debian binary packages.
+
+  - We don't handle version ranges well yet:
+
+    Cargo.toml dependency x (> a, < b) should convert to
+    d/control dependency x-a | x-(a+1) | .. | x-(b-1) | x-b
+
+    Cargo.toml dependency x (> a) should convert to
+    d/control dependency x-a | x-(a+1) | .. | x-(max(current version, a+4))
+
+    See ML thread starting 2018-02-18 for details:
+    "debcargo update handling alternative build depends"
+
+    Symptoms include sbuild failure like "unsat-dependency: dh-cargo:amd64 (>= 3)"
+
+  - rust-time package FTBFS because of a missing dependency on winapi:
+
+    [target."cfg(windows)".dependencies.winapi]
+
+    Even though we're not on windows, we still pull in these dependencies in
+    the general case, for simplicity and potentially in the future to support
+    cross-compiling. For some reason that isn't being achieved here.
+
+    Once this is fixed, we should be able to rm -rf tests/sh/configs/time-0*/
+
+  - tests/sh/integrate.sh doesn't handle packages that are not part of
+    debcargo's own dependency tree, due to a limitation in cargo-tree
+
+    Ideal solution is to put the functionality inside debcargo and avoid
+    cargo-tree completely.
 
 - See debcargo.toml.example and the TODOs listed there
 
