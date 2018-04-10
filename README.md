@@ -5,6 +5,9 @@ Crates.io to Debian
 Debian source package from the downloaded crate which follows Rust teams crate
 packaging [policy](https://wiki.debian.org/Teams/RustPackaging/Policy).
 
+It is not yet ready for use in Debian, but almost - there are just a few
+critical bugs remaining, see TODO.md for details.
+
 
 ## Features ##
 
