@@ -395,7 +395,7 @@ fn deb_name(name: &str) -> String {
 pub fn deb_feature_name(name: &str, feature: &str) -> String {
     format!("librust-{}+{}-dev",
             name.replace('_', "-"),
-            feature.replace('_', "-"))
+            feature.replace('_', "-").to_lowercase())
 }
 
 /// Retrieve one of a series of environment variables, and provide a friendly error message for

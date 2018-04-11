@@ -157,7 +157,7 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> {
         suffixes.push("+default-dev".to_string());
     }
     for feature in dep.features() {
-        suffixes.push(format!("+{}-dev", feature.replace('_', "-")));
+        suffixes.push(format!("+{}-dev", feature.replace('_', "-").to_lowercase()));
     }
     if suffixes.is_empty() {
         suffixes.push("-dev".to_string());
