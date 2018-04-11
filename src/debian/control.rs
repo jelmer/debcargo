@@ -14,8 +14,7 @@ use errors::*;
 
 
 const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>";
-const VCS_GIT: &'static str = "https://anonscm.debian.org/git/pkg-rust/";
-const VCS_VIEW: &'static str = "https://anonscm.debian.org/cgit/pkg-rust/";
+const VCS: &'static str = "https://salsa.debian.org/rust-team/";
 
 pub struct Source {
     name: String,
@@ -109,8 +108,8 @@ impl Source {
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
         let uploaders = get_deb_author()?;
-        let vcs_git = format!("{}{}.git", VCS_GIT, source);
-        let vcs_browser = format!("{}{}.git", VCS_VIEW, source);
+        let vcs_browser = format!("{}{}", VCS, source);
+        let vcs_git = format!("{}.git", vcs_browser);
         let mut build_deps = vec!["debhelper (>= 10)".to_string(), "dh-cargo (>= 3)".to_string()];
         build_deps.extend_from_slice(bdeps);
         build_deps.extend(tdeps.iter().map(|x| x.to_string() + " <!nocheck>"));
