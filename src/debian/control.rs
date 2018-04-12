@@ -43,7 +43,6 @@ pub struct Package {
     boilerplate: String,
 }
 
-
 impl fmt::Display for Source {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Source: {}", self.name)?;
@@ -191,6 +190,14 @@ impl OverrideDefaults for Source {
         if let Some(homepage) = config.homepage() {
             self.homepage = homepage.to_string();
         }
+
+        if let Some(vcs_git) = config.vcs_git() {
+            self.vcs_git = vcs_git.to_string();
+        }
+
+        if let Some(vcs_browser) = config.vcs_browser() {
+            self.vcs_browser = vcs_browser.to_string();
+        }
     }
 }
 
@@ -216,7 +223,6 @@ impl Package {
         let (default_features, _) = crate_info.default_deps_features();
         let non_default_features = crate_info.non_default_features(&default_features);
         let (summary, description) = crate_info.get_summary_description();
-
 
         // Suggests is needed only for main package and not feature package.
         let suggests = if feature.is_none() {

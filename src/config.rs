@@ -6,7 +6,6 @@ use std::path::{Path,PathBuf};
 use std::fs::File;
 use errors::*;
 
-
 #[derive(Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct Config {
@@ -25,6 +24,8 @@ pub struct SourceOverride {
     section: Option<String>,
     policy: Option<String>,
     homepage: Option<String>,
+    vcs_git: Option<String>,
+    vcs_browser: Option<String>,
     build_depends: Option<Vec<String>>,
 }
 
@@ -121,6 +122,24 @@ impl Config {
                 package.depends.as_ref()
             })
         })
+    }
+
+    pub fn vcs_git(&self) -> Option<&str> {
+        if let Some(ref s) = self.source {
+            if let Some(ref vcs_git) = s.vcs_git {
+                return Some(vcs_git);
+            }
+        }
+        None
+    }
+
+    pub fn vcs_browser(&self) -> Option<&str> {
+        if let Some(ref s) = self.source {
+            if let Some(ref vcs_browser) = s.vcs_browser {
+                return Some(vcs_browser);
+            }
+        }
+        None
     }
 }
 
