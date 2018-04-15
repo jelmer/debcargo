@@ -191,7 +191,7 @@ run_x_or_deps() {
 		tree_args="-p $x"
 		;;
 	esac
-	if $update && -d "$spec"; then
+	if $update && test -d "$spec"; then
 		( cd "$spec"; cargo update )
 	fi
 	if $recursive; then
