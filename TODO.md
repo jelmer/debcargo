@@ -43,7 +43,8 @@
     Compatible, major: 0, minor: Some(11), patch: Some(0), pre:
     [AlphaNumeric("rc"), Numeric(2)] }
 
-    It is already fixed in cargo 0.25
+    The issue doesn't crop up with cargo 0.25+ but might crop up with other
+    crates, i.e. it's still something we have to fix in debcargo.
 
     This would allow us to delete `tests/sh/build-allow-fail`
 
