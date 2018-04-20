@@ -112,5 +112,5 @@ $ dput [etc]
 
 ## License ##
 
-Debcargo is licensed under `MIT/Apache-2.0`. It is written by `Josh Tripplet`
+Debcargo is licensed under `MIT/Apache-2.0`. It is written by `Josh Triplett`
 and improved by members of **Debian Rust Maintainers team**
