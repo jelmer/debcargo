@@ -1,5 +1,7 @@
-use cargo;
-use cargo::core::{Dependency, Source, SourceId, Package, PackageId, Summary, Registry, TargetKind};
+use cargo::{Config,
+            core::{Dependency, Package, PackageId, Registry, Source, SourceId, Summary,
+                   TargetKind},
+            sources::RegistrySource};
 use cargo::util::FileLock;
 use cargo::core::manifest;
 use failure::Error;
