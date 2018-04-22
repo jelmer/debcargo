@@ -21,6 +21,11 @@ use std::fs;
 use errors::*;
 use debian::deb_dep;
 
+pub struct CratesIo {
+    config: Config,
+    source_id: SourceId,
+}
+
 pub struct CrateInfo {
     package: Package,
     manifest: manifest::Manifest,
@@ -35,44 +40,81 @@ fn hash<H: Hash>(hashable: &H) -> u64 {
     hasher.finish()
 }
 
+impl CratesIo {
+    pub fn new() -> Result<Self> {
+        let config = Config::default()?;
+        let source_id = SourceId::crates_io(&config)?;
+
+        Ok(CratesIo {
+            config: config,
+            source_id: source_id,
+        })
+    }
+
+    pub fn create_dependency(&self, name: &str, version: Option<&str>) -> Result<Dependency> {
+        Dependency::parse_no_deprecated(name, version, &self.source_id)
+    }
+
+    pub fn fetch_candidates(&self, dep: &Dependency) -> Result<Vec<Summary>> {
+        let mut registry = self.registry();
+        registry.query_vec(dep)
+    }
+
+    pub fn registry(&self) -> RegistrySource {
+        RegistrySource::remote(&self.source_id, &self.config)
+    }
+}
+
 impl CrateInfo {
     pub fn new(crate_name: &str, version: Option<&str>) -> Result<CrateInfo> {
-        let version = version.map(|v| if v.starts_with(|c: char| c.is_digit(10)) {
-            ["=", v].concat()
-        } else {
-            v.to_string()
+        let version = version.map(|v| {
+            if v.starts_with(|c: char| c.is_digit(10)) {
+                ["=", v].concat()
+            } else {
+                v.to_string()
+            }
         });
-        let config = cargo::Config::default()?;
-        let crates_io = SourceId::crates_io(&config)?;
-        let mut registry = cargo::sources::RegistrySource::remote(&crates_io, &config);
-        let dependency = Dependency::parse_no_deprecated(crate_name,
-                                                         version.as_ref().map(String::as_str),
-                                                         &crates_io)?;
-        let summaries = registry.query_vec(&dependency)?;
-        let registry_name = format!("{}-{:016x}",
-                                    crates_io.url().host_str().unwrap_or(""),
-                                    hash(&crates_io).swap_bytes());
 
+        let crates_io = CratesIo::new()?;
+        let dependency = Dependency::parse_no_deprecated(
+            crate_name,
+            version.as_ref().map(String::as_str),
+            &crates_io.source_id,
+        )?;
+        let summaries = crates_io.fetch_candidates(&dependency)?;
 
+        let registry_name = format!(
+            "{}-{:016x}",
+            crates_io.source_id.url().host_str().unwrap_or(""),
+            hash(&crates_io.source_id).swap_bytes()
+        );
 
-
-        let summary = summaries.iter()
+        let summary = summaries
+            .iter()
             .max_by_key(|s| s.package_id())
             .ok_or_else(|| {
-                            format_err!(concat!("Couldn't find any crate matching {} {}\n Try `cargo ",
-                                            "update` to",
-                                            "update the crates.io index"),
-                                    dependency.name(),
-                                    dependency.version_req())
-                        })?;
+                format_err!(
+                    concat!(
+                        "Couldn't find any crate matching {} {}\n Try `cargo ",
+                        "update` to",
+                        "update the crates.io index"
+                    ),
+                    dependency.name(),
+                    dependency.version_req()
+                )
+            })?;
 
         let pkgid = summary.package_id();
+
+        let mut registry = crates_io.registry();
         let package = registry.download(pkgid)?;
         let manifest = package.manifest();
         let filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
-        let crate_file = config.registry_cache_path()
+        let crate_file = crates_io
+            .config
+            .registry_cache_path()
             .join(&registry_name)
-            .open_ro(&filename, &config, &filename)?;
+            .open_ro(&filename, &crates_io.config, &filename)?;
 
         Ok(CrateInfo {
             package: package.clone(),
@@ -80,7 +122,6 @@ impl CrateInfo {
             summary: summary.clone(),
             crate_file: crate_file,
         })
-
     }
 
     pub fn targets(&self) -> &[manifest::Target] {
@@ -209,10 +250,11 @@ impl CrateInfo {
 
         match *self.package_id().version() {
             _ if !lib && !bins.is_empty() => "".to_string(),
-            Version { major: 0, minor, .. } => format!("-0.{}", minor),
+            Version {
+                major: 0, minor, ..
+            } => format!("-0.{}", minor),
             Version { major, .. } => format!("-{}", major),
         }
-
     }
 
     pub fn dev_dependencies(&self) -> HashSet<&str> {
@@ -346,7 +388,6 @@ impl CrateInfo {
         let all_deps = self.non_build_dependencies()?;
         let opt_deps = self.optional_dependency_names();
 
-
         // Track the (possibly empty) additional features required for each dep, to call
         // deb_dep once for all of them.
         let mut deps_features = HashMap::new();
@@ -357,7 +398,6 @@ impl CrateInfo {
             // features of crate. We insert the name of this optional dependency
             // into our map with empty features.
             deps_features.insert(feature, vec![]);
-
         } else {
             for dep_str in features.get(feature).unwrap() {
                 let mut dep_tokens = dep_str.splitn(2, '/');
@@ -390,9 +430,11 @@ impl CrateInfo {
             } else if dev_deps.contains(dep_name) {
                 continue;
             } else {
-                debcargo_bail!("Feature {} depended on non-existent dep {}",
-                               feature,
-                               dep_name);
+                debcargo_bail!(
+                    "Feature {} depended on non-existent dep {}",
+                    feature,
+                    dep_name
+                );
             };
         }
 
@@ -426,16 +468,21 @@ impl CrateInfo {
         let entries = tempdir.path().read_dir()?.collect::<io::Result<Vec<_>>>()?;
         if entries.len() != 1 || !entries[0].file_type()?.is_dir() {
             let pkgid = self.package_id();
-            debcargo_bail!("{}-{}.crate did not unpack to a single top-level directory",
-                           pkgid.name(),
-                           pkgid.version());
+            debcargo_bail!(
+                "{}-{}.crate did not unpack to a single top-level directory",
+                pkgid.name(),
+                pkgid.version()
+            );
         }
 
         if let Err(e) = fs::rename(entries[0].path(), &path) {
-            return Err(Error::from(Error::from(e).context(
-                format!(concat!("Could not create source directory {0}\n",
-                                "To regenerate,move or remove {0}"),
-                                path.display()))))
+            return Err(Error::from(Error::from(e).context(format!(
+                concat!(
+                    "Could not create source directory {0}\n",
+                    "To regenerate,move or remove {0}"
+                ),
+                path.display()
+            ))));
         }
 
         // Ensure that Cargo.toml is in standard form, e.g. does not contain
@@ -443,13 +490,15 @@ impl CrateInfo {
         let registry_toml = self.package().to_registry_toml()?;
         let mut actual_toml = String::new();
         let toml_path = path.join("Cargo.toml");
-        fs::File::open(&toml_path)?
-            .read_to_string(&mut actual_toml)?;
+        fs::File::open(&toml_path)?.read_to_string(&mut actual_toml)?;
 
         if actual_toml != registry_toml {
             let old_toml_path = path.join("Cargo.toml.orig");
             fs::rename(&toml_path, &old_toml_path)?;
-            fs::OpenOptions::new().create(true).write(true).open(&toml_path)?
+            fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open(&toml_path)?
                 .write_all(registry_toml.as_bytes())?;
             source_modified = true;
         }
