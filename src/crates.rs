@@ -62,6 +62,18 @@ impl CratesIo {
         Ok(summaries)
     }
 
+    pub fn fetch_as_dependency(&self, dep: &Dependency) -> Result<Vec<Dependency>> {
+        let summaries = self.fetch_candidates(dep)?;
+        let deps: Vec<Dependency> = summaries
+            .iter()
+            .map(|s| {
+                self.create_dependency(s.name(), Some(format!("{}", s.version()).as_str()))
+                    .unwrap()
+            })
+            .collect();
+        Ok(deps)
+    }
+
     pub fn registry(&self) -> RegistrySource {
         RegistrySource::remote(&self.source_id, &self.config)
     }
