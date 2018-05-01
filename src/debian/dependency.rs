@@ -168,8 +168,7 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> {
         let pkg = |v: &V| {
             let (major, minor) = match *v {
                 M(major) => (major, 0),
-                MM(major, minor) |
-                MMP(major, minor, _) => (major, minor),
+                MM(major, minor) | MMP(major, minor, _) => (major, minor),
             };
             if major == 0 {
                 format!("librust-{}-{}.{}{}", dep_dashed, major, minor, suffix)

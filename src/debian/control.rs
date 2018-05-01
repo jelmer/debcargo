@@ -11,8 +11,6 @@ use crates::CrateInfo;
 use config::{Config, OverrideDefaults};
 use errors::*;
 
-
-
 const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>";
 const VCS: &'static str = "https://salsa.debian.org/rust-team/";
 
@@ -42,7 +40,6 @@ pub struct Package {
     description: String,
     boilerplate: String,
 }
-
 
 impl fmt::Display for Source {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -110,7 +107,10 @@ impl Source {
         let uploaders = get_deb_author()?;
         let vcs_browser = format!("{}{}", VCS, source);
         let vcs_git = format!("{}.git", vcs_browser);
-        let mut build_deps = vec!["debhelper (>= 10)".to_string(), "dh-cargo (>= 3)".to_string()];
+        let mut build_deps = vec![
+            "debhelper (>= 10)".to_string(),
+            "dh-cargo (>= 3)".to_string(),
+        ];
         build_deps.extend_from_slice(bdeps);
         build_deps.extend(tdeps.iter().map(|x| x.to_string() + " <!nocheck>"));
         let build_deps = build_deps.iter().join(",\n ");
@@ -216,7 +216,6 @@ impl Package {
         let (default_features, _) = crate_info.default_deps_features();
         let non_default_features = crate_info.non_default_features(&default_features);
         let (summary, description) = crate_info.get_summary_description();
-
 
         // Suggests is needed only for main package and not feature package.
         let suggests = if feature.is_none() {
@@ -392,9 +391,11 @@ fn deb_name(name: &str) -> String {
 }
 
 pub fn deb_feature_name(name: &str, feature: &str) -> String {
-    format!("librust-{}+{}-dev",
-            name.replace('_', "-"),
-            feature.replace('_', "-").to_lowercase())
+    format!(
+        "librust-{}+{}-dev",
+        name.replace('_', "-"),
+        feature.replace('_', "-").to_lowercase()
+    )
 }
 
 /// Retrieve one of a series of environment variables, and provide a friendly error message for
@@ -406,9 +407,10 @@ fn get_envs(keys: &[&str]) -> Result<Option<String>> {
                 return Ok(Some(val));
             }
             Err(e @ VarError::NotUnicode(_)) => {
-                return Err(Error::from(Error::from(e).context(
-                    format!("Environment variable ${} not valid UTF-8", key)
-                    )));
+                return Err(Error::from(
+                    Error::from(e)
+                        .context(format!("Environment variable ${} not valid UTF-8", key)),
+                ));
             }
             Err(VarError::NotPresent) => {}
         }
@@ -418,9 +420,11 @@ fn get_envs(keys: &[&str]) -> Result<Option<String>> {
 
 /// Determine a name and email address from environment variables.
 pub fn get_deb_author() -> Result<String> {
-    let name = get_envs(&["DEBFULLNAME", "NAME"])?.ok_or(
-                format_err!("Unable to determine your name; please set $DEBFULLNAME or $NAME"))?;
-    let email = get_envs(&["DEBEMAIL", "EMAIL"])?.ok_or(
-                format_err!("Unable to determine your email; please set $DEBEMAIL or $EMAIL"))?;
+    let name = get_envs(&["DEBFULLNAME", "NAME"])?.ok_or(format_err!(
+        "Unable to determine your name; please set $DEBFULLNAME or $NAME"
+    ))?;
+    let email = get_envs(&["DEBEMAIL", "EMAIL"])?.ok_or(format_err!(
+        "Unable to determine your email; please set $DEBEMAIL or $EMAIL"
+    ))?;
     Ok(format!("{} <{}>", name, email))
 }
