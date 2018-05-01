@@ -6,6 +6,7 @@ use cargo::core::Dependency;
 use std::fmt;
 
 use errors::*;
+use crates::CratesIo;
 
 #[derive(PartialEq)]
 enum V {
@@ -63,11 +64,13 @@ fn coerce_unacceptable_predicate<'a>(
             );
             Ok(&Gt)
         }
-        (_, &M(0)) => debcargo_bail!(
-            "Unrepresentable dependency version predicate: {} {:?}",
-            dep.name(),
-            p
-        ),
+        // TODO: This will prevent us from handling wildcard dependencies with
+        // 0.0.0* so for now commenting this out.
+        // (_, &M(0)) => debcargo_bail!(
+        //     "Unrepresentable dependency version predicate: {} {:?}",
+        //     dep.name(),
+        //     p
+        // ),
         (_, _) => Ok(&p.op),
     }
 }
@@ -132,17 +135,30 @@ where
         (&Compatible, &MM(..)) | (&Compatible, &MMP(..)) => {
             deps.push(format!("{} (>= {})", pkg(&mmp), mmp))
         }
-        (&Wildcard(WildcardVersion::Major), _) => debcargo_bail!(
-            "Unrepresentable dependency wildcard: {} = \"{:?}\"",
-            dep.name(),
-            p
-        ),
+        (&Wildcard(WildcardVersion::Major), _) => {
+            // We take all possible version from the crates io which will be
+            // returned to us as sorted dependency. We take first few lets say 5
+            // and use it as alternative dependencies.
+            let crates_io = CratesIo::new()?;
+            let mut candidates = crates_io.fetch_as_dependency(dep)?;
+
+            // TODO: What happens if there are less than 5 elements?.
+            for d in candidates.iter().take(5) {
+                let req = semver_parser::range::parse(&d.version_req().to_string()).unwrap();
+                let mmp = V::new(&req.predicates[0])?;
+                deps.push(pkg(&mmp));
+            }
+
+            // Possibly multiple minor version changes leads duplicate
+            // dependencies but luckily consecutive so lets drop them
+            deps.dedup();
+        }
         (&Wildcard(WildcardVersion::Minor), _) => deps.push(pkg(&mmp)),
         (&Wildcard(WildcardVersion::Patch), _) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
     }
 
     if deps.len() > 1 {
-        return Ok(deps.join("|"));
+        return Ok(deps.join(" | "));
     }
 
     Ok(deps.join(""))
