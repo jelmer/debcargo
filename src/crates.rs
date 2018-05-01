@@ -57,7 +57,9 @@ impl CratesIo {
 
     pub fn fetch_candidates(&self, dep: &Dependency) -> Result<Vec<Summary>> {
         let mut registry = self.registry();
-        registry.query_vec(dep)
+        let mut summaries = registry.query_vec(dep)?;
+        summaries.sort_by(|a, b| b.package_id().partial_cmp(a.package_id()).unwrap());
+        Ok(summaries)
     }
 
     pub fn registry(&self) -> RegistrySource {
