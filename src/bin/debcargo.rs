@@ -1,31 +1,28 @@
-#[macro_use]
-extern crate debcargo;
+extern crate ansi_term;
 extern crate cargo;
+extern crate chrono;
 #[macro_use]
 extern crate clap;
-extern crate chrono;
+#[macro_use]
+extern crate debcargo;
 extern crate flate2;
 extern crate itertools;
 extern crate semver;
 extern crate semver_parser;
 extern crate tar;
 extern crate tempdir;
-extern crate ansi_term;
 extern crate walkdir;
-
 
 use clap::{App, AppSettings, ArgMatches, SubCommand};
 use std::fs;
 use std::path::Path;
-use std::io::{BufReader, BufRead};
-
+use std::io::{BufRead, BufReader};
 
 use debcargo::errors::*;
 use debcargo::crates::CrateInfo;
 use debcargo::debian::{self, BaseInfo};
-use debcargo::config::{Config, parse_config};
+use debcargo::config::{parse_config, Config};
 use debcargo::util;
-
 
 fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
     let mut fixme_files = Vec::new();
@@ -51,38 +48,51 @@ fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
     Ok(fixme_files)
 }
 
-
 fn do_package(matches: &ArgMatches) -> Result<()> {
     let crate_name = matches.value_of("crate").unwrap();
     let version = matches.value_of("version");
     let directory = matches.value_of("directory");
-    let (config_path, config) = matches.value_of("config").map(|p| {
-        debcargo_warn!("--config is not yet stable, follow the mailing list for changes.");
-        let path = Path::new(p);
-        (Some(path), parse_config(path).unwrap())
-    }).unwrap_or((None, Config::default()));
+    let (config_path, config) = matches
+        .value_of("config")
+        .map(|p| {
+            debcargo_warn!("--config is not yet stable, follow the mailing list for changes.");
+            let path = Path::new(p);
+            (Some(path), parse_config(path).unwrap())
+        })
+        .unwrap_or((None, Config::default()));
     let changelog_ready = matches.is_present("changelog-ready");
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
     let crate_info = CrateInfo::new(crate_name, version)?;
     let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!());
 
-    let pkg_srcdir = directory.map(|s| Path::new(s)).unwrap_or(pkgbase.package_source_dir());
+    let pkg_srcdir = directory
+        .map(|s| Path::new(s))
+        .unwrap_or(pkgbase.package_source_dir());
     let orig_tar_gz = pkgbase.orig_tarball_path();
 
     let source_modified = crate_info.extract_crate(pkg_srcdir)?;
-    debian::prepare_orig_tarball(crate_info.crate_file(), orig_tar_gz, source_modified, pkg_srcdir)?;
-    debian::prepare_debian_folder(&pkgbase,
-                                  &crate_info,
-                                  pkg_srcdir,
-                                  config_path,
-                                  &config,
-                                  changelog_ready,
-                                  copyright_guess_harder)?;
+    debian::prepare_orig_tarball(
+        crate_info.crate_file(),
+        orig_tar_gz,
+        source_modified,
+        pkg_srcdir,
+    )?;
+    debian::prepare_debian_folder(
+        &pkgbase,
+        &crate_info,
+        pkg_srcdir,
+        config_path,
+        &config,
+        changelog_ready,
+        copyright_guess_harder,
+    )?;
 
-    debcargo_info!(concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
-                   pkg_srcdir.to_str().unwrap(),
-                   orig_tar_gz.to_str().unwrap());
+    debcargo_info!(
+        concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
+        pkg_srcdir.to_str().unwrap(),
+        orig_tar_gz.to_str().unwrap()
+    );
     let fixmes = lookup_fixmes(pkg_srcdir.join("debian").as_path());
     if let Ok(fixmes) = fixmes {
         if !fixmes.is_empty() {

@@ -1,6 +1,6 @@
 use walkdir;
 use regex;
-use chrono::{self, Datelike, NaiveDateTime, DateTime, Utc};
+use chrono::{self, DateTime, Datelike, NaiveDateTime, Utc};
 use cargo::core::{manifest, package};
 use tempdir::TempDir;
 use textwrap::fill;
@@ -17,10 +17,8 @@ use std::io::{BufRead, BufReader, Read};
 use errors::*;
 use debian::control::get_deb_author;
 
-
 const DEB_COPYRIGHT_FORMAT: &'static str = "https://www.debian.\
                                             org/doc/packaging-manuals/copyright-format/1.0/";
-
 
 macro_rules! format_para {
     ($fmt: expr, $text:expr) => {
@@ -46,7 +44,6 @@ macro_rules! format_para {
         }
     }
 }
-
 
 struct UpstreamInfo {
     name: String,
@@ -139,7 +136,6 @@ impl fmt::Display for Files {
         }
 
         write!(f, "\n")
-
     }
 }
 
@@ -198,8 +194,9 @@ macro_rules! default_files {
 fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     let mut copyright_notices = HashMap::new();
 
-    let copyright_notice_re =
-        try!(regex::Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b(\d{4}\b.*)$"));
+    let copyright_notice_re = try!(regex::Regex::new(
+        r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b(\d{4}\b.*)$"
+    ));
 
     // Get current working directory and move inside the extracted source of
     // crate. This is necessary so as to capture correct path for files in
@@ -247,7 +244,6 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
         }
     }
 
-
     Ok(notices)
 }
 
@@ -274,11 +270,11 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
             "mpl-2.0" => include_str!("licenses/MPL-2.0"),
             "unlicense" => include_str!("licenses/Unlicense"),
             "zlib" => include_str!("licenses/Zlib"),
-            ls => {
-                debcargo_bail!("Unrecognized crate license: {} (parsed from {})",
-                               ls,
-                               license)
-            }
+            ls => debcargo_bail!(
+                "Unrecognized crate license: {} (parsed from {})",
+                ls,
+                license
+            ),
         };
         licenses.insert(ls.to_string(), text.to_string());
     }
@@ -308,17 +304,15 @@ fn copyright_fromgit(repo_url: &str) -> Result<String> {
     let first_commit = repo.find_commit(first_id)?;
     let latest_commit = repo.find_commit(latest_id)?;
 
-    let first_year =
-        DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(first_commit.time().seconds(), 0),
-                                  Utc)
-            .year();
+    let first_year = DateTime::<Utc>::from_utc(
+        NaiveDateTime::from_timestamp(first_commit.time().seconds(), 0),
+        Utc,
+    ).year();
 
-    let latest_year =
-        DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(latest_commit.time().seconds(), 0),
-                                  Utc)
-            .year();
-
-
+    let latest_year = DateTime::<Utc>::from_utc(
+        NaiveDateTime::from_timestamp(latest_commit.time().seconds(), 0),
+        Utc,
+    ).year();
 
     let notice = match first_year.cmp(&latest_year) {
         Ordering::Equal => format!("{}", first_year),
@@ -328,12 +322,12 @@ fn copyright_fromgit(repo_url: &str) -> Result<String> {
     Ok(notice)
 }
 
-
-pub fn debian_copyright(package: &package::Package,
-                        srcdir: &Path,
-                        manifest: &manifest::Manifest,
-                        guess_harder: bool)
-                        -> Result<DebCopyright> {
+pub fn debian_copyright(
+    package: &package::Package,
+    srcdir: &Path,
+    manifest: &manifest::Manifest,
+    guess_harder: bool,
+) -> Result<DebCopyright> {
     let meta = manifest.metadata().clone();
     let repository = match meta.repository {
         None => "",
@@ -371,7 +365,11 @@ pub fn debian_copyright(package: &package::Package,
         match copyright_fromgit(repository) {
             Ok(x) => x,
             Err(e) => {
-                debcargo_warn!("Failed to generate d/copyright from git repository {}: {}\n", repository, e);
+                debcargo_warn!(
+                    "Failed to generate d/copyright from git repository {}: {}\n",
+                    repository,
+                    e
+                );
                 "FIXME UNKNOWN".to_string()
             }
         }

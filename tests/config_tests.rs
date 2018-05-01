@@ -3,7 +3,6 @@ extern crate debcargo;
 use std::path::Path;
 use debcargo::config::parse_config;
 
-
 #[test]
 fn source_package_override() {
     let filepath = Path::new("tests/clap_override.toml");
@@ -31,7 +30,6 @@ fn source_package_override() {
     let config = parse_config(&second_file);
     assert!(config.is_ok());
 
-
     let config = config.unwrap();
 
     assert!(config.is_source_present());
@@ -40,20 +38,21 @@ fn source_package_override() {
     assert!(section.is_some());
     assert_eq!(section.unwrap(), "rust");
 
-
     assert!(config.is_packages_present());
     let sd = config.package_summary("debcargo");
     assert!(sd.is_some());
 
     if let Some((s, d)) = sd {
         assert_eq!(s, "Tool to create Debian package from Rust crate");
-        assert_eq!(d,
-                   "\
+        assert_eq!(
+            d,
+            "\
 This package provides debcargo a tool to create Debian source package from \
                     Rust
 crate. The package created by this tool is as per the packaging policy \
                     set by
 Debian Rust team.
-");
+"
+        );
     }
 }

@@ -1,7 +1,7 @@
 pub use self::dependency::deb_dep;
 
 use std::fs;
-use std::io::{self, Seek, Read, Write as IoWrite, ErrorKind};
+use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
 use std::path::{Path, PathBuf};
 use std::os::unix::fs::PermissionsExt;
 
@@ -18,7 +18,7 @@ use config::{Config, OverrideDefaults};
 use util::{self, copy_tree};
 
 use self::control::deb_version;
-use self::control::{Source, Package};
+use self::control::{Package, Source};
 use self::copyright::debian_copyright;
 use self::changelog::{Changelog, ChangelogIterator};
 
@@ -26,7 +26,6 @@ pub mod control;
 mod dependency;
 pub mod copyright;
 pub mod changelog;
-
 
 pub struct BaseInfo {
     upstream_name: String,
@@ -47,8 +46,8 @@ impl BaseInfo {
         let debver = deb_version(crate_info.version());
 
         let srcdir = Path::new(&format!("{}-{}", debian_source, debver)).to_owned();
-        let orig_tar_gz = Path::new(&format!("{}_{}.orig.tar.gz", debian_source, debver))
-            .to_owned();
+        let orig_tar_gz =
+            Path::new(&format!("{}_{}.orig.tar.gz", debian_source, debver)).to_owned();
 
         BaseInfo {
             upstream_name: upstream,
@@ -108,8 +107,10 @@ pub fn prepare_orig_tarball(
         let mut f = crate_file.file();
         f.seek(io::SeekFrom::Start(0))?;
         let mut archive = Archive::new(GzDecoder::new(f));
-        let mut new_archive =
-            Builder::new(GzEncoder::new(create.open(&temp_archive_path)?, Compression::best()));
+        let mut new_archive = Builder::new(GzEncoder::new(
+            create.open(&temp_archive_path)?,
+            Compression::best(),
+        ));
 
         for entry in archive.entries()? {
             let entry = entry?;
@@ -126,11 +127,19 @@ pub fn prepare_orig_tarball(
                 };
                 new_archive_append("Cargo.toml")?;
                 new_archive_append("Cargo.toml.orig")?;
-                writeln!(io::stderr(), "Rewrote {:?} to canonical form.", &entry.path()?)?;
+                writeln!(
+                    io::stderr(),
+                    "Rewrote {:?} to canonical form.",
+                    &entry.path()?
+                )?;
             } else if !remove_path(&entry.path()?) {
                 new_archive.append(&entry.header().clone(), entry)?;
             } else {
-                writeln!(io::stderr(), "Filtered out files from .orig.tar.gz: {:?}", &entry.path()?)?;
+                writeln!(
+                    io::stderr(),
+                    "Filtered out files from .orig.tar.gz: {:?}",
+                    &entry.path()?
+                )?;
             }
         }
 
@@ -189,15 +198,16 @@ pub fn prepare_debian_folder(
     let base_pkgname = pkgbase.package_basename();
     let upstream_name = pkgbase.upstream_name();
 
-    let overlay = config.overlay.as_ref().map(|p| {
-        config_path.unwrap().parent().unwrap().join(p)
-    });
+    let overlay = config
+        .overlay
+        .as_ref()
+        .map(|p| config_path.unwrap().parent().unwrap().join(p));
 
     overlay.as_ref().map(|p| {
         copy_tree(p.as_path(), tempdir.path()).unwrap();
     });
 
-    let mut new_hints = vec!();
+    let mut new_hints = vec![];
     {
         let mut file = |name: &str| {
             let path = tempdir.path();
@@ -210,15 +220,15 @@ pub fn prepare_debian_folder(
                     }
                     new_hints.push(hintname);
                     create.open(&hint)
-                },
-                _ => Err(e)
+                }
+                _ => Err(e),
             })
         };
 
         // debian/cargo-checksum.json
-        let checksum = crate_info.checksum().unwrap_or(
-            "Could not get crate checksum",
-        );
+        let checksum = crate_info
+            .checksum()
+            .unwrap_or("Could not get crate checksum");
         let mut cargo_checksum_json = file("cargo-checksum.json")?;
         writeln!(
             cargo_checksum_json,
@@ -249,9 +259,9 @@ pub fn prepare_debian_folder(
                 concat!(
                     "version=4\n",
                     "opts=filenamemangle=s/.*\\/(.*)\\/download/{name}-$1\\.\
-                                  tar\\.gz/g\\ \n",
+                     tar\\.gz/g\\ \n",
                     " https://qa.debian.org/cgi-bin/fakeupstream.\
-                                  cgi?upstream=crates.io/{name} ",
+                     cgi?upstream=crates.io/{name} ",
                     ".*/crates/{name}/@ANY_VERSION@/download\n"
                 ),
                 name = upstream_name
@@ -369,7 +379,10 @@ pub fn prepare_debian_folder(
             // Special-case d/changelog:
             // - Always prepend to any existing file from the overlay.
             // - If the first entry is changelog::DEFAULT_DIST then write over that.
-            let mut changelog = fs::OpenOptions::new().read(true).write(true).create(true)
+            let mut changelog = fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
                 .open(tempdir.path().join("changelog"))?;
             let mut changelog_data = String::new();
             changelog.read_to_string(&mut changelog_data)?;
@@ -379,7 +392,7 @@ pub fn prepare_debian_folder(
                 } else {
                     &changelog_data
                 },
-                None => &changelog_data
+                None => &changelog_data,
             };
             changelog.seek(io::SeekFrom::Start(0))?;
             write!(changelog, "{}{}", changelog_entries, changelog_old)?;

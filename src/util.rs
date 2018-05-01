@@ -7,21 +7,20 @@ use std::os::unix::ffi::OsStrExt;
 
 use walkdir;
 
-
 pub const HINT_SUFFIX: &'static str = ".debcargo.hint";
-
 
 pub fn is_hint_file(file: &OsStr) -> bool {
     let file = file.as_bytes();
-    file.len() >= HINT_SUFFIX.len() &&
-        &file[file.len()-HINT_SUFFIX.len()..] == HINT_SUFFIX.as_bytes()
+    file.len() >= HINT_SUFFIX.len()
+        && &file[file.len() - HINT_SUFFIX.len()..] == HINT_SUFFIX.as_bytes()
 }
-
 
 pub fn copy_tree(oldtree: &Path, newtree: &Path) -> Result<(), Error> {
     for entry in walkdir::WalkDir::new(oldtree) {
         let entry = entry?;
-        if entry.depth() == 0 { continue }
+        if entry.depth() == 0 {
+            continue;
+        }
         let oldpath = entry.path();
         let newpath = newtree.join(oldpath.strip_prefix(&oldtree).unwrap());
         let ftype = entry.file_type();

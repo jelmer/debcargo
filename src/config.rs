@@ -2,10 +2,9 @@ use toml;
 
 use std::io::Read;
 use std::collections::HashMap;
-use std::path::{Path,PathBuf};
+use std::path::{Path, PathBuf};
 use std::fs::File;
 use errors::*;
-
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(default)]
@@ -117,9 +116,8 @@ impl Config {
 
     pub fn package_depends(&self, pkgname: &str) -> Option<&Vec<String>> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(pkgname).and_then(|package| {
-                package.depends.as_ref()
-            })
+            pkg.get(pkgname)
+                .and_then(|package| package.depends.as_ref())
         })
     }
 }
