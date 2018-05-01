@@ -40,7 +40,7 @@ impl BaseInfo {
     pub fn new(name: &str, crate_info: &CrateInfo, debcargo_version: &str) -> Self {
         let upstream = name.to_string();
         let name_dashed = upstream.replace('_', "-");
-        let base_pkg_name = format!("{}{}", name_dashed, crate_info.version_suffix());
+        let base_pkg_name = format!("{}{}", name_dashed.to_lowercase(), crate_info.version_suffix());
 
         let debian_source = format!("rust-{}", base_pkg_name);
         let debver = deb_version(crate_info.version());
