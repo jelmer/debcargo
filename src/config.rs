@@ -24,6 +24,8 @@ pub struct SourceOverride {
     section: Option<String>,
     policy: Option<String>,
     homepage: Option<String>,
+    vcs_git: Option<String>,
+    vcs_browser: Option<String>,
     build_depends: Option<Vec<String>>,
 }
 
@@ -119,6 +121,24 @@ impl Config {
             pkg.get(pkgname)
                 .and_then(|package| package.depends.as_ref())
         })
+    }
+
+    pub fn vcs_git(&self) -> Option<&str> {
+        if let Some(ref s) = self.source {
+            if let Some(ref vcs_git) = s.vcs_git {
+                return Some(vcs_git);
+            }
+        }
+        None
+    }
+
+    pub fn vcs_browser(&self) -> Option<&str> {
+        if let Some(ref s) = self.source {
+            if let Some(ref vcs_browser) = s.vcs_browser {
+                return Some(vcs_browser);
+            }
+        }
+        None
     }
 }
 

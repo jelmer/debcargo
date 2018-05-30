@@ -42,6 +42,17 @@
 # Override or provide missing homepage for crate
 #homepage = "https://clap.rs"
 
+# Override the VCS entries. By default the git entries are built with the pattern
+# "https://salsa.debian.org/rust-team/rust-<packagename>-<version>[.git]".
+#
+# Please only use this if your package is truly special, e.g. it combines lots
+# of languages and/or there is not a crate at the top-level directory. In most
+# cases you should prefer packaging as part of the Debian Rust Team, see
+# https://wiki.debian.org/Teams/RustPackaging/Policy
+#
+#vcs_git = "https://salsa.debian.org/special_package/rust-special-0.1.git"
+#vcs_browser = "https://salsa.debian.org/special_package/rust-special-0.1"
+
 # By default, library crates get section values as `rust` whereas binary crates
 # get a "FIXME". This config key can be used to avoid that.
 # TODO: this should be renamed binary_section, or put in packages."XXX" instead.

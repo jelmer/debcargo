@@ -191,6 +191,14 @@ impl OverrideDefaults for Source {
         if let Some(homepage) = config.homepage() {
             self.homepage = homepage.to_string();
         }
+
+        if let Some(vcs_git) = config.vcs_git() {
+            self.vcs_git = vcs_git.to_string();
+        }
+
+        if let Some(vcs_browser) = config.vcs_browser() {
+            self.vcs_browser = vcs_browser.to_string();
+        }
     }
 }
 
