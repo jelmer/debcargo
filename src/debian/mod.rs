@@ -165,16 +165,6 @@ pub fn prepare_debian_folder(
     let mut bins = crate_info.get_binary_targets();
     let meta = crate_info.metadata();
 
-    let (default_features, _) = crate_info.default_deps_features();
-    let non_default_features = crate_info.non_default_features(&default_features);
-    let deps = crate_info.non_dev_dependencies()?;
-
-    let build_deps = if !bins.is_empty() {
-        deps.iter()
-    } else {
-        [].iter()
-    };
-
     if lib && !bins.is_empty() && !config.bin {
         bins.clear();
     }
@@ -190,6 +180,8 @@ pub fn prepare_debian_folder(
     } else {
         &config.bin_name
     };
+
+    let (_, non_default_features) = crate_info.features_default_and_non_default();
 
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
@@ -296,9 +288,9 @@ pub fn prepare_debian_folder(
             } else {
                 ""
             },
-            &lib,
-            build_deps.as_slice(),
-            &crate_info.non_dev_dependencies()?,
+            lib,
+            !bins.is_empty(),
+            crate_info,
         )?;
 
         // If source overrides are present update related parts.

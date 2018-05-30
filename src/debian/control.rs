@@ -96,17 +96,23 @@ impl Source {
         basename: &str,
         version: &str,
         home: &str,
-        lib: &bool,
-        bdeps: &[String],
-        tdeps: &[String],
+        lib: bool,
+        has_bins: bool,
+        crate_info: &CrateInfo,
     ) -> Result<Source> {
         let source = format!("rust-{}", basename);
-        let section = if *lib { "rust" } else { "FIXME" };
+        let section = if lib { "rust" } else { "FIXME" };
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
         let uploaders = get_deb_author()?;
         let vcs_browser = format!("{}{}", VCS, source);
         let vcs_git = format!("{}.git", vcs_browser);
+
+    let deps = crate_info.non_dev_dependencies()?;
+    let build_deps = if has_bins { deps.iter() } else { [].iter() };
+    let bdeps = build_deps.as_slice();
+    let tdeps = &crate_info.non_dev_dependencies()?;
+
         let mut build_deps = vec![
             "debhelper (>= 10)".to_string(),
             "dh-cargo (>= 3)".to_string(),
@@ -221,8 +227,7 @@ impl Package {
             }
         };
 
-        let (default_features, _) = crate_info.default_deps_features();
-        let non_default_features = crate_info.non_default_features(&default_features);
+        let (default_features, non_default_features) = crate_info.features_default_and_non_default();
         let (summary, description) = crate_info.get_summary_description();
 
         // Suggests is needed only for main package and not feature package.

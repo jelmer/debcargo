@@ -182,7 +182,7 @@ impl CrateInfo {
         self.manifest.dependencies()
     }
 
-    pub fn default_deps_features(&self) -> (HashSet<&str>, HashSet<&str>) {
+    fn default_deps_features(&self) -> (HashSet<&str>, HashSet<&str>) {
         let mut default_features = HashSet::new();
         let mut default_deps = HashSet::new();
 
@@ -215,7 +215,7 @@ impl CrateInfo {
         (default_features, default_deps)
     }
 
-    pub fn non_default_features(&self, default_features: &HashSet<&str>) -> Vec<&str> {
+    fn non_default_features(&self, default_features: &HashSet<&str>) -> Vec<&str> {
         let features = self.summary.features();
         let optional_deps = self.dependencies()
             .iter()
@@ -227,6 +227,12 @@ impl CrateInfo {
             .filter(|f| !default_features.contains(f))
             .chain(optional_deps)
             .collect()
+    }
+
+    pub fn features_default_and_non_default(&self) -> (HashSet<&str>, Vec<&str>) {
+        let (default_features, _) = self.default_deps_features();
+        let non_default_features = self.non_default_features(&default_features);
+        (default_features, non_default_features)
     }
 
     pub fn is_lib(&self) -> bool {
