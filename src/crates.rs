@@ -38,6 +38,17 @@ fn hash<H: Hash>(hashable: &H) -> u64 {
     hasher.finish()
 }
 
+fn traverse_depth<'a>(map: &HashMap<&'a str, Vec<&'a str>>, key: &'a str) -> Vec<&'a str> {
+    let mut x = Vec::new();
+    if let Some (pp) = (*map).get(key) {
+        x.extend(pp);
+        for p in pp {
+            x.extend(traverse_depth(map, p));
+        }
+    }
+    x
+}
+
 impl CratesIo {
     pub fn new() -> Result<Self> {
         let config = Config::default()?;
@@ -275,12 +286,12 @@ impl CrateInfo {
         for p in provided {
             features_with_deps.remove(p);
         }
-        
-        for (_, mut pp) in provides.iter_mut() {
-            pp.sort();
-        }
 
-        provides
+        features_with_deps.keys().map(|k| {
+            let mut pp = traverse_depth(&provides, k);
+            pp.sort();
+            (*k, pp)
+        }).collect::<HashMap<_, _>>()
     }
     
     pub fn feature_all_deps(&self,
