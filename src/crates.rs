@@ -305,7 +305,7 @@ impl CrateInfo {
         Ok(all_deps)
     }
 
-    pub fn non_dev_dependencies(&self) -> Result<Vec<String>> {
+    pub fn non_dev_dependencies(&self) -> Vec<Dependency> {
         use std::iter::FromIterator;
         let (_, default_deps) = self.default_deps_features();
         let dev_deps = self.dev_dependencies();
@@ -344,18 +344,17 @@ impl CrateInfo {
                         }
                         None => {}
                     }
-                    deps.extend(deb_dep(&tmpdep)?);
+                    deps.push(tmpdep);
                 }
             }
         }
 
         for dep in non_devdeps {
-            deps.extend(deb_dep(dep)?);
+            deps.push(dep.clone());
         }
 
-        deps.sort();
         deps.dedup();
-        Ok(deps)
+        deps
     }
 
     pub fn optional_dependency_names(&self) -> Vec<&str> {

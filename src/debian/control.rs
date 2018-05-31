@@ -9,6 +9,7 @@ use textwrap::fill;
 
 use crates::CrateInfo;
 use config::{Config, OverrideDefaults};
+use debian::dependency::deb_deps;
 use errors::*;
 
 const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>";
@@ -108,17 +109,15 @@ impl Source {
         let vcs_browser = format!("{}{}", VCS, source);
         let vcs_git = format!("{}.git", vcs_browser);
 
-    let deps = crate_info.non_dev_dependencies()?;
-    let build_deps = if has_bins { deps.iter() } else { [].iter() };
-    let bdeps = build_deps.as_slice();
-    let tdeps = &crate_info.non_dev_dependencies()?;
+        let deps = deb_deps(crate_info.non_dev_dependencies())?;
+        let bdeps = if has_bins { deps.iter().as_slice() } else { &[] };
 
         let mut build_deps = vec![
             "debhelper (>= 10)".to_string(),
             "dh-cargo (>= 3)".to_string(),
         ];
         build_deps.extend_from_slice(bdeps);
-        build_deps.extend(tdeps.iter().map(|x| x.to_string() + " <!nocheck>"));
+        build_deps.extend(deps.iter().map(|x| x.to_string() + " <!nocheck>"));
         let build_deps = build_deps.iter().join(",\n ");
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
             upstream_name.to_string()
@@ -218,7 +217,7 @@ impl Package {
         let deb_feature = &|f: &str| deb_feature_name(basename, f);
 
         let deps = match feature {
-            None => crate_info.non_dev_dependencies()?,
+            None => deb_deps(crate_info.non_dev_dependencies())?,
             Some(f) => {
                 let mut feature_deps =
                     vec![format!("{} (= ${{binary:Version}})", deb_name(basename))];
