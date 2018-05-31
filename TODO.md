@@ -16,16 +16,6 @@
 
   Symptoms include sbuild failure like "unsat-dependency: dh-cargo:amd64 (>= 3)"
 
-- rust-time package FTBFS because of a missing dependency on winapi:
-
-  [target."cfg(windows)".dependencies.winapi]
-
-  Even though we're not on windows, we still pull in these dependencies in
-  the general case, for simplicity and potentially in the future to support
-  cross-compiling. For some reason that isn't being achieved here.
-
-  Once this is fixed, we should be able to rm -rf tests/sh/configs/time-0*/
-
 
 ## Important features
 
