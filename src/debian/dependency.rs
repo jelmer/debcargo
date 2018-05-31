@@ -81,7 +81,7 @@ fn generate_package_name<F>(
     p: &semver_parser::range::Predicate,
     op: &semver_parser::range::Op,
     mmp: &V,
-) -> Result<String>
+) -> Result<Vec<String>>
 where
     F: Fn(&V) -> String,
 {
@@ -167,11 +167,7 @@ where
         (&Wildcard(WildcardVersion::Patch), _) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
     }
 
-    if deps.len() > 1 {
-        return Ok(deps.join(" | "));
-    }
-
-    Ok(deps.join(""))
+    Ok(deps)
 }
 
 /// Translates a Cargo dependency into a Debian package dependency.
@@ -207,7 +203,7 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> {
             let p = &req.predicates[0];
             let mmp = V::new(p)?;
             let op = coerce_unacceptable_predicate(dep, &p, &mmp)?;
-            deps.push(generate_package_name(dep, &pkg, &p, op, &mmp)?);
+            deps.extend(generate_package_name(dep, &pkg, &p, op, &mmp)?);
         } else {
             let mut mdeps = Vec::new();
             for p in &req.predicates {
@@ -221,7 +217,7 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> {
 
                 let mmp = V::new(p)?;
                 let op = coerce_unacceptable_predicate(dep, &p, &mmp)?;
-                mdeps.push(generate_package_name(dep, &pkg, &p, op, &mmp)?)
+                mdeps.extend(generate_package_name(dep, &pkg, &p, op, &mmp)?)
             }
 
             deps.push(mdeps.join(" | "));
