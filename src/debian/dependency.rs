@@ -27,6 +27,13 @@ impl V {
         Ok(mmp)
     }
 
+    fn major(&self) -> u64 {
+        use self::V::*;
+        match *self {
+            M(major) | MM(major, _) | MMP(major, _, _) => major,
+        }
+    }
+
     fn inclast(&self) -> V {
         use self::V::*;
         match *self {
@@ -94,39 +101,60 @@ where
             deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
             deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast()));
         }
+
         // We can't represent every major version that satisfies an
         // inequality, because each major version has a different Debian
         // package name, so we (for now) use the first few major versions
         // that satisfies the inequality. This may result in a stricter
-        // dependency, but will never result in a looser one. We could
+        // dependency, but will never result in a looser one.
+        //
+        // TODO, clarify the following comment made by Josh: We could
         // represent some dependency ranges (such as >= x and < y)
         // better with a disjunction on multiple package names, but that
         // would break when depending on multiple features.
-        (&Gt, &M(major)) | (&Gt, &MM(major, _)) | (&Gt, &MMP(major, _, _)) => {
-            deps.push(format!("{} (>> {})| {} | {} | {}",
-                pkg(&mmp), mmp,
+        (&Gt, _) | (&GtEq, _) => {
+            // TODO: find the currently-available one on crates.io and put it
+            // at the top so `sbuild` works without --resolve-alternatives
+            let ops = if *op == Gt { ">>" } else { ">=" };
+            let major = mmp.major();
+            deps.push(format!("{} ({} {})| {} | {} | {}",
+                pkg(&mmp), ops, mmp,
                 pkg(&M(major + 1)),
                 pkg(&M(major + 2)),
                 pkg(&M(major + 3))))
         },
-        (&GtEq, &M(major)) | (&GtEq, &MM(major, _)) | (&GtEq, &MMP(major, _, _))=> {
-            deps.push(format!("{} (>= {}) | {} | {} | {}",
-                pkg(&mmp), mmp,
-                pkg(&M(major + 1)),
-                pkg(&M(major + 2)),
-                pkg(&M(major + 3))))
-        }
-        (&Lt, &M(major)) => deps.push(pkg(&M(major - 1))),
-        (&Lt, &MM(0, 0)) => debcargo_bail!(
+        (&Lt, &M(0)) | (&Lt, &MM(0, 0)) | (&Lt, &MMP(0, 0, 0)) => debcargo_bail!(
             "Unrepresentable dependency version predicate: {} {:?}",
             dep.name(),
             p
         ),
-        (&Lt, &MM(0, minor)) | (&Lt, &MMP(0, minor, 0)) => deps.push(pkg(&MM(0, minor - 1))),
-        (&Lt, _) => deps.push(format!("{} (<< {})", pkg(&mmp), mmp)),
-        (&LtEq, &M(_)) | (&LtEq, &MM(0, _)) => deps.push(pkg(&mmp)),
-        (&LtEq, _) => deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast())),
-        (&Tilde, &M(_)) | (&Tilde, &MM(0, _)) | (&Tilde, &MMP(0, _, 0)) => deps.push(pkg(&mmp)),
+        (&Lt, _) | (&LtEq, _) => {
+            let ops = if *op == Lt { "<<" } else { "<=" };
+            let major = mmp.major();
+            // note that the "{} (<< {})" case is unsatisfiable e.g. when minor = 0, patch = 0
+            // but this is fine because of the other alternatives
+            if major > 3 {
+                deps.push(format!("{} ({} {}) | {} | {} | {}",
+                    pkg(&mmp), ops, mmp,
+                    pkg(&M(major - 1)),
+                    pkg(&M(major - 2)),
+                    pkg(&M(major - 3))))
+            } else if major == 3 {
+                deps.push(format!("{} ({} {}) | {} | {}", pkg(&mmp), ops, mmp, pkg(&M(2)), pkg(&M(1))))
+            } else if major == 2 {
+                deps.push(format!("{} ({} {}) | {}", pkg(&mmp), ops, mmp, pkg(&M(1))))
+            } else if major == 1 {
+                deps.push(format!("{} ({} {})", pkg(&mmp), ops, mmp))
+            } else {
+                // inaccurate when major == 0 atm but nobody seems to use it
+                // keep it separate from 1 in case we want to fix it later
+                deps.push(format!("{} ({} {})", pkg(&mmp), ops, mmp))
+            }
+        },
+
+        (&Tilde, &M(_)) | (&Tilde, &MM(0, _)) | (&Tilde, &MMP(0, _, 0)) => {
+            deps.push(pkg(&mmp))
+        }
         (&Tilde, &MM(..)) | (&Tilde, &MMP(0, _, _)) => {
             deps.push(format!("{} (>= {})", pkg(&mmp), mmp))
         }
@@ -134,6 +162,7 @@ where
             deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
             deps.push(format!("{} (<< {})", pkg(&mmp), MM(major, minor + 1)));
         }
+
         (&Compatible, &MMP(0, 0, _)) => {
             deps.push(format!("{} (>= {})", pkg(&mmp), mmp));
             deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast()));
@@ -145,6 +174,7 @@ where
         (&Compatible, &MM(..)) | (&Compatible, &MMP(..)) => {
             deps.push(format!("{} (>= {})", pkg(&mmp), mmp))
         }
+
         (&Wildcard(WildcardVersion::Major), _) => {
             // We take all possible version from the crates io which will be
             // returned to us as sorted dependency. We take first few lets say 5
