@@ -6,20 +6,18 @@ use cargo::util::FileLock;
 use cargo::core::manifest;
 use failure::Error;
 use semver::Version;
-use itertools::Itertools;
 use flate2::read::GzDecoder;
 use tar::Archive;
 use tempdir::TempDir;
 
 use std;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::io::{self, Read, Write};
 use std::fs;
 
 use errors::*;
-use debian::deb_dep;
 
 pub struct CratesIo {
     config: Config,
@@ -182,57 +180,120 @@ impl CrateInfo {
         self.manifest.dependencies()
     }
 
-    fn default_deps_features(&self) -> (HashSet<&str>, HashSet<&str>) {
-        let mut default_features = HashSet::new();
-        let mut default_deps = HashSet::new();
+    pub fn all_dependencies_and_features(&self) ->
+        HashMap<&str,                   // name of feature / optional dependency,
+                                        // or "" for the base package w/ no default features, guaranteed to be in the map
+                (Vec<&str>,             // dependencies: other features (of the current package)
+                 Vec<Dependency>)>      // dependencies: other packages
+    {
+        use cargo::core::dependency::Kind;
 
-        let mut defaults = Vec::new();
+        let deps_by_name : HashMap<&str, &Dependency> = self.dependencies().iter().filter_map(|dep| {
+            // we treat build-dependencies also as dependencies in Debian
+            if dep.kind() == Kind::Development { None } else { Some((dep.name(), dep)) }
+        }).collect();
+
+        // calculate dependencies of features from other crates
+        let mut features_with_deps = HashMap::new();
         let features = self.summary.features();
-
-        defaults.push("default");
-        default_features.insert("default");
-
-        while let Some(feature) = defaults.pop() {
-            match features.get(feature) {
-                Some(l) => {
-                    default_features.insert(feature);
-                    for f in l {
-                        defaults.push(f);
+        for (feature, deps) in features {
+            let mut feature_deps = Vec::new();
+            let mut other_deps = Vec::new();
+            for dep_str in deps {
+                let mut dep_tokens = dep_str.splitn(2, '/');
+                let dep_name = dep_tokens.next().unwrap();
+                match dep_tokens.next() {
+                    None => {
+                        // another feature is a dependency
+                        feature_deps.push(dep_name);
+                    }
+                    Some(dep_feature) => {
+                        // another package is a dependency
+                        let &dep = deps_by_name.get(dep_name).unwrap(); // valid Cargo.toml files must have this
+                        let mut dep = dep.clone();
+                        dep.set_features(vec![dep_feature.to_string()]);
+                        dep.set_default_features(false);
+                        other_deps.push(dep);
                     }
                 }
-                None => {
-                    default_deps.insert(feature);
-                }
             }
+            if feature_deps.is_empty() {
+                feature_deps.push("");
+            }
+            features_with_deps.insert(feature.as_str(), (feature_deps, other_deps));
         }
 
-        for (feature, deps) in features {
-            if deps.is_empty() {
-                default_features.insert(feature.as_str());
+        // calculate dependencies of "optional dependencies" that are also features
+        let deps_required : Vec<Dependency> = deps_by_name.iter().filter_map(|(_, &dep)| {
+            if dep.is_optional() {
+                features_with_deps.insert(dep.name(), (vec![""], vec![dep.clone()]));
+                None
+            } else {
+                Some(dep.clone())
             }
+        }).collect();
+
+        // implicit no-default-features
+        features_with_deps.insert("", (vec![], deps_required));
+
+        // implicit default feature
+        if !features_with_deps.contains_key("default") {
+            features_with_deps.insert("default", (vec![""], vec![]));
+        }
+        features_with_deps
+    }
+
+    // Note: this mutates features_with_deps so you need to run e.g.
+    // feature_all_deps before calling this.
+    pub fn calculate_provides<'a>(&self,
+            features_with_deps: &mut HashMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>)
+            -> HashMap<&'a str, Vec<&'a str>> {
+        let mut provides = HashMap::new();
+        let mut provided = Vec::new();
+        // the below is very simple and incomplete. e.g. it does not,
+        // but could be improved to, simplify things like:
+        // f1 depends on f2, f3
+        // f2 depends on f4
+        // f3 depends on f4
+        for (&f, &(ref ff, ref dd)) in features_with_deps.iter() {
+            if !dd.is_empty() {
+                continue;
+            }
+            assert!(!ff.is_empty() || f == "");
+            let k = if ff.len() == 1 {
+                *ff.get(0).unwrap()
+            } else {
+                continue;
+            };
+            if !provides.contains_key(k) {
+                provides.insert(k, vec![]);
+            }
+            provides.get_mut(k).unwrap().push(f);
+            provided.push(f);
+        }
+        
+        for p in provided {
+            features_with_deps.remove(p);
+        }
+        
+        for (_, mut pp) in provides.iter_mut() {
+            pp.sort();
         }
 
-        (default_features, default_deps)
+        provides
     }
-
-    fn non_default_features(&self, default_features: &HashSet<&str>) -> Vec<&str> {
-        let features = self.summary.features();
-        let optional_deps = self.dependencies()
-            .iter()
-            .filter(|d| d.is_optional())
-            .map(|d| d.name());
-        features
-            .keys()
-            .map(String::as_str)
-            .filter(|f| !default_features.contains(f))
-            .chain(optional_deps)
-            .collect()
-    }
-
-    pub fn features_default_and_non_default(&self) -> (HashSet<&str>, Vec<&str>) {
-        let (default_features, _) = self.default_deps_features();
-        let non_default_features = self.non_default_features(&default_features);
-        (default_features, non_default_features)
+    
+    pub fn feature_all_deps(&self,
+            features_with_deps: &HashMap<&str, (Vec<&str>, Vec<Dependency>)>,
+            feature: &str)
+            -> Vec<Dependency> {
+        let mut all_deps = Vec::new();
+        let &(ref ff, ref dd) = features_with_deps.get(feature).unwrap();
+        all_deps.extend(dd.clone());
+        for f in ff {
+            all_deps.extend(self.feature_all_deps(&features_with_deps, f));
+        };
+        all_deps
     }
 
     pub fn is_lib(&self) -> bool {
@@ -277,49 +338,6 @@ impl CrateInfo {
         }
     }
 
-    pub fn dev_dependencies(&self) -> HashSet<&str> {
-        use cargo::core::dependency::Kind;
-        let mut dev_deps = HashSet::new();
-        for dep in self.dependencies().iter() {
-            if dep.kind() == Kind::Development {
-                dev_deps.insert(dep.name());
-            }
-        }
-
-        dev_deps
-    }
-
-    pub fn non_build_dependencies(&self) -> Result<HashMap<&str, &Dependency>> {
-        let mut all_deps = HashMap::new();
-        let dev_deps = self.dev_dependencies();
-        for dep in self.dependencies().iter() {
-            if dep.is_build() || dev_deps.contains(dep.name()) {
-                continue;
-            }
-
-            if all_deps.insert(dep.name(), dep).is_some() {
-                debcargo_bail!("Duplicate dependency for {}", dep.name());
-            }
-        }
-
-        Ok(all_deps)
-    }
-
-    pub fn non_dev_dependencies(&self) -> Vec<Dependency> {
-        use cargo::core::dependency::Kind;
-        self.dependencies().iter().filter_map(|dep| {
-            if dep.kind() == Kind::Development { None } else { Some(dep.clone()) }
-        }).collect()
-    }
-
-    pub fn optional_dependency_names(&self) -> Vec<&str> {
-        self.dependencies()
-            .iter()
-            .filter(|d| d.is_optional())
-            .map(|d| d.name())
-            .collect::<Vec<&str>>()
-    }
-
     pub fn get_summary_description(&self) -> (Option<String>, Option<String>) {
         let (summary, description) = if let Some(ref description) = self.metadata().description {
             let mut description = description.trim();
@@ -346,73 +364,6 @@ impl CrateInfo {
         };
 
         (summary, description)
-    }
-
-    pub fn get_feature_dependencies<F>(
-        &self,
-        feature: &str,
-        deb_feature: &F,
-        feature_deps: &mut Vec<String>,
-    ) -> Result<()>
-    where
-        F: Fn(&str) -> String,
-    {
-        let (default_features, _) = self.default_deps_features();
-        let dev_deps = self.dev_dependencies();
-        let all_deps = self.non_build_dependencies()?;
-        let opt_deps = self.optional_dependency_names();
-
-        // Track the (possibly empty) additional features required for each dep, to call
-        // deb_dep once for all of them.
-        let mut deps_features = HashMap::new();
-        let features = self.summary().features();
-
-        if opt_deps.contains(&feature) {
-            // Given feature is actually a optional dependency and not found in
-            // features of crate. We insert the name of this optional dependency
-            // into our map with empty features.
-            deps_features.insert(feature, vec![]);
-        } else {
-            for dep_str in features.get(feature).unwrap() {
-                let mut dep_tokens = dep_str.splitn(2, '/');
-                let dep_name = dep_tokens.next().unwrap();
-                match dep_tokens.next() {
-                    None if features.contains_key(dep_name) => {
-                        if !default_features.contains(dep_name) {
-                            feature_deps
-                                .push(format!("{} (= ${{binary:Version}})", deb_feature(dep_name)));
-                        }
-                    }
-                    opt_dep_feature => {
-                        deps_features
-                            .entry(dep_name)
-                            .or_insert_with(|| vec![])
-                            .extend(opt_dep_feature.into_iter().map(String::from));
-                    }
-                }
-            }
-        }
-        for (dep_name, dep_features) in deps_features.into_iter().sorted() {
-            if let Some(&dep_dependency) = all_deps.get(dep_name) {
-                if dep_features.is_empty() {
-                    feature_deps.extend(deb_dep(dep_dependency)?);
-                } else {
-                    let mut dep_dependency = dep_dependency.clone();
-                    let inner = dep_dependency.set_features(dep_features);
-                    feature_deps.extend(deb_dep(&inner)?);
-                }
-            } else if dev_deps.contains(dep_name) {
-                continue;
-            } else {
-                debcargo_bail!(
-                    "Feature {} depended on non-existent dep {}",
-                    feature,
-                    dep_name
-                );
-            };
-        }
-
-        Ok(())
     }
 
     pub fn extract_crate(&self, path: &Path) -> Result<bool> {

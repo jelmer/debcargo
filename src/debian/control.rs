@@ -8,6 +8,7 @@ use semver::Version;
 use textwrap::fill;
 
 use crates::CrateInfo;
+use cargo::core::Dependency;
 use config::{Config, OverrideDefaults};
 use debian::dependency::deb_deps;
 use errors::*;
@@ -98,8 +99,7 @@ impl Source {
         version: &str,
         home: &str,
         lib: bool,
-        has_bins: bool,
-        crate_info: &CrateInfo,
+        t_deps: &Vec<Dependency>,
     ) -> Result<Source> {
         let source = format!("rust-{}", basename);
         let section = if lib { "rust" } else { "FIXME" };
@@ -109,16 +109,11 @@ impl Source {
         let vcs_browser = format!("{}{}", VCS, source);
         let vcs_git = format!("{}.git", vcs_browser);
 
-        let deps = deb_deps(crate_info.non_dev_dependencies())?;
-        let bdeps = if has_bins { deps.iter().as_slice() } else { &[] };
-
         let mut build_deps = vec![
             "debhelper (>= 10)".to_string(),
             "dh-cargo (>= 3)".to_string(),
         ];
-        build_deps.extend_from_slice(bdeps);
-        build_deps.extend(deps.iter().map(|x| x.to_string() + " <!nocheck>"));
-        let build_deps = build_deps.iter().join(",\n ");
+        build_deps.extend(deb_deps(t_deps)?.iter().map(|x| x.to_string() + " <!nocheck>"));
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
             upstream_name.to_string()
         } else {
@@ -131,7 +126,7 @@ impl Source {
             maintainer: maintainer,
             uploaders: uploaders,
             standards: "4.0.0".to_string(),
-            build_deps: build_deps,
+            build_deps: build_deps.iter().join(",\n "),
             vcs_git: vcs_git,
             vcs_browser: vcs_browser,
             homepage: home.to_string(),
@@ -213,46 +208,47 @@ impl Package {
         upstream_name: &str,
         crate_info: &CrateInfo,
         feature: Option<&str>,
+        f_deps: &Vec<&str>,
+        o_deps: &Vec<Dependency>,
+        f_provides: &Vec<&str>,
     ) -> Result<Package> {
-        let deb_feature = &|f: &str| deb_feature_name(basename, f);
-
-        let deps = match feature {
-            None => deb_deps(crate_info.non_dev_dependencies())?,
-            Some(f) => {
-                let mut feature_deps =
-                    vec![format!("{} (= ${{binary:Version}})", deb_name(basename))];
-                crate_info.get_feature_dependencies(f, deb_feature, &mut feature_deps)?;
-                feature_deps
+        let deb_feature = &|f: &str| {
+            if f == "" {
+                deb_name(basename)
+            } else {
+                deb_feature_name(basename, f)
             }
         };
 
-        let (default_features, non_default_features) = crate_info.features_default_and_non_default();
         let (summary, description) = crate_info.get_summary_description();
 
+        let deps = f_deps
+            .iter()
+            .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
+            .collect::<Vec<_>>();
+
         // Suggests is needed only for main package and not feature package.
-        let suggests = if feature.is_none() {
+        // TODO: FIXME later
+        let suggests = if false { "".to_string() /*feature == "" {
             non_default_features
                 .iter()
                 .cloned()
                 .map(deb_feature)
-                .join(",\n ")
+                .join(",\n ")*/
         } else {
             "".to_string()
         };
 
         // Provides is also only for main package and not feature package.
-        let provides = if feature.is_none() {
-            default_features
-                .into_iter()
+        let provides = f_provides
+                .iter()
                 .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
-                .join(",\n ")
-        } else {
-            "".to_string()
-        };
+                .join(",\n ");
 
         let depends = vec!["${misc:Depends}".to_string()]
             .iter()
             .chain(deps.iter())
+            .chain(deb_deps(&o_deps)?.iter())
             .join(",\n ");
 
         let short_desc = match summary {

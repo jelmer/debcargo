@@ -220,10 +220,10 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> {
     Ok(deps)
 }
 
-pub fn deb_deps(cdeps: Vec<Dependency>) -> Result<Vec<String>> {
+pub fn deb_deps(cdeps: &Vec<Dependency>) -> Result<Vec<String>> {
     let mut deps = Vec::new();
     for dep in cdeps {
-        deps.extend(deb_dep(&dep)?);
+        deps.extend(deb_dep(dep)?);
     }
 
     deps.sort();

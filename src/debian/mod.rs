@@ -1,4 +1,5 @@
 pub use self::dependency::deb_dep;
+pub use self::dependency::deb_deps;
 
 use std::fs;
 use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
@@ -181,7 +182,16 @@ pub fn prepare_debian_folder(
         &config.bin_name
     };
 
-    let (_, non_default_features) = crate_info.features_default_and_non_default();
+    let mut features_with_deps = crate_info.all_dependencies_and_features();
+    /*debcargo_info!("features_with_deps: {:?}", features_with_deps
+        .iter()
+        .map(|(&f, &(ref ff, ref dd))| {
+            (f, (ff, deb_deps(dd).unwrap()))
+        }).collect::<Vec<_>>());*/
+    let default_deps = crate_info.feature_all_deps(&features_with_deps, "default");
+    //debcargo_info!("default_deps: {:?}", deb_deps(&default_deps)?);
+    let provides = crate_info.calculate_provides(&mut features_with_deps);
+    //debcargo_info!("provides: {:?}", provides);
 
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
@@ -283,14 +293,9 @@ pub fn prepare_debian_folder(
             upstream_name,
             base_pkgname,
             pkgbase.debian_version(),
-            if let Some(ref home) = meta.homepage {
-                home
-            } else {
-                ""
-            },
+            if let Some(ref home) = meta.homepage { home } else { "" },
             lib,
-            !bins.is_empty(),
-            crate_info,
+            &default_deps,
         )?;
 
         // If source overrides are present update related parts.
@@ -303,15 +308,11 @@ pub fn prepare_debian_folder(
         let (summary, description) = crate_info.get_summary_description();
 
         if lib {
-            let mut lib_package = Package::new(base_pkgname, upstream_name, crate_info, None)?;
-
-            // Apply overrides if any
-            lib_package.apply_overrides(config);
-            writeln!(control, "{}", lib_package)?;
-
-            for feature in non_default_features {
+            for (&feature, &(ref f_deps, ref o_deps)) in features_with_deps.iter() {
                 let mut feature_package =
-                    Package::new(base_pkgname, upstream_name, &crate_info, Some(feature))?;
+                    Package::new(base_pkgname, upstream_name, crate_info,
+                        if feature == "" { None } else { Some(feature) },
+                        f_deps, o_deps, provides.get(feature).unwrap_or(&vec![]))?;
 
                 // If any overrides present for this package it will be taken care.
                 feature_package.apply_overrides(config);
