@@ -39,18 +39,6 @@
     This would allow us to delete `tests/sh/build-allow-fail`
 
 
-## Code review ##
-
-by infinity0, for copyninja:
-
-- [x] src/debian/control/ could be collapsed into control.rs, no need to split into
-      too many different files, makes things confusing to navigate..
-
-- src/crates.rs needs better names for the methods as well as comments
-  explaining what they do. also it mixes up crate deps vs debian deps; code for
-  debian deps should be moved into debian/
-
-
 ## Lower-priority tasks
 
 Minor issues
