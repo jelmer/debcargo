@@ -95,17 +95,27 @@ where
             deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast()));
         }
         // We can't represent every major version that satisfies an
-        // inequality, because each major version has a different
-        // package name, so we only allow the first major version that
-        // satisfies the inequality. This may result in a stricter
+        // inequality, because each major version has a different Debian
+        // package name, so we (for now) use the first few major versions
+        // that satisfies the inequality. This may result in a stricter
         // dependency, but will never result in a looser one. We could
         // represent some dependency ranges (such as >= x and < y)
         // better with a disjunction on multiple package names, but that
         // would break when depending on multiple features.
-        (&Gt, &M(_)) | (&Gt, &MM(0, _)) => deps.push(pkg(&mmp.inclast())),
-        (&Gt, _) => deps.push(format!("{} (>> {})", pkg(&mmp), mmp)),
-        (&GtEq, &M(_)) | (&GtEq, &MM(0, _)) => deps.push(pkg(&mmp)),
-        (&GtEq, _) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
+        (&Gt, &M(major)) | (&Gt, &MM(major, _)) | (&Gt, &MMP(major, _, _)) => {
+            deps.push(format!("{} (>> {})| {} | {} | {}",
+                pkg(&mmp), mmp,
+                pkg(&M(major + 1)),
+                pkg(&M(major + 2)),
+                pkg(&M(major + 3))))
+        },
+        (&GtEq, &M(major)) | (&GtEq, &MM(major, _)) | (&GtEq, &MMP(major, _, _))=> {
+            deps.push(format!("{} (>= {}) | {} | {} | {}",
+                pkg(&mmp), mmp,
+                pkg(&M(major + 1)),
+                pkg(&M(major + 2)),
+                pkg(&M(major + 3))))
+        }
         (&Lt, &M(major)) => deps.push(pkg(&M(major - 1))),
         (&Lt, &MM(0, 0)) => debcargo_bail!(
             "Unrepresentable dependency version predicate: {} {:?}",

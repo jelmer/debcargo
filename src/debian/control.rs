@@ -113,7 +113,11 @@ impl Source {
             "debhelper (>= 10)".to_string(),
             "dh-cargo (>= 3)".to_string(),
         ];
-        build_deps.extend(deb_deps(t_deps)?.iter().map(|x| x.to_string() + " <!nocheck>"));
+        build_deps.extend(deb_deps(t_deps)?.iter().map(|x| {
+            x.to_string().split("|").map(|x| {
+                x.trim_right().to_string() + " <!nocheck> "
+            }).join("|").trim_right().to_string()
+        }));
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
             upstream_name.to_string()
         } else {
@@ -239,7 +243,6 @@ impl Package {
             "".to_string()
         };
 
-        // Provides is also only for main package and not feature package.
         let provides = f_provides
                 .iter()
                 .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))

@@ -3,7 +3,9 @@
 - Generally, run `tests/sh/integrate.sh -rb ./` and fix any build errors and
   important lintian errors that crop up.
 
-- We don't handle version ranges well yet:
+- (This is semi-fixed but needs more work.)
+
+  We don't handle version ranges well yet:
 
   Cargo.toml dependency x (> a, < b) should convert to
   d/control dependency x-a | x-(a+1) | .. | x-(b-1) | x-b

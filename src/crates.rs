@@ -254,6 +254,19 @@ impl CrateInfo {
         features_with_deps
     }
 
+    pub fn feature_all_deps(&self,
+            features_with_deps: &HashMap<&str, (Vec<&str>, Vec<Dependency>)>,
+            feature: &str)
+            -> Vec<Dependency> {
+        let mut all_deps = Vec::new();
+        let &(ref ff, ref dd) = features_with_deps.get(feature).unwrap();
+        all_deps.extend(dd.clone());
+        for f in ff {
+            all_deps.extend(self.feature_all_deps(&features_with_deps, f));
+        };
+        all_deps
+    }
+
     // Note: this mutates features_with_deps so you need to run e.g.
     // feature_all_deps before calling this.
     pub fn calculate_provides<'a>(&self,
@@ -294,19 +307,6 @@ impl CrateInfo {
         }).collect::<HashMap<_, _>>()
     }
     
-    pub fn feature_all_deps(&self,
-            features_with_deps: &HashMap<&str, (Vec<&str>, Vec<Dependency>)>,
-            feature: &str)
-            -> Vec<Dependency> {
-        let mut all_deps = Vec::new();
-        let &(ref ff, ref dd) = features_with_deps.get(feature).unwrap();
-        all_deps.extend(dd.clone());
-        for f in ff {
-            all_deps.extend(self.feature_all_deps(&features_with_deps, f));
-        };
-        all_deps
-    }
-
     pub fn is_lib(&self) -> bool {
         let mut lib = false;
         for target in self.manifest.targets() {
