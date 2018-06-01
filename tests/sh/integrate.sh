@@ -97,7 +97,7 @@ run_lintian() {(
 	lintian -EIL +pedantic "$changes" || true
 )}
 
-chroot=unstable-"$(dpkg-architecture -q DEB_HOST_ARCH)"-sbuild
+chroot=${CHROOT:-unstable-"$(dpkg-architecture -q DEB_HOST_ARCH)"-sbuild}
 run_sbuild() {(
 	local crate="$1"
 	local version="$2"

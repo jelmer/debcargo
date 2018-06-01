@@ -1,3 +1,6 @@
+This file contains information about developing debcargo itself.
+
+
 ## Dependencies
 
 For testing:

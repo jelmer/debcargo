@@ -1,0 +1,5 @@
+overlay = "."
+overlay_write_back = false
+
+[source]
+build_depends = ["libssl-dev <!nocheck>", "libcurl4-gnutls-dev <!nocheck>"]

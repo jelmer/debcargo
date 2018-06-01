@@ -34,8 +34,6 @@
 # Whether to allow prerelease deps, by rewriting these to the released version.
 # This should only be enabled for certain crates if really necessary, and first
 # you should check that they can actually build when this is enabled.
-# TODO: this needs src/crates.rs to be cleaned up first, see
-# TODO.md "code review" near the bottom for details
 #allow_prerelease_deps = false
 
 [source]

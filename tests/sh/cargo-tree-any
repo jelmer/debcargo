@@ -7,7 +7,7 @@
 
 set -e
 
-echo >&2 "$0 $@"
+#echo >&2 "$0 $@"
 rm -rf cargo-tree-tmp
 
 test "$(cargo tree --version)" = "cargo-tree 0.18.0" || { echo >&2 "wrong version"; exit 1; }

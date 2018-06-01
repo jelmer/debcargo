@@ -1,7 +1,7 @@
 [source]
 section = "rust"
 build_depends = ["libssl-dev"]
-homepage = "https://alioth.debian.org/projects/pkg-rust"
+homepage = "https://salsa.debian.org/rust-team/debcargo-conf"
 
 [packages."debcargo"]
 summary = "Tool to create Debian package from Rust crate"

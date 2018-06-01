@@ -5,22 +5,15 @@ Crates.io to Debian
 Debian source package from the downloaded crate which follows Rust teams crate
 packaging [policy](https://wiki.debian.org/Teams/RustPackaging/Policy).
 
-It is not yet ready for use in Debian, but almost - there are just a few
-critical bugs remaining, see TODO.md for details.
-
 
 ## Features ##
 
- * Uses `cargo` APIs to access source from crates.io.
- * Uses `cargo` API to generate dependency list.
- * Allows to package specific version of crate.
- * Easy to customize using config files and overlay directories.
- * When possible tries to detect copyright information from metadata and actual
-   crate source, needed to create `debian/copyright`.
- * Put `FIXME` string where it can't detect full information so user can
-   provide an override or manually fix it.
- * Customize package distribution.
- * Provide different name to the binary developed by the crate.
+ * Package specific versions of crates from crates.io.
+ * Easy to customize, using config files and overlay directories.
+ * Tries to auto-detect copyright information from metadata and actual
+   crate source, used to guess appropriate values for `debian/copyright`.
+ * Put `FIXME` strings where it can't detect full information, so user can
+   provide an override/overlay or manually fix it.
  * Results in a lintian-clean Debian package in most cases.
 
 
@@ -31,27 +24,26 @@ For building:
 ```shell
 $ apt-get build-dep cargo
 $ apt-get install libssl-dev libcurl4-gnutls-dev
+$ cargo build debcargo
 ```
 
 
 ## Examples ##
 
-Following will download and unpack the latest `clap` crate and prepare the
-source package.
+To download and unpack the latest `clap` crate and prepare the source package:
 
 ```shell
 $ debcargo package clap
 ```
 
-Following will download and unpack version `2.25.0` of `clap` crate and prepare
-the source package.
+To download and unpack version `2.25.0` of `clap` crate and prepare the source package:
 
 ```shell
 $ debcargo package clap =2.25.0
 ```
 
-Following will provide additional packaging-specific config for downloading and
-packaging latest `clap` crate from the crates.io.
+To provide additional packaging-specific config for downloading and packaging
+latest `clap` crate from crates.io:
 
 ```shell
 $ debcargo package --config clap-2/debian/debcargo.toml clap

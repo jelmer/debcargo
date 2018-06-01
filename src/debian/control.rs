@@ -13,8 +13,8 @@ use config::{Config, OverrideDefaults};
 use debian::dependency::deb_deps;
 use errors::*;
 
-const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@lists.alioth.debian.org>";
-const VCS: &'static str = "https://salsa.debian.org/rust-team/";
+const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
+const VCS_ALL: &'static str = "https://salsa.debian.org/rust-team/debcargo-conf";
 
 pub struct Source {
     name: String,
@@ -106,7 +106,7 @@ impl Source {
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
         let uploaders = get_deb_author()?;
-        let vcs_browser = format!("{}{}", VCS, source);
+        let vcs_browser = VCS_ALL.to_string();
         let vcs_git = format!("{}.git", vcs_browser);
 
         let mut build_deps = vec![
