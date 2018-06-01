@@ -9,7 +9,7 @@ failures_file=""
 # inputs
 allow_failures="$scriptdir/build-allow-fail"
 lintian_overrides="$scriptdir/lintian-overrides"
-config_dir="$scriptdir/configs"
+config_dir="$scriptdir/../configs"
 # tweaks
 run_lintian=true
 run_sbuild=false
@@ -71,7 +71,9 @@ shift $(expr $OPTIND - 1)
 allow_fail() {
 	local crate="$1"
 	local version="$2"
-	if grep -qx "${crate}" "${allow_failures}"; then
+	if ! test -f "${allow_failures}"; then
+		return 1
+	elif grep -qx "${crate}" "${allow_failures}"; then
 		echo >&2 "Allowing ${crate} to fail..."
 		return 0
 	elif [ -n "$version" ] && grep -qx "${crate}-${version}" "${allow_failures}"; then
