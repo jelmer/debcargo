@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::os::unix::fs::PermissionsExt;
 
 use cargo::util::FileLock;
+use glob::Pattern;
 use tempdir::TempDir;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
@@ -90,19 +91,13 @@ pub fn prepare_orig_tarball(
     tarball: &Path,
     src_modified: bool,
     pkg_srcdir: &Path,
+    excludes: Option<&Vec<Pattern>>,
 ) -> Result<()> {
     let tempdir = TempDir::new_in(".", "debcargo")?;
     let temp_archive_path = tempdir.path().join(tarball);
 
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
-
-    // Filter out static libraries, to avoid needing to patch all the winapi crates to remove
-    // import libraries.
-    let remove_path = |path: &Path| match path.extension() {
-        Some(ext) if ext == "a" => true,
-        _ => false,
-    };
 
     if src_modified {
         let mut f = crate_file.file();
@@ -133,7 +128,7 @@ pub fn prepare_orig_tarball(
                     "Rewrote {:?} to canonical form.",
                     &entry.path()?
                 )?;
-            } else if !remove_path(&entry.path()?) {
+            } else if !CrateInfo::filter_path(excludes, &entry.path()?) {
                 new_archive.append(&entry.header().clone(), entry)?;
             } else {
                 writeln!(

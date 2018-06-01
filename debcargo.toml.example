@@ -26,6 +26,10 @@
 # version control, and set this to false if it is not.
 #overlay_write_back = true
 
+# Paths from the crate tarball, to exclude from the orig tarball.
+# See https://docs.rs/glob/latest/glob/struct.Pattern.html for syntax
+#excludes = ["libgit2/**"]
+
 # TODO:
 # Whether to allow prerelease deps, by rewriting these to the released version.
 # This should only be enabled for certain crates if really necessary, and first

@@ -4,6 +4,7 @@ extern crate chrono;
 #[macro_use]
 extern crate failure;
 extern crate flate2;
+extern crate glob;
 extern crate git2;
 extern crate itertools;
 extern crate regex;

@@ -6,6 +6,7 @@ extern crate clap;
 #[macro_use]
 extern crate debcargo;
 extern crate flate2;
+extern crate glob;
 extern crate itertools;
 extern crate semver;
 extern crate semver_parser;
@@ -14,6 +15,7 @@ extern crate tempdir;
 extern crate walkdir;
 
 use clap::{App, AppSettings, ArgMatches, SubCommand};
+use glob::Pattern;
 use std::fs;
 use std::path::Path;
 use std::io::{BufRead, BufReader};
@@ -71,12 +73,16 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         .unwrap_or(pkgbase.package_source_dir());
     let orig_tar_gz = pkgbase.orig_tarball_path();
 
-    let source_modified = crate_info.extract_crate(pkg_srcdir)?;
+    let excludes = config.excludes.as_ref().map(|x| {
+        x.iter().map(|y| Pattern::new(&("*/".to_owned() + y)).unwrap()).collect::<Vec<_>>()
+    });
+    let source_modified = crate_info.extract_crate(pkg_srcdir, excludes.as_ref())?;
     debian::prepare_orig_tarball(
         crate_info.crate_file(),
         orig_tar_gz,
         source_modified,
         pkg_srcdir,
+        excludes.as_ref(),
     )?;
     debian::prepare_debian_folder(
         &pkgbase,

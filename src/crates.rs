@@ -5,6 +5,7 @@ use cargo::{Config,
 use cargo::util::FileLock;
 use cargo::core::manifest;
 use failure::Error;
+use glob::Pattern;
 use semver::Version;
 use flate2::read::GzDecoder;
 use tar::Archive;
@@ -295,7 +296,7 @@ impl CrateInfo {
             provides.get_mut(k).unwrap().push(f);
             provided.push(f);
         }
-        
+
         for p in provided {
             features_with_deps.remove(p);
         }
@@ -306,7 +307,7 @@ impl CrateInfo {
             (*k, pp)
         }).collect::<HashMap<_, _>>()
     }
-    
+
     pub fn is_lib(&self) -> bool {
         let mut lib = false;
         for target in self.manifest.targets() {
@@ -377,21 +378,28 @@ impl CrateInfo {
         (summary, description)
     }
 
-    pub fn extract_crate(&self, path: &Path) -> Result<bool> {
+    pub fn filter_path(excludes: Option<&Vec<Pattern>>, path: &Path) -> bool {
+        // Filter out static libraries, to avoid needing to patch all the winapi crates to remove
+        // import libraries.
+        if let Some(patterns) = excludes {
+            if patterns.iter().any(|p| p.matches_path(path)) {
+                return true
+            }
+        }
+        match path.extension() {
+            Some(ext) if ext == "a" => true,
+            _ => false,
+        }
+    }
+
+    pub fn extract_crate(&self, path: &Path, excludes: Option<&Vec<Pattern>>) -> Result<bool> {
         let mut archive = Archive::new(GzDecoder::new(self.crate_file.file()));
         let tempdir = TempDir::new_in(".", "debcargo")?;
         let mut source_modified = false;
 
-        // Filter out static libraries, to avoid needing to patch all the winapi crates to remove
-        // import libraries.
-        let remove_path = |path: &Path| match path.extension() {
-            Some(ext) if ext == "a" => true,
-            _ => false,
-        };
-
         for entry in archive.entries()? {
             let mut entry = entry?;
-            if remove_path(&(entry.path()?)) {
+            if Self::filter_path(excludes, &(entry.path()?)) {
                 source_modified = true;
                 continue;
             }

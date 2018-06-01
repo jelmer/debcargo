@@ -13,6 +13,7 @@ pub struct Config {
     pub bin_name: String,
     pub overlay: Option<PathBuf>,
     pub overlay_write_back: bool,
+    pub excludes: Option<Vec<String>>,
     pub allow_prerelease_deps: bool,
 
     pub source: Option<SourceOverride>,
@@ -47,6 +48,7 @@ impl Default for Config {
             bin_name: "<default>".to_string(),
             overlay: None,
             overlay_write_back: true,
+            excludes: None,
             allow_prerelease_deps: false,
             source: None,
             packages: None,

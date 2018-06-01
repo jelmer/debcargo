@@ -1,5 +1,6 @@
 overlay = "."
 overlay_write_back = false
+excludes = ["libgit2/**"]
 
 [source]
 build_depends = ["libgit2-dev <!nocheck>"]
