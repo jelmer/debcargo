@@ -1,6 +1,6 @@
 [package]
 name = "debcargo"
-version = "1.3.0"
+version = "2.0.0-rc.1"
 authors = [
  "Josh Triplett <josh@joshtriplett.org>",
  "Ximin Luo <infinity0@debian.org>",
