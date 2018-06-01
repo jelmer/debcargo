@@ -173,7 +173,8 @@ run_x_or_deps() {
 		spec=$(cargo_tree "$x" | head -n1)
 		tree_args="$x"
 		echo $spec | while read pkg ver extras; do
-			echo >&2 "warning: using version $ver from crates.io instead of $x $spec"
+			# debcargo does not support packaging path-based crates yet
+			echo >&2 "warning: using version $ver from crates.io instead of $x"
 		done
 		;;
 	*-[0-9]*)

@@ -76,7 +76,7 @@ impl CratesIo {
         let deps: Vec<Dependency> = summaries
             .iter()
             .map(|s| {
-                self.create_dependency(s.name(), Some(format!("{}", s.version()).as_str()))
+                self.create_dependency(&s.name(), Some(format!("{}", s.version()).as_str()))
                     .unwrap()
             })
             .collect();
@@ -201,7 +201,7 @@ impl CrateInfo {
 
         let deps_by_name : HashMap<&str, &Dependency> = self.dependencies().iter().filter_map(|dep| {
             // we treat build-dependencies also as dependencies in Debian
-            if dep.kind() == Kind::Development { None } else { Some((dep.name(), dep)) }
+            if dep.kind() == Kind::Development { None } else { Some((dep.name().to_inner(), dep)) }
         }).collect();
 
         // calculate dependencies of features from other crates
@@ -237,7 +237,7 @@ impl CrateInfo {
         // calculate dependencies of "optional dependencies" that are also features
         let deps_required : Vec<Dependency> = deps_by_name.iter().filter_map(|(_, &dep)| {
             if dep.is_optional() {
-                features_with_deps.insert(dep.name(), (vec![""], vec![dep.clone()]));
+                features_with_deps.insert(&dep.name().to_inner(), (vec![""], vec![dep.clone()]));
                 None
             } else {
                 Some(dep.clone())
@@ -423,7 +423,7 @@ impl CrateInfo {
 
         // Ensure that Cargo.toml is in standard form, e.g. does not contain
         // path dependencies, so can be built standalone (see #4030).
-        let registry_toml = self.package().to_registry_toml()?;
+        let registry_toml = self.package().to_registry_toml(&Config::default()?)?;
         let mut actual_toml = String::new();
         let toml_path = path.join("Cargo.toml");
         fs::File::open(&toml_path)?.read_to_string(&mut actual_toml)?;
