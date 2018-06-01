@@ -159,15 +159,9 @@ build_source() {(
 	dpkg-buildpackage -d -S --no-sign
 )}
 
-cargo_tree() {(
-	if [ "$1" = "--cd" ]; then cd "$2"; shift 2; fi
-	# hacky way of preserving the error message of cargo_tree, which is suppressed by -q :(
-	if cargo tree "$@" --all-features --all-targets --no-indent -q -a >/dev/null; then
-		cargo tree "$@" --all-features --all-targets --no-indent -q -a | grep -v '\['
-	else
-		cargo tree "$@" --all-features --all-targets --no-indent -a >&2
-	fi
-)}
+cargo_tree() {
+	"$scriptdir/cargo-tree-any" "$@" --all-features --all-targets --no-indent -a
+}
 
 run_x_or_deps() {
 	local x="$1"
@@ -176,19 +170,19 @@ run_x_or_deps() {
 	*/*)
 		test -d "$x" || x=$(dirname "$x")
 		# might give spurious "broken pipe" errors, see @sfackler/cargo-tree#2
-		spec=$(cargo_tree --cd "$x" | head -n1)
-		tree_args="--cd $x"
+		spec=$(cargo_tree "$x" | head -n1)
+		tree_args="$x"
 		echo $spec | while read pkg ver extras; do
-			echo >&2 "warning: using version $ver from crates.io instead of $x"
+			echo >&2 "warning: using version $ver from crates.io instead of $x $spec"
 		done
 		;;
 	*-[0-9]*)
 		spec="${x%-[0-9]*} ${x##*-}"
-		tree_args="-p ${x%-[0-9]*}:${x##*-}"
+		tree_args="${x%-[0-9]*}:${x##*-}"
 		;;
 	*)
 		spec="$x"
-		tree_args="-p $x"
+		tree_args="$x"
 		;;
 	esac
 	if $update && test -d "$spec"; then
@@ -197,7 +191,7 @@ run_x_or_deps() {
 	if $recursive; then
 		set -o pipefail
 		# tac|awk gives us reverse-topological ordering https://stackoverflow.com/a/11532197
-		cargo_tree $tree_args | tail -n+2 | tac | awk '!x[$0]++' | while read pkg ver; do
+		cargo_tree $tree_args | tail -n+2 | tac | awk '!x[$0]++' | while read pkg ver extra; do
 			"$@" "$pkg" "${ver#v}"
 		done
 		set +o pipefail

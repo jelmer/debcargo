@@ -21,12 +21,6 @@
 
 ## Important features
 
-- tests/sh/integrate.sh doesn't handle packages that are not part of
-  debcargo's own dependency tree, due to a limitation in cargo-tree
-
-  Ideal solution is to put the functionality inside debcargo and avoid
-  cargo-tree completely.
-
 - See debcargo.toml.example and the TODOs listed there
 
   - allow_prerelease_deps will solve this error for cargo 0.24:

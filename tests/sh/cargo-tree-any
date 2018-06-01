@@ -1,0 +1,39 @@
+#!/bin/sh
+# Wrapper around cargo-tree that makes it work on packages outside of
+# the current crate's set of dependencies. This is a hacky workaround
+# for https://github.com/sfackler/cargo-tree/issues/12
+#
+# Ideally this whole cargo-tree logic should be part of debcargo.
+
+set -e
+
+echo >&2 "$0 $@"
+rm -rf cargo-tree-tmp
+
+test "$(cargo tree --version)" = "cargo-tree 0.18.0" || { echo >&2 "wrong version"; exit 1; }
+
+cargo init -q cargo-tree-tmp
+trap 'rm -rf cargo-tree-tmp' EXIT INT TERM KILL
+
+if test -f "$1/Cargo.toml"; then
+	name=$(sed -ne  's/name\s*=\s*"\(.*\)"/\1/p' "$1/Cargo.toml")
+	echo "[dependencies.$name]" >> cargo-tree-tmp/Cargo.toml
+	echo "path = \"$(readlink -f "$1")\"" >> cargo-tree-tmp/Cargo.toml
+else
+	case "$1" in
+	*:*)	name="${1%:[0-9]*}"; ver="${1##*:}";;
+	*)		name="$1"; ver="";;
+	esac
+	echo "[dependencies.$name]" >> cargo-tree-tmp/Cargo.toml
+	if [ -n "$ver" ]; then echo "version = \"$ver\"" >> cargo-tree-tmp/Cargo.toml; fi
+fi
+
+shift
+
+(
+cd cargo-tree-tmp
+cargo update -q
+cargo tree "$@" | grep -v '\[' | tail -n+2
+)
+
+rm -rf cargo-tree-tmp
