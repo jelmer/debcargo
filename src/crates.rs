@@ -387,7 +387,14 @@ impl CrateInfo {
             }
         }
         match path.extension() {
-            Some(ext) if ext == "a" => true,
+            Some(ext) => if ext == "a" {
+                true
+            } else {
+                if ext == "c" {
+                    debcargo_warn!("Suspicious file, maybe should be excluded: {:?}", path);
+                }
+                false
+            },
             _ => false,
         }
     }

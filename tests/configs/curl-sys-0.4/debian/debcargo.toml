@@ -1,0 +1,7 @@
+excludes = ["curl/**"]
+
+[source]
+build_depends = ["libcurl4-gnutls-dev <!nocheck>"]
+
+[packages."librust-curl-sys-0.4-dev"]
+depends = ["libcurl4-gnutls-dev"]

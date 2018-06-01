@@ -1,0 +1,7 @@
+excludes = ["src/zlib-*/**"]
+
+[source]
+build_depends = ["zlib1g-dev <!nocheck>"]
+
+[packages."librust-libz-sys-1-dev"]
+depends = ["zlib1g-dev"]
