@@ -301,11 +301,17 @@ pub fn prepare_debian_folder(
 
         // Summary and description generated from Cargo.toml
         let (summary, description) = crate_info.get_summary_description();
+        if let Some(summary) = summary.as_ref() {
+            if summary.len() > 72 {
+                writeln!(control, "{}", "# FIXME debcargo auto-generated summaries are very long, consider overriding")?;
+                writeln!(control, "{}", "")?;
+            }
+        }
 
         if lib {
             for (&feature, &(ref f_deps, ref o_deps)) in features_with_deps.iter() {
                 let mut feature_package =
-                    Package::new(base_pkgname, upstream_name, crate_info,
+                    Package::new(base_pkgname, upstream_name, summary.as_ref(), description.as_ref(),
                         if feature == "" { None } else { Some(feature) },
                         f_deps, o_deps, provides.get(feature).unwrap_or(&vec![]))?;
 

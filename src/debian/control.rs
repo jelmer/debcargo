@@ -6,7 +6,6 @@ use itertools::Itertools;
 use semver::Version;
 use textwrap::fill;
 
-use crates::CrateInfo;
 use cargo::core::Dependency;
 use config::{Config, OverrideDefaults};
 use debian::dependency::deb_deps;
@@ -185,7 +184,8 @@ impl Package {
     pub fn new(
         basename: &str,
         upstream_name: &str,
-        crate_info: &CrateInfo,
+        summary: Option<&String>,
+        description: Option<&String>,
         feature: Option<&str>,
         f_deps: &Vec<&str>,
         o_deps: &Vec<Dependency>,
@@ -198,8 +198,6 @@ impl Package {
                 deb_feature_name(basename, f)
             }
         };
-
-        let (summary, description) = crate_info.get_summary_description();
 
         let deps = f_deps
             .iter()
