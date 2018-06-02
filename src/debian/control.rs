@@ -1,7 +1,6 @@
 use std::fmt::{self, Write};
 use std::env::{self, VarError};
 
-use chrono;
 use failure::Error;
 use itertools::Itertools;
 use semver::Version;
@@ -149,30 +148,6 @@ impl Source {
 
     pub fn uploader(&self) -> &str {
         &self.uploaders
-    }
-
-    pub fn changelog_entry(
-        &self,
-        crate_name: &str,
-        crate_version: &Version,
-        distribution: &str,
-        selfversion: &str,
-    ) -> String {
-        format!(
-            concat!(
-                "{} ({}) {}; urgency=medium\n\n",
-                "  * Package {} {} from crates.io using  debcargo {}\n\n",
-                " -- {}  {}\n"
-            ),
-            self.name,
-            self.version,
-            distribution,
-            crate_name,
-            crate_version,
-            selfversion,
-            self.uploaders,
-            chrono::Local::now().to_rfc2822()
-        )
     }
 }
 

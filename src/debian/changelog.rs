@@ -1,5 +1,5 @@
 use chrono;
-use textwrap::fill;
+use textwrap::{fill, indent};
 
 use std::fmt;
 use std::iter::FromIterator;
@@ -25,7 +25,9 @@ impl<'a> fmt::Display for Changelog<'a> {
         )?;
 
         for entry in self.entries.iter() {
-            writeln!(f, "  * {}", fill(entry, 79))?;
+            writeln!(f, "  * {}",
+                indent(&fill(entry, 75), "    ")
+                    .chars().skip(4).collect::<String>().trim_right())?;
         }
 
         writeln!(

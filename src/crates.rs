@@ -10,6 +10,7 @@ use semver::Version;
 use flate2::read::GzDecoder;
 use tar::Archive;
 use tempdir::TempDir;
+use regex::Regex;
 
 use std;
 use std::collections::{BTreeMap, HashMap};
@@ -352,11 +353,31 @@ impl CrateInfo {
 
     pub fn get_summary_description(&self) -> (Option<String>, Option<String>) {
         let (summary, description) = if let Some(ref description) = self.metadata().description {
-            let mut description = description.trim();
-            for article in &["a ", "A ", "an ", "An ", "the ", "The "] {
-                description = description.trim_left_matches(article);
-            }
+            // Convention these days seems to be to do manual text
+            // wrapping in crate descriptions, boo. \n\n is a real line break.
+            let mut description = description
+                .replace("\n\n", "\r")
+                .replace("\n", " ")
+                .replace("\r", "\n")
+                .trim().to_string();
+            // Trim off common prefixes
+            let re = Regex::new(r"^(\w+|This\s+\w+)\s+(is|provides)\s+").unwrap();
+            description = re.replace(&description, "").to_string();
+            let re = Regex::new(r"^(?i)(a|an|the)\s+").unwrap();
+            description = re.replace(&description, "").to_string();
+            let re = Regex::new(r"^(?i)(rust\s+)?(implementation|library|tool|crate)\s+(of|to|for)\s+").unwrap();
+            description = re.replace(&description, "").to_string();
 
+            // https://stackoverflow.com/questions/38406793/why-is-capitalizing-the-first-letter-of-a-string-so-convoluted-in-rust
+            description = {
+                let mut d = description.chars();
+                match d.next() {
+                    None => String::new(),
+                    Some(f) => f.to_uppercase().chain(d).collect::<String>().to_string(),
+                }
+            };
+
+            // Use the first sentence or first line, whichever comes first, as the summary.
             let p1 = description.find('\n');
             let p2 = description.find(". ");
             match p1.into_iter().chain(p2.into_iter()).min() {
