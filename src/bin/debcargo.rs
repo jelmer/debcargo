@@ -30,7 +30,7 @@ fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
     let mut fixme_files = Vec::new();
     for entry in walkdir::WalkDir::new(srcdir) {
         let entry = entry?;
-        if entry.file_type().is_file() && !util::is_hint_file(entry.file_name()) {
+        if entry.file_type().is_file() {
             let filename = entry.path().to_str().unwrap();
             let file = fs::File::open(entry.path())?;
             let reader = BufReader::new(file);
@@ -70,7 +70,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let pkg_srcdir = directory
         .map(|s| Path::new(s))
         .unwrap_or(pkgbase.package_source_dir());
-    let orig_tar_gz = pkgbase.orig_tarball_path();
+    let orig_tar_gz = pkg_srcdir.parent().unwrap().join(pkgbase.orig_tarball_path());
 
     let excludes = config.excludes.as_ref().map(|x| {
         x.iter().map(|y| Pattern::new(&("*/".to_owned() + y)).unwrap()).collect::<Vec<_>>()
@@ -78,7 +78,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let source_modified = crate_info.extract_crate(pkg_srcdir, excludes.as_ref())?;
     debian::prepare_orig_tarball(
         crate_info.crate_file(),
-        orig_tar_gz,
+        &orig_tar_gz,
         source_modified,
         pkg_srcdir,
         excludes.as_ref(),
@@ -96,7 +96,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     debcargo_info!(
         concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
         pkg_srcdir.to_str().unwrap(),
-        orig_tar_gz.to_str().unwrap()
+        &orig_tar_gz.to_str().unwrap()
     );
     let fixmes = lookup_fixmes(pkg_srcdir.join("debian").as_path());
     if let Ok(fixmes) = fixmes {
@@ -104,7 +104,11 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
             debcargo_warn!("FIXME found in the following files.");
             debcargo_warn!("Either supply an overlay or add extra overrides to your config file.");
             for f in fixmes {
-                debcargo_warn!(format!("\t• {}", f));
+                if util::is_hint_file(&f) {
+                    debcargo_warn!(format!("\t(•) {}", f));
+                } else {
+                    debcargo_warn!(format!("\t •  {}", f));
+                }
             }
         }
     }
