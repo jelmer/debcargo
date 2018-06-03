@@ -54,52 +54,8 @@ See `debcargo.toml.example` for a sample TOML file.
 
 ### Long-term maintenance workflow
 
-New package:
-
-```shell
-$ PKG=the-crate-you-want-to-package
-$ PKGDIR=$(debcargo deb-src-name $PKG)
-$ BUILDDIR=$PWD/build/$PKGDIR
-$ PKGCFG=$PKGDIR/debian/debcargo.toml
-```
-
-```shell
-$ mkdir -p $PKGDIR/debian $BUILDDIR
-$ cp /path/to/debcargo.git/debcargo.toml.example $PKGCFG
-$ sed -i -e 's/^#overlay =/overlay =/' $PKGCFG
-$ touch $PKGDIR/debian/copyright
-$ debcargo package --config $PKGCFG --directory $BUILDDIR $PKG
-$ ls $PKGDIR/debian/{changelog,copyright.debcargo.hint} # both should have been created
-```
-
-```shell
-$ cd $PKGDIR
-$PKGDIR$ ### update debian/copyright based on debian/copyight.debcargo.hint
-$PKGDIR$ ### hack hack hack, deal with any FIXMEs
-$PKGDIR$ dch -r -D experimental
-$PKGDIR$ cd ..
-$ rm -rf $BUILDDIR && debcargo package --config $PKGCFG --directory $BUILDDIR --changelog-ready $PKG
-$ git add $PKGDIR
-$ git commit -m "New package $PKG, it does A, B and C."
-$ dput [etc]
-```
-
-Updating a package:
-
-```shell
-$ rm -rf $BUILDDIR && debcargo package --config $PKGCFG --directory $BUILDDIR $PKG
-$ cd $PKGDIR
-$PKGDIR$ git diff
-$PKGDIR$ ### examine (any) differences in the hint files, e.g. d/copyright.debcargo.hint
-$PKGDIR$ ### apply these differences to the real files, e.g. d/copyright
-$PKGDIR$ ### hack hack hack, deal with any FIXMEs
-$PKGDIR$ dch -r -D unstable
-$PKGDIR$ cd ..
-$ rm -rf $BUILDDIR && debcargo package --config $PKGCFG --directory $BUILDDIR --changelog-ready $PKG
-$ git add $PKGDIR
-$ git commit -m "Updated package $PKG, new changes: D, E, F."
-$ dput [etc]
-```
+See https://salsa.debian.org/rust-team/debcargo-conf/blob/master/README.rst
+for an example.
 
 
 ## License ##
