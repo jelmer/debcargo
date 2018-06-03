@@ -161,7 +161,7 @@ fn real_main() -> Result<()> {
 
 fn main() {
     if let Err(e) = real_main() {
-        println!("Something failed: {:?}", e);
+        eprintln!("Something failed: {:?}", e);
         std::process::exit(1);
     }
 }
