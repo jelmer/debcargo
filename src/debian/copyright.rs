@@ -11,7 +11,7 @@ use std::fs;
 use std::env;
 use std::cmp::Ordering;
 use std::path::Path;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read};
 
 use errors::*;
@@ -192,7 +192,7 @@ macro_rules! default_files {
 }
 
 fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
-    let mut copyright_notices = HashMap::new();
+    let mut copyright_notices = BTreeMap::new();
 
     let copyright_notice_re = try!(regex::Regex::new(
         r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b(\d{4}\b.*)$"
@@ -208,7 +208,7 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     // current_dir then we end up having absolute path from user home directory,
     // which again messes debian/copyright.
     // Use of . creates paths in format ./src/ which is acceptable.
-    for entry in walkdir::WalkDir::new(".") {
+    for entry in walkdir::WalkDir::new(".").sort_by(|a,b| a.file_name().cmp(b.file_name())) {
         let entry = try!(entry);
         if entry.file_type().is_file() {
             let copyright_file = entry.path().to_str().unwrap();
@@ -248,7 +248,7 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
 }
 
 fn get_licenses(license: &str) -> Result<Vec<License>> {
-    let mut licenses = HashMap::new();
+    let mut licenses = BTreeMap::new();
     let sep = regex::Regex::new(r"(?i:[or|/])")?;
 
     let lses: Vec<&str> = sep.split(license).filter(|s| s.len() != 0).collect();
@@ -281,7 +281,6 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
 
     let mut lblocks: Vec<License> = Vec::new();
     if !licenses.is_empty() {
-        lblocks.reserve(licenses.capacity());
         for (l, t) in licenses {
             lblocks.push(License::new(l, t));
         }

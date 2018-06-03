@@ -14,7 +14,7 @@ use tempdir::TempDir;
 use regex::Regex;
 
 use std;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::io::{self, Read, Write};
@@ -41,7 +41,7 @@ fn hash<H: Hash>(hashable: &H) -> u64 {
     hasher.finish()
 }
 
-fn traverse_depth<'a>(map: &HashMap<&'a str, Vec<&'a str>>, key: &'a str) -> Vec<&'a str> {
+fn traverse_depth<'a>(map: &BTreeMap<&'a str, Vec<&'a str>>, key: &'a str) -> Vec<&'a str> {
     let mut x = Vec::new();
     if let Some (pp) = (*map).get(key) {
         x.extend(pp);
@@ -195,20 +195,20 @@ impl CrateInfo {
     }
 
     pub fn all_dependencies_and_features(&self) ->
-        HashMap<&str,                   // name of feature / optional dependency,
+        BTreeMap<&str,                  // name of feature / optional dependency,
                                         // or "" for the base package w/ no default features, guaranteed to be in the map
                 (Vec<&str>,             // dependencies: other features (of the current package)
                  Vec<Dependency>)>      // dependencies: other packages
     {
         use cargo::core::dependency::Kind;
 
-        let deps_by_name : HashMap<&str, &Dependency> = self.dependencies().iter().filter_map(|dep| {
+        let deps_by_name : BTreeMap<&str, &Dependency> = self.dependencies().iter().filter_map(|dep| {
             // we treat build-dependencies also as dependencies in Debian
             if dep.kind() == Kind::Development { None } else { Some((dep.name().to_inner(), dep)) }
         }).collect();
 
         // calculate dependencies of features from other crates
-        let mut features_with_deps = HashMap::new();
+        let mut features_with_deps = BTreeMap::new();
         let features = self.summary.features();
         for (feature, deps) in features {
             let mut feature_deps = vec![""];
@@ -256,7 +256,7 @@ impl CrateInfo {
     }
 
     pub fn feature_all_deps(&self,
-            features_with_deps: &HashMap<&str, (Vec<&str>, Vec<Dependency>)>,
+            features_with_deps: &BTreeMap<&str, (Vec<&str>, Vec<Dependency>)>,
             feature: &str)
             -> Vec<Dependency> {
         let mut all_deps = Vec::new();
@@ -271,9 +271,9 @@ impl CrateInfo {
     // Note: this mutates features_with_deps so you need to run e.g.
     // feature_all_deps before calling this.
     pub fn calculate_provides<'a>(&self,
-            features_with_deps: &mut HashMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>)
-            -> HashMap<&'a str, Vec<&'a str>> {
-        let mut provides = HashMap::new();
+            features_with_deps: &mut BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>)
+            -> BTreeMap<&'a str, Vec<&'a str>> {
+        let mut provides = BTreeMap::new();
         let mut provided = Vec::new();
         // the below is very simple and incomplete. e.g. it does not,
         // but could be improved to, simplify things like:
@@ -305,7 +305,7 @@ impl CrateInfo {
             let mut pp = traverse_depth(&provides, k);
             pp.sort();
             (*k, pp)
-        }).collect::<HashMap<_, _>>()
+        }).collect::<BTreeMap<_, _>>()
     }
 
     pub fn is_lib(&self) -> bool {
