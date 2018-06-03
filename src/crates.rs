@@ -5,6 +5,7 @@ use cargo::{Config,
 use cargo::util::FileLock;
 use cargo::core::manifest;
 use failure::Error;
+use filetime::{set_file_times, FileTime};
 use glob::Pattern;
 use semver::Version;
 use flate2::read::GzDecoder;
@@ -425,6 +426,7 @@ impl CrateInfo {
         let mut archive = Archive::new(GzDecoder::new(self.crate_file.file()));
         let tempdir = TempDir::new_in(".", "debcargo")?;
         let mut source_modified = false;
+        let mut last_mtime = 0;
 
         for entry in archive.entries()? {
             let mut entry = entry?;
@@ -435,6 +437,11 @@ impl CrateInfo {
 
             if !entry.unpack_in(tempdir.path())? {
                 debcargo_bail!("Crate contained path traversals via '..'");
+            }
+
+            let mtime = entry.header().mtime()?;
+            if mtime > last_mtime {
+                last_mtime = mtime;
             }
         }
 
@@ -475,6 +482,9 @@ impl CrateInfo {
                 .write_all(registry_toml.as_bytes())?;
             source_modified = true;
         }
+        // avoid lintian errors about package-contains-ancient-file
+        let last_mtime = FileTime::from_unix_time(last_mtime as i64, 0);
+        set_file_times(toml_path, last_mtime, last_mtime)?;
 
         Ok(source_modified)
     }

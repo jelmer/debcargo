@@ -3,6 +3,7 @@ extern crate cargo;
 extern crate chrono;
 #[macro_use]
 extern crate failure;
+extern crate filetime;
 extern crate flate2;
 extern crate glob;
 extern crate git2;

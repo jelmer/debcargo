@@ -2,7 +2,8 @@ file-contains-fixme-placeholder debian/copyright:* FIXME
 missing-license-paragraph-in-dep5-copyright unknown; fixme (paragraph at line *)
 space-in-std-shortname-in-dep5-copyright unknown; fixme (paragraph at line *)
 license-problem-undefined-license unknown; fixme (paragraph at line *)
-out-of-date-standards-version * (current is *)
 testsuite-autopkgtest-missing
 debian-watch-does-not-check-gpg-signature
 unused-override *
+# bug 833608
+version-substvar-for-external-package librust-*-dev -> librust-*-dev
