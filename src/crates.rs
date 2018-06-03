@@ -211,7 +211,8 @@ impl CrateInfo {
         let mut features_with_deps = HashMap::new();
         let features = self.summary.features();
         for (feature, deps) in features {
-            let mut feature_deps = Vec::new();
+            let mut feature_deps = vec![""];
+            // always need "", because in dh-cargo we symlink /usr/share/doc/{$feature => $main} pkg
             let mut other_deps = Vec::new();
             for dep_str in deps {
                 let mut dep_tokens = dep_str.splitn(2, '/');
@@ -230,9 +231,6 @@ impl CrateInfo {
                         other_deps.push(dep);
                     }
                 }
-            }
-            if feature_deps.is_empty() {
-                feature_deps.push("");
             }
             features_with_deps.insert(feature.as_str(), (feature_deps, other_deps));
         }
@@ -362,7 +360,8 @@ impl CrateInfo {
                 .replace("\r", "\n")
                 .trim().to_string();
             // Trim off common prefixes
-            let re = Regex::new(r"^(\w+|This\s+\w+)\s+(is|provides)\s+").unwrap();
+            let re = Regex::new(&format!(r"^(?i)({}|This(\s+\w+)?)(\s*,|\s+is|\s+provides)\s+",
+                self.package_id().name())).unwrap();
             description = re.replace(&description, "").to_string();
             let re = Regex::new(r"^(?i)(a|an|the)\s+").unwrap();
             description = re.replace(&description, "").to_string();

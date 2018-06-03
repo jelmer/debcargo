@@ -321,15 +321,11 @@ pub fn prepare_debian_folder(
         }
 
         if !bins.is_empty() {
-            let boilerplate = if bins.len() > 1 || bins[0] != bin_name {
-                Some(format!(
-                    "This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
-                    upstream_name,
-                    bins.join("\n - ")
-                ))
-            } else {
-                None
-            };
+            let boilerplate = Some(format!(
+                "This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
+                upstream_name,
+                bins.join("\n - ")
+            ));
 
             let mut bin_pkg = Package::new_bin(
                 upstream_name,
