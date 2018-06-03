@@ -438,9 +438,10 @@ impl CrateInfo {
                 debcargo_bail!("Crate contained path traversals via '..'");
             }
 
-            let mtime = entry.header().mtime()?;
-            if mtime > last_mtime {
-                last_mtime = mtime;
+            if let Ok(mtime) = entry.header().mtime() {
+                if mtime > last_mtime {
+                    last_mtime = mtime;
+                }
             }
         }
 
