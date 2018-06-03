@@ -32,7 +32,7 @@ impl<'a> fmt::Display for Changelog<'a> {
 
         writeln!(
             f,
-            "\n -- {}  {}\n",
+            "\n -- {}  {}",
             self.maintainer,
             chrono::Local::now().to_rfc2822()
         )

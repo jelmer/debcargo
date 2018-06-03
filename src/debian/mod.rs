@@ -387,7 +387,11 @@ pub fn prepare_debian_folder(
                 None => &changelog_data,
             };
             changelog.seek(io::SeekFrom::Start(0))?;
-            write!(changelog, "{}{}", changelog_entries, changelog_old)?;
+            if changelog_old.is_empty() {
+                write!(changelog, "{}", changelog_entries)?;
+            } else {
+                write!(changelog, "{}\n{}", changelog_entries, changelog_old)?;
+            }
         }
     }
 

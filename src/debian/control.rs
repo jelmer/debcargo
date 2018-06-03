@@ -108,7 +108,7 @@ impl Source {
         let vcs_git = format!("{}.git", vcs_browser);
 
         let mut build_deps = vec![
-            "debhelper (>= 10)".to_string(),
+            "debhelper (>= 11)".to_string(),
             "dh-cargo (>= 3)".to_string(),
         ];
         build_deps.extend(deb_deps(t_deps)?.iter().map(|x| {
@@ -127,7 +127,7 @@ impl Source {
             priority: priority,
             maintainer: maintainer,
             uploaders: uploaders,
-            standards: "4.0.0".to_string(),
+            standards: "4.1.4".to_string(),
             build_deps: build_deps.iter().join(",\n "),
             vcs_git: vcs_git,
             vcs_browser: vcs_browser,
@@ -243,7 +243,7 @@ impl Package {
 
         let long_desc = match description {
             None => "".to_string(),
-            Some(ref s) => s.to_string().replace("\n", " "),
+            Some(ref s) => s.to_string(),
         };
 
         let boilerplate = match feature {
@@ -257,7 +257,7 @@ impl Package {
             ),
             Some(f) => format!(
                 concat!(
-                    "This package enables feature {} for the ",
+                    "This metapackage enables feature {} for the ",
                     "Rust {} crate, by pulling in any additional ",
                     "dependencies needed by that feature."
                 ),
@@ -319,21 +319,18 @@ impl Package {
 
     fn write_description(&self, out: &mut fmt::Formatter) -> fmt::Result {
         writeln!(out, "Description: {}", self.summary)?;
-        let description = Some(&self.description);
-        let boilerplate = Some(&self.boilerplate);
-        for (n, s) in description.iter().chain(boilerplate.iter()).enumerate() {
-            if n != 0 {
+        let description = [&self.description, &self.boilerplate].iter().filter_map(|x| {
+            let x = x.trim();
+            if x.is_empty() { None } else { Some(x) }
+        }).join("\n\n");
+        for line in description.trim().lines() {
+            let line = line.trim();
+            if line.is_empty() {
                 writeln!(out, " .")?;
-            }
-            for line in s.trim().lines() {
-                let line = line.trim();
-                if line.is_empty() {
-                    writeln!(out, " .")?;
-                } else if line.starts_with("- ") {
-                    writeln!(out, "  {}", line)?;
-                } else {
-                    writeln!(out, " {}", line)?;
-                }
+            } else if line.starts_with("- ") {
+                writeln!(out, "  {}", line)?;
+            } else {
+                writeln!(out, " {}", line)?;
             }
         }
         write!(out, "")
