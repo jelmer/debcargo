@@ -480,11 +480,12 @@ impl CrateInfo {
                 .open(&toml_path)?
                 .write_all(registry_toml.as_bytes())?;
             source_modified = true;
+            // avoid lintian errors about package-contains-ancient-file
+            // TODO: do we want to do this for unmodified tarballs? it would
+            // force us to modify them, but otherwise we get that ugly warning
+            let last_mtime = FileTime::from_unix_time(last_mtime as i64, 0);
+            set_file_times(toml_path, last_mtime, last_mtime)?;
         }
-        // avoid lintian errors about package-contains-ancient-file
-        let last_mtime = FileTime::from_unix_time(last_mtime as i64, 0);
-        set_file_times(toml_path, last_mtime, last_mtime)?;
-
         Ok(source_modified)
     }
 }
