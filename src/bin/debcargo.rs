@@ -57,7 +57,6 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let (config_path, config) = matches
         .value_of("config")
         .map(|p| {
-            debcargo_warn!("--config is not yet stable, follow the mailing list for changes.");
             let path = Path::new(p);
             (Some(path), parse_config(path).unwrap())
         })

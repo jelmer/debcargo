@@ -387,7 +387,6 @@ impl CrateInfo {
                     if d.is_empty() {
                         (Some(s), None)
                     } else {
-                        debcargo_warn!("description: {:?}", d);
                         (Some(s), Some(d.to_string()))
                     }
                 }
