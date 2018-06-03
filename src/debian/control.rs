@@ -64,7 +64,7 @@ impl fmt::Display for Source {
             writeln!(f, "X-Cargo-Crate: {}", self.x_cargo)?;
         }
 
-        write!(f, "\n")
+        Ok(())
     }
 }
 
@@ -333,7 +333,7 @@ impl Package {
                 writeln!(out, " {}", line)?;
             }
         }
-        write!(out, "")
+        Ok(())
     }
 }
 

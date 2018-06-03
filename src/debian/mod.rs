@@ -22,7 +22,7 @@ use util::{self, copy_tree};
 use self::control::deb_version;
 use self::control::{Package, Source};
 use self::copyright::debian_copyright;
-use self::changelog::{Changelog, ChangelogIterator};
+use self::changelog::{ChangelogEntry, ChangelogIterator};
 
 pub mod control;
 mod dependency;
@@ -303,8 +303,7 @@ pub fn prepare_debian_folder(
         let (summary, description) = crate_info.get_summary_description();
         if let Some(summary) = summary.as_ref() {
             if summary.len() > 72 {
-                writeln!(control, "{}", "# FIXME debcargo auto-generated summaries are very long, consider overriding")?;
-                writeln!(control, "{}", "")?;
+                writeln!(control, "\n{}", "# FIXME debcargo auto-generated summaries are very long, consider overriding")?;
             }
         }
 
@@ -317,7 +316,7 @@ pub fn prepare_debian_folder(
 
                 // If any overrides present for this package it will be taken care.
                 feature_package.apply_overrides(config);
-                writeln!(control, "{}", feature_package)?;
+                write!(control, "\n{}", feature_package)?;
             }
         }
 
@@ -345,11 +344,11 @@ pub fn prepare_debian_folder(
 
             // Binary package overrides.
             bin_pkg.apply_overrides(config);
-            writeln!(control, "{}", bin_pkg)?;
+            write!(control, "\n{}", bin_pkg)?;
         }
 
         // debian/changelog
-        let entries = vec![
+        let changelog_items = vec![
             format!(
                 "Package {} {} from crates.io using debcargo {}",
                 crate_info.package_id().name(),
@@ -358,13 +357,13 @@ pub fn prepare_debian_folder(
             ),
         ];
 
-        let changelog_entries = Changelog::new(
+        let changelog_entry = ChangelogEntry::new(
             source.srcname(),
             source.version(),
             changelog::DEFAULT_DIST,
             "medium",
             source.uploader(),
-            entries.as_slice(),
+            changelog_items.as_slice(),
         );
 
         if !changelog_ready {
@@ -388,9 +387,9 @@ pub fn prepare_debian_folder(
             };
             changelog.seek(io::SeekFrom::Start(0))?;
             if changelog_old.is_empty() {
-                write!(changelog, "{}", changelog_entries)?;
+                write!(changelog, "{}", changelog_entry)?;
             } else {
-                write!(changelog, "{}\n{}", changelog_entries, changelog_old)?;
+                write!(changelog, "{}\n{}", changelog_entry, changelog_old)?;
             }
         }
     }
