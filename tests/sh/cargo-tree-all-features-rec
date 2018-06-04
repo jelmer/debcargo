@@ -13,7 +13,7 @@ import sys
 scriptdir = os.path.dirname(__file__)
 myname = os.path.basename(__file__)
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=512)
 def cargo_tree_pv(pkg, ver):
 	return cargo_tree_args("%s:%s" % (pkg, ver))
 
