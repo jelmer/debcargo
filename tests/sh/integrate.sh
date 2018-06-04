@@ -17,8 +17,9 @@ keepfiles=false
 recursive=false
 update=false
 extraargs=
+use_rec_hack=false
 
-while getopts 'd:f:a:l:c:bkrux:h?' o; do
+while getopts 'd:f:a:l:c:bkrux:zh?' o; do
 	case $o in
 	d ) directory=$OPTARG;;
 	f ) failures_file=$OPTARG;;
@@ -32,6 +33,7 @@ while getopts 'd:f:a:l:c:bkrux:h?' o; do
 	r ) recursive=true;;
 	u ) update=true;;
 	x ) extraargs="$extraargs $OPTARG";;
+	z ) use_rec_hack=true;;
 	h|\? ) cat >&2 <<eof
 Usage: $0 [-ru] (<crate name>|<path/to/crate>) [..]
 
@@ -62,6 +64,8 @@ Options to control running:
                 Otherwise, cargo-tree uses the versions listed in Cargo.lock.
   -x ARG        Give ARG as an extra argument to debcargo, e.g. like
                 -x--copyright-guess-harder.
+  -z            Use the slower but more accurate "cargo-tree-all-features-rec"
+                script to calculate dependencies.
 eof
 		exit 2;;
 	esac
@@ -165,6 +169,14 @@ cargo_tree() {
 	"$scriptdir/cargo-tree-any" "$@" --all-features --all-targets --no-indent -a
 }
 
+cargo_tree_rec() {
+	# tac|awk gives us reverse-topological ordering https://stackoverflow.com/a/11532197
+	cargo_tree "$@" | tail -n+2 | tac | awk '!x[$0]++'
+}
+if $use_rec_hack; then
+	cargo_tree_rec() { $scriptdir/cargo-tree-all-features-rec "$@"; }
+fi
+
 run_x_or_deps() {
 	local x="$1"
 	shift
@@ -193,8 +205,7 @@ run_x_or_deps() {
 	fi
 	if $recursive; then
 		set -o pipefail
-		# tac|awk gives us reverse-topological ordering https://stackoverflow.com/a/11532197
-		cargo_tree $tree_args | tail -n+2 | tac | awk '!x[$0]++' | while read pkg ver extra; do
+		cargo_tree_rec $tree_args | while read pkg ver extra; do
 			"$@" "$pkg" "${ver#v}"
 		done
 		set +o pipefail

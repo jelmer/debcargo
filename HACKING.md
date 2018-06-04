@@ -51,8 +51,9 @@ $ tests/sh/integrate.sh -r crate[s]
 will run the script recursively over the listed crate(s) and all of their
 transitive dependencies, in dependency-order. However, sometimes this does not
 work properly because of sfackler/cargo-tree#34 and some dependencies will get
-skipped. In this case you'll have to list the dependencies explicitly yourself.
-(This is noticeable mostly when building with `-kbr` because sbuild will fail
-complaining about missing dependencies.)
+skipped. In this case you can giving the `-z` flag which uses a slower but more
+accurate (for Debian) method for resolving dependencies. (This is noticeable
+mostly when building with `-kbr` because sbuild will fail complaining about
+missing dependencies.)
 
 See `-h` for other options.

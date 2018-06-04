@@ -33,5 +33,6 @@ git2 = "0.7"
 
 [dev-dependencies]
 # This is a hack that is needed to make tests/sh/integrate.sh -rb ./ work properly
-# See https://github.com/sfackler/cargo-tree/issues/34 for more details
+# See sfackler/cargo-tree#34 for more details.
+# Alternatively we could give -z to integrate.sh but it's very very slow.
 num = { version = "0.1", default-features = true }

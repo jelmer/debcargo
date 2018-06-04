@@ -1,0 +1,60 @@
+#!/usr/bin/python3
+# Wrapper around cargo-tree that makes it recursively resolve all features of
+# child dependencies. This is a hacky workaround for sfackler/cargo-tree#34 but
+# it is incredibly slow.
+#
+# Ideally this whole cargo-tree logic should be part of debcargo.
+
+import functools
+import os
+import subprocess
+import sys
+
+scriptdir = os.path.dirname(__file__)
+myname = os.path.basename(__file__)
+
+@functools.lru_cache()
+def cargo_tree_pv(pkg, ver):
+	return cargo_tree_args("%s:%s" % (pkg, ver))
+
+def cargo_tree_args(*args):
+	return subprocess.check_output([os.path.join(scriptdir, "cargo-tree-any")] +
+		list(args) +
+		["--all-features", "--all-targets", "--prefix-depth", "-a"])
+
+want = 0
+done = 0
+
+def recurse(output):
+	global want, done
+	to_recurse = []
+	items = []
+	for line in output.splitlines():
+		i, pkg, ver = line.split(b" ", 2)
+		i = int(i)
+		pkg = pkg.decode("utf-8")
+		ver = ver.decode("utf-8")
+		if i == 1:
+			items.append((pkg, ver))
+			done += 1
+		elif i == 2:
+			to_recurse.append((pkg, ver))
+			want += 1
+		else:
+			continue
+	sys.stderr.write("\033[K")
+	print("%s: %s/%s done, %s todo" % (myname, done, want, want-done), end="\r", file=sys.stderr)
+	for pkg, ver in to_recurse:
+		items.extend(recurse(cargo_tree_pv(pkg, ver[1:])))
+	return items
+
+want = 1
+items = recurse(cargo_tree_args(*sys.argv[1:]))
+sys.stderr.write("\033[K")
+
+seen = set()
+for item in reversed(items):
+	if item not in seen:
+		pkg, ver = item
+		print(pkg, ver)
+	seen.add(item)
