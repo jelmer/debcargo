@@ -64,7 +64,7 @@ Options to control running:
                 Otherwise, cargo-tree uses the versions listed in Cargo.lock.
   -x ARG        Give ARG as an extra argument to debcargo, e.g. like
                 -x--copyright-guess-harder.
-  -z            Use the slower but more accurate "cargo-tree-all-features-rec"
+  -z            Use the slower but more accurate "cargo-tree-deb-rec"
                 script to calculate dependencies.
 eof
 		exit 2;;
@@ -166,7 +166,7 @@ build_source() {(
 )}
 
 cargo_tree() {
-	"$scriptdir/cargo-tree-any" "$@" --all-features --all-targets --no-indent -a
+	"$scriptdir/cargo-tree-any" "$@" --all-targets --no-indent -a
 }
 
 cargo_tree_rec() {
@@ -174,7 +174,7 @@ cargo_tree_rec() {
 	cargo_tree "$@" | tail -n+2 | tac | awk '!x[$0]++'
 }
 if $use_rec_hack; then
-	cargo_tree_rec() { $scriptdir/cargo-tree-all-features-rec "$@"; }
+	cargo_tree_rec() { $scriptdir/cargo-tree-deb-rec "$@"; }
 fi
 
 run_x_or_deps() {

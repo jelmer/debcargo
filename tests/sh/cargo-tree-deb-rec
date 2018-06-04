@@ -18,39 +18,56 @@ def cargo_tree_pv(pkg, ver):
 	return cargo_tree_args("%s:%s" % (pkg, ver))
 
 def cargo_tree_args(*args):
+	# non-dev dependencies, default feature set.
+	# this is what we put in Build-Depends in Debian
 	return subprocess.check_output([os.path.join(scriptdir, "cargo-tree-any")] +
-		list(args) +
-		["--all-features", "--all-targets", "--prefix-depth", "-a"])
+		list(args) + ["--no-dev-dependencies", "--all-targets", "--prefix-depth", "-a"])
 
 want = 0
 done = 0
+stack = []
 
 def recurse(output):
-	global want, done
+	global want, done, stack
 	to_recurse = []
 	items = []
+	self = None
 	for line in output.splitlines():
 		i, pkg, ver = line.split(b" ", 2)
 		i = int(i)
 		pkg = pkg.decode("utf-8")
 		ver = ver.decode("utf-8")
+		if " " in ver:
+			ver, _ = ver.split(" ", 1)
 		if i == 1:
 			items.append((pkg, ver))
+			self = (pkg, ver)
 			done += 1
-		elif i == 2:
+		elif i >= 2:
+			# we also recurse into the dependencies at depth > 2 because these
+			# might activate extra features that are not added to the standard
+			# Debian Build-Depends of that dependency
 			to_recurse.append((pkg, ver))
 			want += 1
 		else:
 			continue
 	sys.stderr.write("\033[K")
-	print("%s: %s/%s done, %s todo" % (myname, done, want, want-done), end="\r", file=sys.stderr)
+	stack.append(self)
+	print("%s: %s/%s done, %s todo, |%s|%s" %
+		(myname, done, want, want-done,
+		 "|".join("%s:%s" % (d[0][0],d[1][1:]) for d in stack[:-1]),
+		 "%s:%s" % stack[-1]), end="\r", file=sys.stderr)
 	for pkg, ver in to_recurse:
+		if (pkg, ver) in stack:
+			raise ValueError("cyclic dependency, you can't package one of these: %s" % (stack + [(pkg, ver)]))
 		items.extend(recurse(cargo_tree_pv(pkg, ver[1:])))
+	stack.pop()
 	return items
 
 want = 1
 items = recurse(cargo_tree_args(*sys.argv[1:]))
 sys.stderr.write("\033[K")
+sys.stderr.flush()
 
 seen = set()
 for item in reversed(items):

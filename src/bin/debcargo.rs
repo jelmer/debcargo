@@ -127,6 +127,23 @@ fn do_deb_src_name(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
+fn do_extract(matches: &ArgMatches) -> Result<()> {
+    let crate_name = matches.value_of("crate").unwrap();
+    let version = matches.value_of("version");
+    let directory = matches.value_of("directory");
+
+    let crate_info = CrateInfo::new(crate_name, version)?;
+    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!());
+
+    let pkg_srcdir = directory
+        .map(|s| Path::new(s))
+        .unwrap_or(pkgbase.package_source_dir());
+
+    crate_info.extract_crate(pkg_srcdir, None)?;
+
+    Ok(())
+}
+
 fn real_main() -> Result<()> {
     let m = App::new("debcargo")
         .author(crate_authors!())
@@ -151,10 +168,18 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("[version] 'Version of the crate to package; may \
                                                include dependency operators'")
                      ])
+        .subcommands(vec![SubCommand::with_name("extract")
+                              .about("Extract only a crate, without any other transformations.")
+                              .arg_from_usage("<crate> 'Name of the crate to package'")
+                              .arg_from_usage("[version] 'Version of the crate to package; may \
+                                               include dependency operators'")
+                              .arg_from_usage("--directory [directory] 'Output directory.'")
+                     ])
         .get_matches();
     match m.subcommand() {
         ("package", Some(sm)) => do_package(sm),
         ("deb-src-name", Some(sm)) => do_deb_src_name(sm),
+        ("extract", Some(sm)) => do_extract(sm),
         _ => unreachable!(),
     }
 }

@@ -4,12 +4,19 @@
 # for https://github.com/sfackler/cargo-tree/issues/12
 #
 # Ideally this whole cargo-tree logic should be part of debcargo.
+#
+# Note: only works either with the default feature set, or with --all-features.
+# Does not work with selected features or --no-default-features
 
 set -e
 
-#echo >&2 "$0 $@"
+scriptdir="$(dirname "$0")"
 
-test "$(cargo tree --version)" = "cargo-tree 0.18.0" || { echo >&2 "wrong version"; exit 1; }
+if ! cargo tree --help | grep -q no-dev-dependencies; then
+	echo >&2 "wrong version of cargo-tree, get it from https://github.com/infinity0/cargo-tree"
+	exit 1
+fi
+DEBCARGO=${DEBCARGO:-$(readlink -f $scriptdir/../../target/debug/debcargo)}
 
 dir=$(mktemp -d)
 ( cd "$dir"; cargo init -q cargo-tree-tmp )
@@ -19,21 +26,45 @@ if test -f "$1/Cargo.toml"; then
 	name=$(sed -ne  's/name\s*=\s*"\(.*\)"/\1/p' "$1/Cargo.toml")
 	echo "[dependencies.$name]" >> "$dir/cargo-tree-tmp"/Cargo.toml
 	echo "path = \"$(readlink -f "$1")\"" >> "$dir/cargo-tree-tmp"/Cargo.toml
+	manifest=$(readlink -f "$1")/Cargo.toml
 else
 	case "$1" in
 	*:*)	name="${1%:[0-9]*}"; ver="${1##*:}";;
 	*)		name="$1"; ver="";;
 	esac
 	echo "[dependencies.$name]" >> "$dir/cargo-tree-tmp"/Cargo.toml
-	if [ -n "$ver" ]; then echo "version = \"$ver\"" >> "$dir/cargo-tree-tmp"/Cargo.toml; fi
+	if [ -n "$ver" ]; then
+		echo "version = \"$ver\"" >> "$dir/cargo-tree-tmp"/Cargo.toml
+	fi
+	( cd $dir && $DEBCARGO extract $name $ver --directory "$dir/cargo-manifest" >/dev/null 2>/dev/null )
+	manifest="$dir/cargo-manifest/Cargo.toml"
 fi
 
+all_features() {
+	cargo metadata --manifest-path "$1" --all-features --no-deps --format-version 1 | jq -r ".packages[].features|keys[]"
+	cargo metadata --manifest-path "$1" --all-features --no-deps --format-version 1 | jq -r ".packages[].dependencies[] | select(.optional) | .name"
+}
+
 shift
+
+case "$*" in
+*--all-features*)
+	features=$(all_features "$manifest" | sed -e 's/\(.*\)/"'"$name"'\/\1"/g')
+	echo '[features]' >> "$dir/cargo-tree-tmp"/Cargo.toml
+	echo "default = [$(echo -n "$features" | tr '\n' ',')]" >> "$dir/cargo-tree-tmp"/Cargo.toml
+	;;
+*--no-default-features*|*--features*)
+	echo >&2 "unsupported flags $*"
+	exit 1
+	;;
+esac
+
+#cat >&2 "$dir/cargo-tree-tmp"/Cargo.toml
 
 (
 cd "$dir/cargo-tree-tmp"
 cargo update -q
-cargo tree "$@" | grep -v '\[' | tail -n+2
+cargo tree "$@" | tail -n+2
 )
 
 rm -rf "$dir"
