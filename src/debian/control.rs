@@ -19,9 +19,9 @@ pub struct Source {
     section: String,
     priority: String,
     maintainer: String,
-    uploaders: String,
+    uploaders: Vec<String>,
     standards: String,
-    build_deps: Vec<String>
+    build_deps: Vec<String>,
     vcs_git: String,
     vcs_browser: String,
     homepage: String,
@@ -33,9 +33,10 @@ pub struct Package {
     name: String,
     arch: String,
     section: String,
-    depends: String,
-    suggests: String,
-    provides: String,
+    depends: Vec<String>,
+    recommends: Vec<String>,
+    suggests: Vec<String>,
+    provides: Vec<String>,
     summary: String,
     description: String,
     boilerplate: String,
@@ -51,7 +52,7 @@ impl fmt::Display for Source {
         writeln!(f, "Priority: {}", self.priority)?;
         writeln!(f, "Build-Depends: {}", self.build_deps.join(",\n "))?;
         writeln!(f, "Maintainer: {}", self.maintainer)?;
-        writeln!(f, "Uploaders: {}", self.uploaders)?;
+        writeln!(f, "Uploaders: {}", self.uploaders.join(",\n "))?;
         writeln!(f, "Standards-Version: {}", self.standards)?;
         writeln!(f, "Vcs-Git: {}", self.vcs_git)?;
         writeln!(f, "Vcs-Browser: {}", self.vcs_browser)?;
@@ -72,18 +73,21 @@ impl fmt::Display for Package {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Package: {}", self.name)?;
         writeln!(f, "Architecture: {}", self.arch)?;
-
         if !self.section.is_empty() {
             writeln!(f, "Section: {}", self.section)?;
         }
 
-        writeln!(f, "Depends:\n {}", self.depends)?;
-        if !self.suggests.is_empty() {
-            writeln!(f, "Suggests:\n {}", self.suggests)?;
+        if !self.depends.is_empty() {
+            writeln!(f, "Depends:\n {}", self.depends.join(",\n "))?;
         }
-
+        if !self.recommends.is_empty() {
+            writeln!(f, "Recommends:\n {}", self.recommends.join(",\n "))?;
+        }
+        if !self.suggests.is_empty() {
+            writeln!(f, "Suggests:\n {}", self.suggests.join(",\n "))?;
+        }
         if !self.provides.is_empty() {
-            writeln!(f, "Provides:\n {}", self.provides)?;
+            writeln!(f, "Provides:\n {}", self.provides.join(",\n "))?;
         }
 
         self.write_description(f)
@@ -103,7 +107,7 @@ impl Source {
         let section = if lib { "rust" } else { "FIXME" };
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
-        let uploaders = get_deb_author()?;
+        let uploaders = vec![get_deb_author()?];
         let vcs_browser = VCS_ALL.to_string();
         let vcs_git = format!("{}.git", vcs_browser);
 
@@ -145,8 +149,8 @@ impl Source {
         &self.version
     }
 
-    pub fn uploader(&self) -> &str {
-        &self.uploaders
+    pub fn main_uploader(&self) -> &str {
+        &self.uploaders[0]
     }
 }
 
@@ -160,10 +164,9 @@ impl OverrideDefaults for Source {
             self.standards = policy.to_string();
         }
 
-        let bdeps = config.build_depends();
         let bdeps_ex = config.build_depends_excludes();
         let tmp = self.build_deps.drain(..)
-            .chain(bdeps.iter().map(|x| x.to_string()))
+            .chain(config.build_depends().iter().map(|x| x.to_string()))
             .filter(|x| !bdeps_ex.contains(&x.as_str()))
             .collect::<Vec<_>>();
         self.build_deps = tmp;
@@ -192,6 +195,7 @@ impl Package {
         f_deps: &Vec<&str>,
         o_deps: &Vec<Dependency>,
         f_provides: &Vec<&str>,
+        f_suggests: &Vec<&str>,
     ) -> Result<Package> {
         let deb_feature = &|f: &str| {
             if f == "" {
@@ -206,28 +210,26 @@ impl Package {
             .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
             .collect::<Vec<_>>();
 
-        // Suggests is needed only for main package and not feature package.
-        // TODO: FIXME later
-        let suggests = if false { "".to_string() /*feature == "" {
-            non_default_features
+        let (recommends, suggests) = if let None = feature {
+            (vec![deb_feature_name(basename, "default")], f_suggests
                 .iter()
-                .cloned()
-                .map(deb_feature)
-                .join(",\n ")*/
+                .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
+                .collect())
         } else {
-            "".to_string()
+            (vec![], vec![])
         };
 
         let provides = f_provides
-                .iter()
-                .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
-                .join(",\n ");
+            .iter()
+            .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
+            .collect();
 
         let depends = vec!["${misc:Depends}".to_string()]
             .iter()
             .chain(deps.iter())
             .chain(deb_deps(&o_deps)?.iter())
-            .join(",\n ");
+            .cloned()
+            .collect();
 
         let short_desc = match summary {
             None => format!("Rust source code for crate \"{}\"", basename),
@@ -273,6 +275,7 @@ impl Package {
             arch: "all".to_string(),
             section: "".to_string(),
             depends: depends,
+            recommends: recommends,
             suggests: suggests,
             provides: provides,
             summary: short_desc,
@@ -305,10 +308,10 @@ impl Package {
             depends: vec![
                 "${misc:Depends}".to_string(),
                 "${shlibs:Depends}".to_string(),
-            ].iter()
-                .join(",\n "),
-            suggests: "".to_string(),
-            provides: "".to_string(),
+            ],
+            recommends: vec![],
+            suggests: vec![],
+            provides: vec![],
             summary: short_desc,
             description: long_desc,
             boilerplate: boilerplate.to_string(),
@@ -351,11 +354,10 @@ impl OverrideDefaults for Package {
             }
         }
 
-        if let Some(depends) = config.package_depends(&self.name) {
-            let deps = depends.iter().join(",\n ");
-            self.depends.push_str(",\n ");
-            self.depends.push_str(&deps);
-        }
+        let tmp = self.depends.drain(..)
+            .chain(config.package_depends(&self.name).iter().map(|x| x.to_string()))
+            .collect::<Vec<_>>();
+        self.depends = tmp;
     }
 }
 

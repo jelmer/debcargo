@@ -183,6 +183,7 @@ pub fn prepare_debian_folder(
         .map(|(&f, &(ref ff, ref dd))| {
             (f, (ff, deb_deps(dd).unwrap()))
         }).collect::<Vec<_>>());*/
+    let all_features = features_with_deps.keys().cloned().collect::<Vec<_>>();
     let default_deps = crate_info.feature_all_deps(&features_with_deps, "default");
     //debcargo_info!("default_deps: {:?}", deb_deps(&default_deps)?);
     let provides = crate_info.calculate_provides(&mut features_with_deps);
@@ -312,7 +313,7 @@ pub fn prepare_debian_folder(
                 let mut feature_package =
                     Package::new(base_pkgname, upstream_name, summary.as_ref(), description.as_ref(),
                         if feature == "" { None } else { Some(feature) },
-                        f_deps, o_deps, provides.get(feature).unwrap_or(&vec![]))?;
+                        f_deps, o_deps, provides.get(feature).unwrap_or(&vec![]), &all_features)?;
 
                 // If any overrides present for this package it will be taken care.
                 feature_package.apply_overrides(config);
@@ -358,7 +359,7 @@ pub fn prepare_debian_folder(
             source.version(),
             changelog::DEFAULT_DIST,
             "medium",
-            source.uploader(),
+            source.main_uploader(),
             changelog_items.as_slice(),
         );
 

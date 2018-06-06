@@ -131,11 +131,14 @@ impl Config {
         })
     }
 
-    pub fn package_depends(&self, pkgname: &str) -> Option<&Vec<String>> {
+    pub fn package_depends(&self, pkgname: &str) -> Vec<&str> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(pkgname)
-                .and_then(|package| package.depends.as_ref())
-        })
+            pkg.get(pkgname).as_ref().and_then(|package| {
+                package.depends.as_ref()
+            })
+        }).iter().flat_map(|deps| {
+            deps.iter().map(String::as_str)
+        }).collect()
     }
 
     pub fn vcs_git(&self) -> Option<&str> {
