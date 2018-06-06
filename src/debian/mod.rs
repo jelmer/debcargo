@@ -183,11 +183,8 @@ pub fn prepare_debian_folder(
         .map(|(&f, &(ref ff, ref dd))| {
             (f, (ff, deb_deps(dd).unwrap()))
         }).collect::<Vec<_>>());*/
-    let all_features = features_with_deps.keys().cloned().collect::<Vec<_>>();
     let default_deps = crate_info.feature_all_deps(&features_with_deps, "default");
     //debcargo_info!("default_deps: {:?}", deb_deps(&default_deps)?);
-    let provides = crate_info.calculate_provides(&mut features_with_deps);
-    //debcargo_info!("provides: {:?}", provides);
 
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
@@ -311,16 +308,27 @@ pub fn prepare_debian_folder(
         }
 
         if lib {
-            for (&feature, &(ref f_deps, ref o_deps)) in features_with_deps.iter() {
+            let mut provides = crate_info.calculate_provides(&mut features_with_deps);
+            //debcargo_info!("provides: {:?}", provides);
+            let all_features = features_with_deps
+                .keys().cloned()
+                .filter(|&x| x != "" && x != "default")
+                .collect::<Vec<_>>();
+            for (feature, (f_deps, o_deps)) in features_with_deps.into_iter() {
                 let mut feature_package =
                     Package::new(base_pkgname, upstream_name, summary.as_ref(), description.as_ref(),
                         if feature == "" { None } else { Some(feature) },
-                        f_deps, o_deps, provides.get(feature).unwrap_or(&vec![]), &all_features)?;
+                        f_deps, o_deps,
+                        provides.remove(feature).unwrap_or(vec![]),
+                        vec!["default"],
+                        all_features.clone())?;
 
                 // If any overrides present for this package it will be taken care.
                 feature_package.apply_overrides(config);
                 write!(control, "\n{}", feature_package)?;
             }
+            assert!(provides.is_empty());
+            // features_with_deps consumed by into_iter, no longer usable
         }
 
         if !bins.is_empty() {

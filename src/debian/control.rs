@@ -187,44 +187,30 @@ impl Package {
         summary: Option<&String>,
         description: Option<&String>,
         feature: Option<&str>,
-        f_deps: &Vec<&str>,
-        o_deps: &Vec<Dependency>,
-        f_provides: &Vec<&str>,
-        f_suggests: &Vec<&str>,
+        f_deps: Vec<&str>,
+        o_deps: Vec<Dependency>,
+        f_provides: Vec<&str>,
+        f_recommends: Vec<&str>,
+        f_suggests: Vec<&str>,
     ) -> Result<Package> {
         let deb_feature = &|f: &str| {
-            if f == "" {
+            format!("{} (= ${{binary:Version}})", if f == "" {
                 deb_name(basename)
             } else {
                 deb_feature_name(basename, f)
-            }
+            })
         };
 
-        let deps = f_deps
-            .iter()
-            .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
-            .collect::<Vec<_>>();
-
         let (recommends, suggests) = if let None = feature {
-            (vec![deb_feature_name(basename, "default")], f_suggests
-                .iter()
-                .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
-                .collect())
+            (f_recommends.into_iter().filter(|f| !f_provides.contains(f)).map(deb_feature).collect(),
+             f_suggests.into_iter().filter(|f| !f_provides.contains(f)).map(deb_feature).collect())
         } else {
             (vec![], vec![])
         };
-
-        let provides = f_provides
-            .iter()
-            .map(|f| format!("{} (= ${{binary:Version}})", deb_feature(f)))
-            .collect();
-
-        let depends = vec!["${misc:Depends}".to_string()]
-            .iter()
-            .chain(deps.iter())
-            .chain(deb_deps(&o_deps)?.iter())
-            .cloned()
-            .collect();
+        let provides = f_provides.into_iter().map(deb_feature).collect();
+        let mut depends = vec!["${misc:Depends}".to_string()];
+        depends.extend(f_deps.into_iter().map(deb_feature));
+        depends.extend(deb_deps(&o_deps)?);
 
         let short_desc = match summary {
             None => format!("Rust source code for crate \"{}\"", basename),
@@ -237,7 +223,7 @@ impl Package {
 
         let name = match feature {
             None => deb_name(basename),
-            Some(s) => deb_feature(s),
+            Some(f) => deb_feature_name(basename, f),
         };
 
         let long_desc = match description {
