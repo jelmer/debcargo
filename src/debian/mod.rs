@@ -342,7 +342,7 @@ pub fn prepare_debian_folder(
                 upstream_name,
                 bin_name,
                 // if not-a-lib then Source section is already FIXME
-                if !lib { None } else { Some("FIXME (packages.\"${name}\".section)") },
+                if !lib { None } else { Some("FIXME-(packages.\"${name}\".section)") },
                 &summary,
                 &description,
                 match boilerplate {
