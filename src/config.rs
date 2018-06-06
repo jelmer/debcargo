@@ -33,6 +33,7 @@ pub struct SourceOverride {
 
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct PackageOverride {
+    section: Option<String>,
     summary: Option<String>,
     description: Option<String>,
     depends: Option<Vec<String>>,
@@ -109,6 +110,14 @@ impl Config {
         None
     }
 
+    pub fn package_section(&self, pkgname: &str) -> Option<&str> {
+        self.packages.as_ref().and_then(|pkg| {
+            pkg.get(pkgname).and_then(|package| {
+                package.section.as_ref().map(|s| s.as_str())
+            })
+        })
+    }
+
     pub fn package_summary(&self, pkgname: &str) -> Option<(&str, &str)> {
         self.packages.as_ref().and_then(|pkg| {
             pkg.get(pkgname).map(|package| {
@@ -127,7 +136,7 @@ impl Config {
 
     pub fn package_depends(&self, pkgname: &str) -> Option<&Vec<String>> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(pkgname).as_ref().and_then(|package| {
+            pkg.get(pkgname).and_then(|package| {
                 package.depends.as_ref()
             })
         })

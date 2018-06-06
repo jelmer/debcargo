@@ -331,6 +331,8 @@ pub fn prepare_debian_folder(
             let mut bin_pkg = Package::new_bin(
                 upstream_name,
                 bin_name,
+                // if not-a-lib then Source section is already FIXME
+                if !lib { None } else { Some("FIXME") },
                 &summary,
                 &description,
                 match boilerplate {

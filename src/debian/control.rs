@@ -33,7 +33,7 @@ pub struct Source {
 pub struct Package {
     name: String,
     arch: String,
-    section: String,
+    section: Option<String>,
     depends: Vec<String>,
     recommends: Vec<String>,
     suggests: Vec<String>,
@@ -46,10 +46,7 @@ pub struct Package {
 impl fmt::Display for Source {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Source: {}", self.name)?;
-        if !self.section.is_empty() {
-            writeln!(f, "Section: {}", self.section)?;
-        }
-
+        writeln!(f, "Section: {}", self.section)?;
         writeln!(f, "Priority: {}", self.priority)?;
         writeln!(f, "Build-Depends: {}", self.build_deps.join(",\n "))?;
         writeln!(f, "Maintainer: {}", self.maintainer)?;
@@ -74,8 +71,8 @@ impl fmt::Display for Package {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Package: {}", self.name)?;
         writeln!(f, "Architecture: {}", self.arch)?;
-        if !self.section.is_empty() {
-            writeln!(f, "Section: {}", self.section)?;
+        if let Some(section) = &self.section {
+            writeln!(f, "Section: {}", section)?;
         }
 
         if !self.depends.is_empty() {
@@ -271,7 +268,7 @@ impl Package {
         Ok(Package {
             name: name,
             arch: "all".to_string(),
-            section: "".to_string(),
+            section: None,
             depends: depends,
             recommends: recommends,
             suggests: suggests,
@@ -285,6 +282,7 @@ impl Package {
     pub fn new_bin(
         upstream_name: &str,
         name: &str,
+        section: Option<&str>,
         summary: &Option<String>,
         description: &Option<String>,
         boilerplate: &str,
@@ -302,7 +300,7 @@ impl Package {
         Package {
             name: name.to_string(),
             arch: "any".to_string(),
-            section: "misc".to_string(),
+            section: section.map(|s| s.to_string()),
             depends: vec![
                 "${misc:Depends}".to_string(),
                 "${shlibs:Depends}".to_string(),
@@ -342,6 +340,10 @@ impl Package {
 
 impl OverrideDefaults for Package {
     fn apply_overrides(&mut self, config: &Config) {
+        if let Some(section) = config.package_section(&self.name) {
+            self.section = Some(section.to_string());
+        }
+
         if let Some((s, d)) = config.package_summary(&self.name) {
             if !s.is_empty() {
                 self.summary = s.to_string();
