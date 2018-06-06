@@ -171,10 +171,16 @@ cargo_tree() {
 
 cargo_tree_rec() {
 	# tac|awk gives us reverse-topological ordering https://stackoverflow.com/a/11532197
-	cargo_tree "$@" | tail -n+2 | tac | awk '!x[$0]++'
+	cargo_tree "$@" | tac | awk '!x[$0]++'
 }
 if $use_rec_hack; then
-	cargo_tree_rec() { $scriptdir/cargo-tree-deb-rec "$@"; }
+cargo_tree_rec() {
+	local cache="$directory/z-cache_${*/\//_}"
+	if [ ! -f "$cache" ]; then
+		$scriptdir/cargo-tree-deb-rec "$@" > "$cache"
+	fi
+	cat "$cache"
+}
 fi
 
 run_x_or_deps() {
@@ -184,6 +190,7 @@ run_x_or_deps() {
 	*/*)
 		test -d "$x" || x=$(dirname "$x")
 		# might give spurious "broken pipe" errors, see @sfackler/cargo-tree#2
+		spec=$(cargo_tree "$x" | head -n1)
 		tree_args="$x"
 		# debcargo does not support packaging path-based crates yet
 		echo >&2 "warning: will use latest version from crates.io instead of $x"
@@ -202,7 +209,7 @@ run_x_or_deps() {
 	fi
 	if $recursive; then
 		set -o pipefail
-		cargo_tree_rec $tree_args | while read pkg ver extra; do
+		cargo_tree_rec $tree_args | head -n-1 | while read pkg ver extra; do
 			"$@" "$pkg" "${ver#v}"
 		done
 		set +o pipefail
