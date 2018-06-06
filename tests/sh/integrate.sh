@@ -184,12 +184,9 @@ run_x_or_deps() {
 	*/*)
 		test -d "$x" || x=$(dirname "$x")
 		# might give spurious "broken pipe" errors, see @sfackler/cargo-tree#2
-		spec=$(cargo_tree "$x" | head -n1)
 		tree_args="$x"
-		echo $spec | while read pkg ver extras; do
-			# debcargo does not support packaging path-based crates yet
-			echo >&2 "warning: using version $ver from crates.io instead of $x"
-		done
+		# debcargo does not support packaging path-based crates yet
+		echo >&2 "warning: will use latest version from crates.io instead of $x"
 		;;
 	*-[0-9]*)
 		spec="${x%-[0-9]*} ${x##*-}"

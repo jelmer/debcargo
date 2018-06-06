@@ -6,72 +6,94 @@
 # Ideally this whole cargo-tree logic should be part of debcargo.
 
 import functools
+import multiprocessing.pool
 import os
 import subprocess
 import sys
+import threading
 
 scriptdir = os.path.dirname(__file__)
 myname = os.path.basename(__file__)
 
-@functools.lru_cache(maxsize=512)
-def cargo_tree_pv(pkg, ver):
-	return cargo_tree_args("%s:%s" % (pkg, ver))
+def reverse_topo(it, f):
+	seen = set()
+	for item in reversed(it):
+		k = f(item)
+		if k not in seen:
+			yield item
+		seen.add(k)
 
+@functools.lru_cache(maxsize=512)
 def cargo_tree_args(*args):
 	# non-dev dependencies, default feature set.
 	# this is what we put in Build-Depends in Debian
 	return subprocess.check_output([os.path.join(scriptdir, "cargo-tree-any")] +
-		list(args) + ["--no-dev-dependencies", "--all-targets", "--prefix-depth", "-a"])
+		list(args) + ["--no-dev-dependencies", "--all-targets", "--prefix-depth", "-a"], stderr=subprocess.DEVNULL)
 
+lock = threading.Lock()
 want = 0
 done = 0
-stack = []
 
-def recurse(output):
-	global want, done, stack
+def parse(output, stack):
+	global want, done, lock
 	to_recurse = []
-	items = []
 	self = None
-	for line in output.splitlines():
-		i, pkg, ver = line.split(b" ", 2)
-		i = int(i)
-		pkg = pkg.decode("utf-8")
-		ver = ver.decode("utf-8")
-		if " " in ver:
-			ver, _ = ver.split(" ", 1)
-		if i == 1:
-			items.append((pkg, ver))
-			self = (pkg, ver)
-			done += 1
-		elif i >= 2:
-			# we also recurse into the dependencies at depth > 2 because these
-			# might activate extra features that are not added to the standard
-			# Debian Build-Depends of that dependency
-			to_recurse.append((pkg, ver))
-			want += 1
-		else:
-			continue
-	sys.stderr.write("\033[K")
-	stack.append(self)
-	print("%s: %s/%s done, %s todo, |%s|%s" %
-		(myname, done, want, want-done,
-		 "|".join("%s:%s" % (d[0][0],d[1][1:]) for d in stack[:-1]),
-		 "%s:%s" % stack[-1]), end="\r", file=sys.stderr)
-	for pkg, ver in to_recurse:
-		if (pkg, ver) in stack:
-			raise ValueError("cyclic dependency, you can't package one of these: %s" % (stack + [(pkg, ver)]))
-		items.extend(recurse(cargo_tree_pv(pkg, ver[1:])))
-	stack.pop()
-	return items
+	with lock:
+		for line in reverse_topo(output.splitlines(), lambda x: x.split(b" ", 1)[1]):
+			i, pkg, ver = line.split(b" ", 2)
+			i = int(i)
+			pkg = pkg.decode("utf-8")
+			ver = ver.decode("utf-8")
+			if " " in ver:
+				ver, _ = ver.split(" ", 1)
+			if i == 1:
+				self = (pkg, ver)
+				done += 1
+			elif i >= 2:
+				# we recurse into each direct dependency D of $1 (depth == 2), to pick
+				# up dependencies of the default feature of D. these are needed by the Debian
+				# build for D, but cargo_tree_args($1) might not output them, e.g. if $1
+				# depends on less-than-default features of D.
+				#
+				# OTOH $1 might depend on more-than-default features of D, which we would
+				# omit if we only recurse() into the direct dependencies {all D}. therefore
+				# we must also recurse into all transitive dependencies of $1 as output by
+				# cargo_tree_args($1), which includes any more-than-default features of D
+				# that are needed by $1.
+				to_recurse.append((pkg, ver))
+				want += 1
+			else:
+				continue
+		sys.stderr.write("\033[K")
+		stack += (self,)
 
-want = 1
-items = recurse(cargo_tree_args(*sys.argv[1:]))
+		print("%s: %s/%s done, %s todo, |%s|%s" %
+			(myname, done, want, want-done,
+			 "|".join("%s:%s" % (d[0][0],d[1]) for d in stack[:-1]),
+			 "%s:%s" % stack[-1]), end="\r", file=sys.stderr)
+
+	if any(item in stack for item in to_recurse):
+		raise ValueError("cyclic dependency, you can't package one of these: %s" % (stack + [(pkg, ver)]))
+	return self, tuple((pkg, ver, stack) for pkg, ver in to_recurse)
+
+def cargo_tree_pv(item):
+	(pkg, ver, stack) = item
+	output = cargo_tree_args("%s:%s" % (pkg, ver.lstrip("v")))
+	return (pkg, ver), parse(output, stack)
+
+def recurse(pool, self, to_recurse):
+	items = []
+	results = pool.imap_unordered(cargo_tree_pv, to_recurse)
+	for item, output in results:
+		items.append((item, recurse(pool, *output)))
+	items.sort()
+	return [self] + [o for i, out in items for o in out]
+
+pool = multiprocessing.pool.ThreadPool()
+want += 1
+items = recurse(pool, *parse(cargo_tree_args(*sys.argv[1:]), ()))
 sys.stderr.write("\033[K")
 sys.stderr.flush()
 
-seen = set()
-for item in reversed(items):
-	if item not in seen:
-		pkg, ver = item
-		print(pkg, ver)
-	seen.add(item)
+for pkg, ver in reverse_topo(items, lambda x: x):
+	print(pkg, ver)
