@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::Error;
+use std::iter::Iterator;
 use std::path::Path;
 use std::os::unix::fs::symlink;
 
@@ -31,4 +32,8 @@ pub fn copy_tree(oldtree: &Path, newtree: &Path) -> Result<(), Error> {
         }
     }
     Ok(())
+}
+
+pub fn vec_opt_iter<'a, T>(option: Option<&'a Vec<T>>) -> impl Iterator<Item = &T> + 'a {
+    option.into_iter().flat_map(|v| v.iter())
 }

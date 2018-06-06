@@ -72,7 +72,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         .unwrap_or(pkgbase.package_source_dir());
     let orig_tar_gz = pkg_srcdir.parent().unwrap().join(pkgbase.orig_tarball_path());
 
-    let excludes = config.orig_tar_excludes().iter().map(|x| {
+    let excludes = util::vec_opt_iter(config.orig_tar_excludes()).map(|x| {
         Pattern::new(&("*/".to_owned() + x)).unwrap()
     }).collect::<Vec<_>>();
     let source_modified = crate_info.extract_crate(pkg_srcdir, &excludes)?;

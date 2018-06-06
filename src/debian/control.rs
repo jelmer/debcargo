@@ -10,6 +10,7 @@ use cargo::core::Dependency;
 use config::{Config, OverrideDefaults};
 use debian::dependency::deb_deps;
 use errors::*;
+use util::vec_opt_iter;
 
 const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
 const VCS_ALL: &'static str = "https://salsa.debian.org/rust-team/debcargo-conf";
@@ -164,10 +165,10 @@ impl OverrideDefaults for Source {
             self.standards = policy.to_string();
         }
 
-        let bdeps_ex = config.build_depends_excludes();
+        let bdeps_ex = config.build_depends_excludes().map(Vec::as_slice).unwrap_or(&[]);
         let tmp = self.build_deps.drain(..)
-            .chain(config.build_depends().iter().map(|x| x.to_string()))
-            .filter(|x| !bdeps_ex.contains(&x.as_str()))
+            .chain(vec_opt_iter(config.build_depends()).map(String::to_string))
+            .filter(|x| !bdeps_ex.contains(x))
             .collect::<Vec<_>>();
         self.build_deps = tmp;
 
@@ -355,7 +356,7 @@ impl OverrideDefaults for Package {
         }
 
         let tmp = self.depends.drain(..)
-            .chain(config.package_depends(&self.name).iter().map(|x| x.to_string()))
+            .chain(vec_opt_iter(config.package_depends(&self.name)).map(String::to_string))
             .collect::<Vec<_>>();
         self.depends = tmp;
     }

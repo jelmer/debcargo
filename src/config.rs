@@ -66,10 +66,8 @@ impl Config {
         self.packages.is_some()
     }
 
-    pub fn orig_tar_excludes(&self) -> Vec<&str> {
-        self.excludes.iter().flat_map(|vstring| {
-            vstring.iter().map(String::as_str)
-        }).collect()
+    pub fn orig_tar_excludes(&self) -> Option<&Vec<String>> {
+        self.excludes.as_ref()
     }
 
     pub fn policy_version(&self) -> Option<&str> {
@@ -90,20 +88,16 @@ impl Config {
         None
     }
 
-    pub fn build_depends(&self) -> Vec<&str> {
-        self.source.iter().flat_map(|s| {
-            s.build_depends.iter().flat_map(|vstring| {
-                vstring.iter().map(String::as_str)
-            })
-        }).collect()
+    pub fn build_depends(&self) -> Option<&Vec<String>> {
+        self.source.as_ref().and_then(|s| {
+            s.build_depends.as_ref()
+        })
     }
 
-    pub fn build_depends_excludes(&self) -> Vec<&str> {
-        self.source.iter().flat_map(|s| {
-            s.build_depends_excludes.iter().flat_map(|vstring| {
-                vstring.iter().map(String::as_str)
-            })
-        }).collect()
+    pub fn build_depends_excludes(&self) -> Option<&Vec<String>> {
+        self.source.as_ref().and_then(|s| {
+            s.build_depends_excludes.as_ref()
+        })
     }
 
     pub fn section(&self) -> Option<&str> {
@@ -131,14 +125,12 @@ impl Config {
         })
     }
 
-    pub fn package_depends(&self, pkgname: &str) -> Vec<&str> {
+    pub fn package_depends(&self, pkgname: &str) -> Option<&Vec<String>> {
         self.packages.as_ref().and_then(|pkg| {
             pkg.get(pkgname).as_ref().and_then(|package| {
                 package.depends.as_ref()
             })
-        }).iter().flat_map(|deps| {
-            deps.iter().map(String::as_str)
-        }).collect()
+        })
     }
 
     pub fn vcs_git(&self) -> Option<&str> {
