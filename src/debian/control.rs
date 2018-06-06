@@ -21,7 +21,7 @@ pub struct Source {
     maintainer: String,
     uploaders: String,
     standards: String,
-    build_deps: String,
+    build_deps: Vec<String>
     vcs_git: String,
     vcs_browser: String,
     homepage: String,
@@ -49,7 +49,7 @@ impl fmt::Display for Source {
         }
 
         writeln!(f, "Priority: {}", self.priority)?;
-        writeln!(f, "Build-Depends: {}", self.build_deps)?;
+        writeln!(f, "Build-Depends: {}", self.build_deps.join(",\n "))?;
         writeln!(f, "Maintainer: {}", self.maintainer)?;
         writeln!(f, "Uploaders: {}", self.uploaders)?;
         writeln!(f, "Standards-Version: {}", self.standards)?;
@@ -128,7 +128,7 @@ impl Source {
             maintainer: maintainer,
             uploaders: uploaders,
             standards: "4.1.4".to_string(),
-            build_deps: build_deps.iter().join(",\n "),
+            build_deps: build_deps,
             vcs_git: vcs_git,
             vcs_browser: vcs_browser,
             homepage: home.to_string(),
@@ -160,11 +160,13 @@ impl OverrideDefaults for Source {
             self.standards = policy.to_string();
         }
 
-        if let Some(bdeps) = config.build_depends() {
-            let deps = bdeps.iter().join(",\n ");
-            self.build_deps.push_str(",\n ");
-            self.build_deps.push_str(&deps);
-        }
+        let bdeps = config.build_depends();
+        let bdeps_ex = config.build_depends_excludes();
+        let tmp = self.build_deps.drain(..)
+            .chain(bdeps.iter().map(|x| x.to_string()))
+            .filter(|x| !bdeps_ex.contains(&x.as_str()))
+            .collect::<Vec<_>>();
+        self.build_deps = tmp;
 
         if let Some(homepage) = config.homepage() {
             self.homepage = homepage.to_string();

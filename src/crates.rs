@@ -399,13 +399,11 @@ impl CrateInfo {
         (summary, description)
     }
 
-    pub fn filter_path(excludes: Option<&Vec<Pattern>>, path: &Path) -> bool {
+    pub fn filter_path(excludes: &Vec<Pattern>, path: &Path) -> bool {
         // Filter out static libraries, to avoid needing to patch all the winapi crates to remove
         // import libraries.
-        if let Some(patterns) = excludes {
-            if patterns.iter().any(|p| p.matches_path(path)) {
-                return true
-            }
+        if excludes.iter().any(|p| p.matches_path(path)) {
+            return true
         }
         match path.extension() {
             Some(ext) => if ext == "a" {
@@ -420,7 +418,7 @@ impl CrateInfo {
         }
     }
 
-    pub fn extract_crate(&self, path: &Path, excludes: Option<&Vec<Pattern>>) -> Result<bool> {
+    pub fn extract_crate(&self, path: &Path, excludes: &Vec<Pattern>) -> Result<bool> {
         let mut archive = Archive::new(GzDecoder::new(self.crate_file.file()));
         let tempdir = TempDir::new_in(".", "debcargo")?;
         let mut source_modified = false;

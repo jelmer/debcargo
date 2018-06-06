@@ -91,7 +91,7 @@ pub fn prepare_orig_tarball(
     tarball: &Path,
     src_modified: bool,
     pkg_srcdir: &Path,
-    excludes: Option<&Vec<Pattern>>,
+    excludes: &Vec<Pattern>,
 ) -> Result<()> {
     let tempdir = TempDir::new_in(".", "debcargo")?;
     let temp_archive_path = tempdir.path().join(tarball);

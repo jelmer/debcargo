@@ -28,6 +28,7 @@ pub struct SourceOverride {
     vcs_git: Option<String>,
     vcs_browser: Option<String>,
     build_depends: Option<Vec<String>>,
+    build_depends_excludes: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -65,6 +66,12 @@ impl Config {
         self.packages.is_some()
     }
 
+    pub fn orig_tar_excludes(&self) -> Vec<&str> {
+        self.excludes.iter().flat_map(|vstring| {
+            vstring.iter().map(String::as_str)
+        }).collect()
+    }
+
     pub fn policy_version(&self) -> Option<&str> {
         if let Some(ref s) = self.source {
             if let Some(ref policy) = s.policy {
@@ -83,14 +90,20 @@ impl Config {
         None
     }
 
-    pub fn build_depends(&self) -> Option<Vec<&str>> {
-        if let Some(ref s) = self.source {
-            if let Some(ref bdeps) = s.build_depends {
-                let build_deps = bdeps.iter().map(|x| x.as_str()).collect();
-                return Some(build_deps);
-            }
-        }
-        None
+    pub fn build_depends(&self) -> Vec<&str> {
+        self.source.iter().flat_map(|s| {
+            s.build_depends.iter().flat_map(|vstring| {
+                vstring.iter().map(String::as_str)
+            })
+        }).collect()
+    }
+
+    pub fn build_depends_excludes(&self) -> Vec<&str> {
+        self.source.iter().flat_map(|s| {
+            s.build_depends_excludes.iter().flat_map(|vstring| {
+                vstring.iter().map(String::as_str)
+            })
+        }).collect()
     }
 
     pub fn section(&self) -> Option<&str> {

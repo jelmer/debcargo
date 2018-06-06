@@ -72,16 +72,16 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         .unwrap_or(pkgbase.package_source_dir());
     let orig_tar_gz = pkg_srcdir.parent().unwrap().join(pkgbase.orig_tarball_path());
 
-    let excludes = config.excludes.as_ref().map(|x| {
-        x.iter().map(|y| Pattern::new(&("*/".to_owned() + y)).unwrap()).collect::<Vec<_>>()
-    });
-    let source_modified = crate_info.extract_crate(pkg_srcdir, excludes.as_ref())?;
+    let excludes = config.orig_tar_excludes().iter().map(|x| {
+        Pattern::new(&("*/".to_owned() + x)).unwrap()
+    }).collect::<Vec<_>>();
+    let source_modified = crate_info.extract_crate(pkg_srcdir, &excludes)?;
     debian::prepare_orig_tarball(
         crate_info.crate_file(),
         &orig_tar_gz,
         source_modified,
         pkg_srcdir,
-        excludes.as_ref(),
+        &excludes,
     )?;
     debian::prepare_debian_folder(
         &pkgbase,
@@ -139,7 +139,7 @@ fn do_extract(matches: &ArgMatches) -> Result<()> {
         .map(|s| Path::new(s))
         .unwrap_or(pkgbase.package_source_dir());
 
-    crate_info.extract_crate(pkg_srcdir, None)?;
+    crate_info.extract_crate(pkg_srcdir, &vec![])?;
 
     Ok(())
 }
