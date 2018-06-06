@@ -116,7 +116,7 @@ run_sbuild() {(
 	build="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).build"
 	changes="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).changes"
 
-	if $keepfiles && [ -f "$changes" ]; then
+	if [ -f "$changes" ]; then
 		echo >&2 "skipping already-built ${dsc}"
 		return 0
 	fi
@@ -131,7 +131,7 @@ build_source() {(
 	local cratedir="$crate${version:+-$version}"
 	cd "$directory"
 
-	if $keepfiles && [ -d "$cratedir" ]; then
+	if [ -d "$cratedir" ]; then
 		echo >&2 "skipping already-built ${cratedir}"
 		return 0
 	fi
