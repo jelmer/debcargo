@@ -286,7 +286,9 @@ impl CrateInfo {
             }
             assert!(!ff.is_empty() || f == "");
             let k = if ff.len() == 1 {
-                *ff.get(0).unwrap()
+                *ff.get(0).unwrap() // it's just ""
+            } else if ff.len() == 2 {
+                *ff.get(1).unwrap()
             } else {
                 continue;
             };

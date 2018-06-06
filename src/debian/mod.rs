@@ -310,18 +310,26 @@ pub fn prepare_debian_folder(
         if lib {
             let mut provides = crate_info.calculate_provides(&mut features_with_deps);
             //debcargo_info!("provides: {:?}", provides);
-            let all_features = features_with_deps
-                .keys().cloned()
-                .filter(|&x| x != "" && x != "default")
-                .collect::<Vec<_>>();
+            let mut recommends = vec![];
+            let mut suggests = vec![];
+            for (&feature, &ref features) in provides.iter() {
+                if feature == "" {
+                    continue;
+                } else if feature == "default" || features.contains(&"default") {
+                    recommends.push(feature);
+                } else {
+                    suggests.push(feature);
+                }
+            }
             for (feature, (f_deps, o_deps)) in features_with_deps.into_iter() {
                 let mut feature_package =
-                    Package::new(base_pkgname, upstream_name, summary.as_ref(), description.as_ref(),
+                    Package::new(base_pkgname, upstream_name,
+                        summary.as_ref(), description.as_ref(),
                         if feature == "" { None } else { Some(feature) },
                         f_deps, o_deps,
-                        provides.remove(feature).unwrap_or(vec![]),
-                        vec!["default"],
-                        all_features.clone())?;
+                        provides.remove(feature).unwrap(),
+                        if feature == "" { recommends.clone() } else { vec![] },
+                        if feature == "" { suggests.clone() } else { vec![] })?;
 
                 // If any overrides present for this package it will be taken care.
                 feature_package.apply_overrides(config);
