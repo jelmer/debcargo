@@ -12,7 +12,7 @@ packaging [policy](https://wiki.debian.org/Teams/RustPackaging/Policy).
  * Easy to customize, using config files and overlay directories.
  * Tries to auto-detect copyright information from metadata and actual
    crate source, used to guess appropriate values for `debian/copyright`.
- * Put `FIXME` strings where it can't detect full information, so user can
+ * Put `FIXME (hint)` strings where it can't detect full information, so user can
    provide an override/overlay or manually fix it.
  * Results in a lintian-clean Debian package in most cases.
 

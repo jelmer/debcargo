@@ -102,7 +102,7 @@ impl Source {
         t_deps: &Vec<Dependency>,
     ) -> Result<Source> {
         let source = format!("rust-{}", basename);
-        let section = if lib { "rust" } else { "FIXME" };
+        let section = if lib { "rust" } else { "FIXME (source.section)" };
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
         let uploaders = vec![get_deb_author()?];

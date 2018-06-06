@@ -182,11 +182,11 @@ impl License {
 macro_rules! default_files {
     ($file:expr, $notice:expr) => {{
         let comment = concat!(
-            "FIXME: These notices are extracted from files. Please review ",
-            "them before uploading to the archive. Also delete this comment.");
+            "FIXME (overlay): These notices are extracted from files. Please ",
+            "review them before uploading to the archive.");
         Files::new($file,
                    $notice,
-                   "UNKNOWN; FIXME",
+                   "UNKNOWN; FIXME (overlay)",
                    &fill(comment, 79))
     }}
 }
@@ -344,7 +344,7 @@ pub fn debian_copyright(
         fs::File::open(license_file)?.read_to_end(&mut text)?;
         licenses.reserve(1);
         let stext = String::from_utf8(text)?;
-        licenses.push(License::new("UNKNOWN; FIXME".to_string(), stext));
+        licenses.push(License::new("UNKNOWN; FIXME (overlay)".to_string(), stext));
     } else if let Some(ref license) = meta.license {
         licenses = get_licenses(license).unwrap();
         crate_license = license.trim().replace("/", " or ");
@@ -369,11 +369,11 @@ pub fn debian_copyright(
                     repository,
                     e
                 );
-                "FIXME UNKNOWN".to_string()
+                "FIXME (overlay) UNKNOWN".to_string()
             }
         }
     } else {
-        "FIXME UNKNOWN".to_string()
+        "FIXME (overlay) UNKNOWN".to_string()
     };
     let notice = match meta.authors.len() {
         1 => format!("{} {}", years, &meta.authors[0]),
@@ -386,8 +386,8 @@ pub fn debian_copyright(
         }
     };
     let comment = concat!(
-        "FIXME: Since upstream copyright years are not available in ",
-        "Cargo.toml, they were extracted from the upstream Git ",
+        "FIXME (overlay): Since upstream copyright years are not available ",
+        "in Cargo.toml, they were extracted from the upstream Git ",
         "repository. This may not be correct information so you should ",
         "review and fix this before uploading to the archive."
     );

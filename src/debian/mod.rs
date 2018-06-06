@@ -304,7 +304,9 @@ pub fn prepare_debian_folder(
         let (summary, description) = crate_info.get_summary_description();
         if let Some(summary) = summary.as_ref() {
             if summary.len() > 72 {
-                writeln!(control, "\n{}", "# FIXME debcargo auto-generated summaries are very long, consider overriding")?;
+                writeln!(control, "\n{}", concat!(
+                    "# FIXME (packages.\"${name}\".section) debcargo ",
+                    "auto-generated summaries are very long, consider overriding"))?;
             }
         }
 
@@ -332,7 +334,7 @@ pub fn prepare_debian_folder(
                 upstream_name,
                 bin_name,
                 // if not-a-lib then Source section is already FIXME
-                if !lib { None } else { Some("FIXME") },
+                if !lib { None } else { Some("FIXME (packages.\"${name}\".section)") },
                 &summary,
                 &description,
                 match boilerplate {

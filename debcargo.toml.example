@@ -93,7 +93,7 @@
 # Section override for the binary package. Use this if your crate is both a
 # library and a binary crate; in this case, omit source.section which will
 # default to "rust" and override this value for your binary package.
-#section = "FIXME"
+#section = "PLACEHOLDER"
 
 # This is the short description for package. By default `debcargo` will try to
 # use a description from `Cargo.toml` but sometimes this may lead to a

@@ -1,7 +1,7 @@
 file-contains-fixme-placeholder debian/copyright:* FIXME
-missing-license-paragraph-in-dep5-copyright unknown; fixme (paragraph at line *)
-space-in-std-shortname-in-dep5-copyright unknown; fixme (paragraph at line *)
-license-problem-undefined-license unknown; fixme (paragraph at line *)
+missing-license-paragraph-in-dep5-copyright unknown; fixme * (paragraph at line *)
+space-in-std-shortname-in-dep5-copyright unknown; fixme * (paragraph at line *)
+license-problem-undefined-license unknown; fixme * (paragraph at line *)
 testsuite-autopkgtest-missing
 debian-watch-does-not-check-gpg-signature
 unused-override *
