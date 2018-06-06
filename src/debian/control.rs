@@ -165,12 +165,9 @@ impl OverrideDefaults for Source {
             self.standards = policy.to_string();
         }
 
+        self.build_deps.extend(vec_opt_iter(config.build_depends()).map(String::to_string));
         let bdeps_ex = config.build_depends_excludes().map(Vec::as_slice).unwrap_or(&[]);
-        let tmp = self.build_deps.drain(..)
-            .chain(vec_opt_iter(config.build_depends()).map(String::to_string))
-            .filter(|x| !bdeps_ex.contains(x))
-            .collect::<Vec<_>>();
-        self.build_deps = tmp;
+        self.build_deps.retain(|x| !bdeps_ex.contains(x));
 
         if let Some(homepage) = config.homepage() {
             self.homepage = homepage.to_string();
@@ -355,10 +352,7 @@ impl OverrideDefaults for Package {
             }
         }
 
-        let tmp = self.depends.drain(..)
-            .chain(vec_opt_iter(config.package_depends(&self.name)).map(String::to_string))
-            .collect::<Vec<_>>();
-        self.depends = tmp;
+        self.depends.extend(vec_opt_iter(config.package_depends(&self.name)).map(String::to_string));
     }
 }
 

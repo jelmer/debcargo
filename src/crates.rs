@@ -373,7 +373,7 @@ impl CrateInfo {
                 let mut d = description.chars();
                 match d.next() {
                     None => String::new(),
-                    Some(f) => f.to_uppercase().chain(d).collect::<String>().to_string(),
+                    Some(f) => f.to_uppercase().chain(d).collect::<String>(),
                 }
             };
 
