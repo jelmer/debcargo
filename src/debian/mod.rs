@@ -8,6 +8,7 @@ use std::os::unix::fs::PermissionsExt;
 
 use cargo::util::FileLock;
 use glob::Pattern;
+use itertools::Itertools;
 use tempdir::TempDir;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
@@ -281,6 +282,16 @@ pub fn prepare_debian_folder(
             )
         )?;
 
+        let extra_build_deps = if !bins.is_empty() {
+            deb_deps(&default_deps)?
+        } else {
+            deb_deps(&default_deps)?.iter().map(|x| {
+                x.to_string().split("|").map(|x| {
+                    x.trim_right().to_string() + " <!nocheck> "
+                }).join("|").trim_right().to_string()
+            }).collect::<Vec<_>>()
+        };
+
         // debian/control
         let mut source = Source::new(
             upstream_name,
@@ -288,7 +299,7 @@ pub fn prepare_debian_folder(
             pkgbase.debian_version(),
             if let Some(ref home) = meta.homepage { home } else { "" },
             lib,
-            &default_deps,
+            extra_build_deps,
         )?;
 
         // If source overrides are present update related parts.

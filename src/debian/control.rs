@@ -99,7 +99,7 @@ impl Source {
         version: &str,
         home: &str,
         lib: bool,
-        t_deps: &Vec<Dependency>,
+        b_deps: Vec<String>,
     ) -> Result<Source> {
         let source = format!("rust-{}", basename);
         let section = if lib { "rust" } else { "FIXME-(source.section)" };
@@ -113,11 +113,7 @@ impl Source {
             "debhelper (>= 11)".to_string(),
             "dh-cargo (>= 3)".to_string(),
         ];
-        build_deps.extend(deb_deps(t_deps)?.iter().map(|x| {
-            x.to_string().split("|").map(|x| {
-                x.trim_right().to_string() + " <!nocheck> "
-            }).join("|").trim_right().to_string()
-        }));
+        build_deps.extend(b_deps);
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
             upstream_name.to_string()
         } else {
