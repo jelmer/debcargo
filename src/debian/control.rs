@@ -113,7 +113,10 @@ impl Source {
 
         let mut build_deps = vec![
             "debhelper (>= 11)".to_string(),
-            "dh-cargo (>= 3)".to_string(),
+            "dh-cargo (>= 4)".to_string(),
+            "cargo:native".to_string(),
+            "rustc:native".to_string(),
+            "libstd-rust-dev".to_string(),
         ];
         build_deps.extend(b_deps);
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
