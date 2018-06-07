@@ -1,0 +1,95 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -9,8 +9,6 @@
+ //! A number of environment variables are available to globally configure how
+ //! this crate will invoke `pkg-config`:
+ //!
+-//! * `PKG_CONFIG_ALLOW_CROSS` - if this variable is not set, then `pkg-config`
+-//!   will automatically be disabled for all cross compiles.
+ //! * `FOO_NO_PKG_CONFIG` - if set, this will disable running `pkg-config` when
+ //!   probing for the library named `foo`.
+ //!
+@@ -76,15 +74,7 @@
+ use std::str;
+ 
+ pub fn target_supported() -> bool {
+-    let target = env::var("TARGET").unwrap_or_else(|_| String::new());
+-    let host = env::var("HOST").unwrap_or_else(|_| String::new());
+-
+-    // Only use pkg-config in host == target situations by default (allowing an
+-    // override) and then also don't use pkg-config on MSVC as it's really not
+-    // meant to work there but when building MSVC code in a MSYS shell we may be
+-    // able to run pkg-config anyway.
+-    (host == target || env::var_os("PKG_CONFIG_ALLOW_CROSS").is_some()) &&
+-    !target.contains("msvc")
++    true
+ }
+ 
+ #[derive(Clone, Default)]
+@@ -116,9 +106,8 @@
+     /// Contains the name of the responsible environment variable.
+     EnvNoPkgConfig(String),
+ 
+-    /// Cross compilation detected.
+-    ///
+-    /// Override with `PKG_CONFIG_ALLOW_CROSS=1`.
++    /// Cross compilation detected. Kept for compatibility;
++    /// the Debian package never emits this.
+     CrossCompilation,
+ 
+     /// Attempted to compile using the MSVC ABI build
+@@ -143,10 +132,7 @@
+     fn description(&self) -> &str {
+         match *self {
+             Error::EnvNoPkgConfig(_) => "pkg-config requested to be aborted",
+-            Error::CrossCompilation => {
+-                "pkg-config doesn't handle cross compilation. \
+-                 Use PKG_CONFIG_ALLOW_CROSS=1 to override"
+-            }
++            Error::CrossCompilation => panic!(),
+             Error::MSVC => "pkg-config is incompatible with the MSVC ABI build.",
+             Error::Command { .. } => "failed to run pkg-config",
+             Error::Failure { .. } => "pkg-config did not exit sucessfully",
+@@ -222,10 +208,7 @@
+             Error::EnvNoPkgConfig(ref name) => {
+                 write!(f, "Aborted because {} is set", name)
+             }
+-            Error::CrossCompilation => {
+-                write!(f, "Cross compilation detected. \
+-                       Use PKG_CONFIG_ALLOW_CROSS=1 to override")
+-            }
++            Error::CrossCompilation => panic!(),
+             Error::MSVC => {
+                 write!(f, "MSVC target detected. If you are using the MSVC ABI \
+                        rust build, please use the GNU ABI build instead.")
+@@ -405,7 +388,11 @@
+     }
+ 
+     fn command(&self, name: &str, args: &[&str]) -> Command {
+-        let exe = self.env_var("PKG_CONFIG").unwrap_or_else(|_| String::from("pkg-config"));
++        let exe = self.env_var("PKG_CONFIG").unwrap_or_else(|_| {
++            self.env_var("DEB_HOST_GNU_TYPE")
++                .map(|t| t.to_string() + "-pkg-config")
++                .unwrap_or_else(|_| String::from("pkg-config"))
++        });
+         let mut cmd = Command::new(exe);
+         if self.is_static(name) {
+             cmd.arg("--static");
+--- a/tests/test.rs
++++ b/tests/test.rs
+@@ -29,7 +29,6 @@
+     pkg_config::probe_library(name)
+ }
+ 
+-#[test]
+ fn cross_disabled() {
+     let _g = LOCK.lock();
+     reset();
+@@ -41,7 +40,6 @@
+     }
+ }
+ 
+-#[test]
+ fn cross_enabled() {
+     let _g = LOCK.lock();
+     reset();

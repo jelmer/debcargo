@@ -1,2 +1,4 @@
+overlay = "."
+
 [packages."librust-pkg-config-0.3-dev"]
 depends = ["pkg-config"]
