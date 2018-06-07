@@ -282,24 +282,36 @@ pub fn prepare_debian_folder(
             )
         )?;
 
-        let extra_build_deps = if !bins.is_empty() {
-            deb_deps(&default_deps)?
+        // debian/control
+        let (build_deps_base, build_deps_extra) = if !bins.is_empty() {
+            (vec![
+                "cargo:native",
+                "rustc:native",
+                "libstd-rust-dev",
+             ], deb_deps(&default_deps)?)
         } else {
-            deb_deps(&default_deps)?.iter().map(|x| {
+            assert!(lib);
+            (vec![
+                "cargo:native <!nocheck>",
+                "rustc:native <!nocheck>",
+                "libstd-rust-dev <!nocheck>",
+             ], deb_deps(&default_deps)?.iter().map(|x| {
                 x.to_string().split("|").map(|x| {
                     x.trim_right().to_string() + " <!nocheck> "
                 }).join("|").trim_right().to_string()
-            }).collect::<Vec<_>>()
+             }).collect::<Vec<_>>())
         };
-
-        // debian/control
         let mut source = Source::new(
             upstream_name,
             base_pkgname,
             pkgbase.debian_version(),
             if let Some(ref home) = meta.homepage { home } else { "" },
             lib,
-            extra_build_deps,
+            ["debhelper (>= 11)", "dh-cargo (>= 4)"].iter()
+                .chain(build_deps_base.iter())
+                .map(|x| x.to_string())
+                .chain(build_deps_extra)
+                .collect::<Vec<_>>(),
         )?;
 
         // If source overrides are present update related parts.

@@ -101,7 +101,7 @@ impl Source {
         version: &str,
         home: &str,
         lib: bool,
-        b_deps: Vec<String>,
+        build_deps: Vec<String>,
     ) -> Result<Source> {
         let source = format!("rust-{}", basename);
         let section = if lib { "rust" } else { "FIXME-(source.section)" };
@@ -111,14 +111,6 @@ impl Source {
         let vcs_browser = VCS_ALL.to_string();
         let vcs_git = format!("{}.git", vcs_browser);
 
-        let mut build_deps = vec![
-            "debhelper (>= 11)".to_string(),
-            "dh-cargo (>= 4)".to_string(),
-            "cargo:native".to_string(),
-            "rustc:native".to_string(),
-            "libstd-rust-dev".to_string(),
-        ];
-        build_deps.extend(b_deps);
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
             upstream_name.to_string()
         } else {
