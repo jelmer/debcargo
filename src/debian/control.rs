@@ -33,6 +33,7 @@ pub struct Source {
 pub struct Package {
     name: String,
     arch: String,
+    multi_arch: String,
     section: Option<String>,
     depends: Vec<String>,
     recommends: Vec<String>,
@@ -71,6 +72,7 @@ impl fmt::Display for Package {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Package: {}", self.name)?;
         writeln!(f, "Architecture: {}", self.arch)?;
+        writeln!(f, "Multi-Arch: {}", self.multi_arch)?;
         if let Some(section) = &self.section {
             writeln!(f, "Section: {}", section)?;
         }
@@ -250,6 +252,7 @@ impl Package {
         Ok(Package {
             name: name,
             arch: "all".to_string(),
+            multi_arch: "foreign".to_string(),
             section: None,
             depends: depends,
             recommends: recommends,
@@ -282,6 +285,7 @@ impl Package {
         Package {
             name: name.to_string(),
             arch: "any".to_string(),
+            multi_arch: "allowed".to_string(),
             section: section.map(|s| s.to_string()),
             depends: vec![
                 "${misc:Depends}".to_string(),
