@@ -247,10 +247,17 @@ impl Package {
         Ok(Package {
             name: name,
             arch: "all".to_string(),
-            // Need "allowed" rather than "foreign" here so HOST arch is preferred
-            // if we depend on a C library and another package build-depends on us
-            // See https://wiki.ubuntu.com/MultiarchCross for details
-            multi_arch: "allowed".to_string(),
+            // This is the best but not ideal option for us.
+            //
+            // Currently Debian M-A spec has a deficiency where a package X that
+            // build-depends on a (M-A:foreign+arch:all) package that itself
+            // depends on arch:any packages, will pick up the BUILD_ARCH of those
+            // indirect build-dependencies instead of the HOST_ARCH.
+            //
+            // A proper solution is being discussed; in the meantime package X as a
+            // workaround can directly build-depend on all its indirect transitive
+            // arch:any build-dependencies.
+            multi_arch: "foreign".to_string(),
             section: None,
             depends: depends,
             recommends: recommends,
