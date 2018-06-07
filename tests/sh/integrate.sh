@@ -103,6 +103,7 @@ run_lintian() {(
 	lintian -EIL +pedantic "$changes" || true
 )}
 
+DEB_HOST_ARCH=$(dpkg-architecture -qDEB_HOST_ARCH)
 chroot=${CHROOT:-unstable-"$(dpkg-architecture -q DEB_HOST_ARCH)"-sbuild}
 run_sbuild() {(
 	local crate="$1"
@@ -113,8 +114,8 @@ run_sbuild() {(
 	allow_fail "$crate" $version && return 0
 	base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
 	dsc="${base}.dsc"
-	build="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).build"
-	changes="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).changes"
+	build="${base}_${DEB_HOST_ARCH}.build"
+	changes="${base}_${DEB_HOST_ARCH}.changes"
 
 	if [ -f "$changes" ]; then
 		echo >&2 "skipping already-built ${dsc}"

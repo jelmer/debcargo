@@ -247,7 +247,10 @@ impl Package {
         Ok(Package {
             name: name,
             arch: "all".to_string(),
-            multi_arch: "foreign".to_string(),
+            // Need "allowed" rather than "foreign" here so HOST arch is preferred
+            // if we depend on a C library and another package build-depends on us
+            // See https://wiki.ubuntu.com/MultiarchCross for details
+            multi_arch: "allowed".to_string(),
             section: None,
             depends: depends,
             recommends: recommends,
