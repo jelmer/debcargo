@@ -246,18 +246,28 @@ impl Package {
 
         Ok(Package {
             name: name,
-            arch: "all".to_string(),
+            arch: "any".to_string(),
             // This is the best but not ideal option for us.
             //
             // Currently Debian M-A spec has a deficiency where a package X that
             // build-depends on a (M-A:foreign+arch:all) package that itself
-            // depends on arch:any packages, will pick up the BUILD_ARCH of those
-            // indirect build-dependencies instead of the HOST_ARCH.
+            // depends on an arch:any package Z, will pick up the BUILD_ARCH of
+            // package Z instead of the HOST_ARCH. This is because we currently
+            // have no way of telling dpkg to use HOST_ARCH when checking that the
+            // dependencies of Y are satisfied, which is done at install-time
+            // without any knowledge that we're about to do a cross-compile. It
+            // is also problematic to tell dpkg to "accept any arch" because of
+            // the presence of non-M-A:same packages in the archive, that are not
+            // co-installable - different arches of Z might be depended-upon by
+            // two conflicting chains. (dpkg has so far chosen not to add an
+            // exception for the case where package Z is M-A:same co-installable).
             //
-            // A proper solution is being discussed; in the meantime package X as a
-            // workaround can directly build-depend on all its indirect transitive
-            // arch:any build-dependencies.
-            multi_arch: "foreign".to_string(),
+            // The recommended work-around for now from the dpkg developers is to
+            // make our packages arch:any M-A:same even though this results in
+            // duplicate packages in the Debian archive. For very large crates we
+            // will eventually want to make debcargo generate -data packages that
+            // are arch:all and have the arch:any -dev packages depend on it.
+            multi_arch: "same".to_string(),
             section: None,
             depends: depends,
             recommends: recommends,
