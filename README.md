@@ -15,6 +15,8 @@ packaging [policy](https://wiki.debian.org/Teams/RustPackaging/Policy).
  * Put `FIXME (hint)` strings where it can't detect full information, so user can
    provide an override/overlay or manually fix it.
  * Results in a lintian-clean Debian package in most cases.
+ * Packages can be cross-compiled by `sbuild` assuming the crate doesn't
+   include anything that breaks it (such as arch-specific build.rs scripts).
 
 
 ## Dependencies
