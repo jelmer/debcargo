@@ -65,7 +65,7 @@ Options to control running:
   -x ARG        Give ARG as an extra argument to debcargo, e.g. like
                 -x--copyright-guess-harder.
   -z            Use the slower but more accurate "cargo-tree-deb-rec"
-                script to calculate dependencies.
+                script to calculate dependencies with -r.
 eof
 		exit 2;;
 	esac
