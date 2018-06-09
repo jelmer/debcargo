@@ -45,6 +45,7 @@ impl V {
     fn minor_0(&self) -> Option<u64> {
         use self::V::*;
         match *self {
+            M(0) => Some(0),
             MM(0, minor) | MMP(_, minor, _) => Some(minor),
             _ => None,
         }
