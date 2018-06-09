@@ -1,12 +1,15 @@
+use semver::Version;
 use semver_parser;
 use semver_parser::range::*;
 use semver_parser::range::Op::*;
 use cargo::core::Dependency;
 
 use std::fmt;
+use std::cmp::Ord;
 
 use errors::*;
 use crates::CratesIo;
+use itertools::Itertools;
 
 #[derive(PartialEq)]
 enum V {
@@ -27,10 +30,23 @@ impl V {
         Ok(mmp)
     }
 
+    fn new_v(v: &Version) -> Self {
+        use self::V::*;
+        MMP(v.major, v.minor, v.patch)
+    }
+
     fn major(&self) -> u64 {
         use self::V::*;
         match *self {
             M(major) | MM(major, _) | MMP(major, _, _) => major,
+        }
+    }
+
+    fn minor_0(&self) -> Option<u64> {
+        use self::V::*;
+        match *self {
+            MM(0, minor) | MMP(_, minor, _) => Some(minor),
+            _ => None,
         }
     }
 
@@ -102,11 +118,12 @@ where
             deps.push(format!("{} (<< {})", pkg(&mmp), mmp.inclast()));
         }
 
-        // We can't represent every major version that satisfies an
-        // inequality, because each major version has a different Debian
+        // We can't represent every version that satisfies a Gt/GtEq
+        // inequality, because each semver version has a different Debian
         // package name, so we (for now) use the first few major versions
-        // that satisfies the inequality. This may result in a stricter
-        // dependency, but will never result in a looser one.
+        // that satisfies the inequality, or first few minor versions if the
+        // major version is zero. This may result in a stricter dependency,
+        // but will never result in a looser one.
         //
         // TODO, clarify the following comment made by Josh: We could
         // represent some dependency ranges (such as >= x and < y)
@@ -117,11 +134,17 @@ where
             // at the top so `sbuild` works without --resolve-alternatives
             let ops = if *op == Gt { ">>" } else { ">=" };
             let major = mmp.major();
-            deps.push(format!("{} ({} {})| {} | {} | {}",
-                pkg(&mmp), ops, mmp,
-                pkg(&M(major + 1)),
-                pkg(&M(major + 2)),
-                pkg(&M(major + 3))))
+            if major >= 1 {
+                deps.push(format!("{} ({} {})| {}",
+                    pkg(&mmp), ops, mmp,
+                    (major+1..major+5).map(|v| pkg(&M(v))).join(" | ")));
+            } else {
+                let minor = mmp.minor_0().unwrap();
+                deps.push(format!("{} ({} {})| {} | {}",
+                    pkg(&mmp), ops, mmp,
+                    (minor+1..minor+5).map(|v| pkg(&MM(0, v))).join(" | "),
+                    (major+1..major+5).map(|v| pkg(&M(v))).join(" | ")));
+            }
         },
         (&Lt, &M(0)) | (&Lt, &MM(0, 0)) | (&Lt, &MMP(0, 0, 0)) => debcargo_bail!(
             "Unrepresentable dependency version predicate: {} {:?}",
@@ -133,22 +156,17 @@ where
             let major = mmp.major();
             // note that the "{} (<< {})" case is unsatisfiable e.g. when minor = 0, patch = 0
             // but this is fine because of the other alternatives
-            if major > 3 {
-                deps.push(format!("{} ({} {}) | {} | {} | {}",
-                    pkg(&mmp), ops, mmp,
-                    pkg(&M(major - 1)),
-                    pkg(&M(major - 2)),
-                    pkg(&M(major - 3))))
-            } else if major == 3 {
-                deps.push(format!("{} ({} {}) | {} | {}", pkg(&mmp), ops, mmp, pkg(&M(2)), pkg(&M(1))))
-            } else if major == 2 {
-                deps.push(format!("{} ({} {}) | {}", pkg(&mmp), ops, mmp, pkg(&M(1))))
+            if major > 1 {
+                // if major > 0 they probably don't care about 0.x versions
+                deps.push(format!("{} ({} {}) | {}", pkg(&mmp), ops, mmp,
+                    (1..major).rev().map(|v| pkg(&M(v))).join(" | ")))
             } else if major == 1 {
+                // if major > 0 they probably don't care about 0.x versions
                 deps.push(format!("{} ({} {})", pkg(&mmp), ops, mmp))
             } else {
-                // inaccurate when major == 0 atm but nobody seems to use it
-                // keep it separate from 1 in case we want to fix it later
-                deps.push(format!("{} ({} {})", pkg(&mmp), ops, mmp))
+                let minor = mmp.minor_0().unwrap();
+                deps.push(format!("{} ({} {}) | {}", pkg(&mmp), ops, mmp,
+                    (0..minor).rev().map(|v| pkg(&MM(0, v))).join(" | ")))
             }
         },
 
@@ -177,21 +195,19 @@ where
 
         (&Wildcard(WildcardVersion::Major), _) => {
             // We take all possible version from the crates io which will be
-            // returned to us as sorted dependency. We take first few lets say 5
-            // and use it as alternative dependencies.
+            // returned to us as sorted dependency. We take all and use it as
+            // alternative dependencies, preferring the latest.
             let crates_io = CratesIo::new()?;
-            let mut candidates = crates_io.fetch_as_dependency(dep)?;
+            let mut candidates = crates_io.fetch_candidates(dep)?;
+            let mut vdeps = Vec::new();
 
-            // TODO: What happens if there are less than 5 elements?.
-            for d in candidates.iter().take(5) {
-                let req = semver_parser::range::parse(&d.version_req().to_string()).unwrap();
-                let mmp = V::new(&req.predicates[0])?;
-                deps.push(pkg(&mmp));
+            for s in candidates.iter() {
+                vdeps.push(s.version());
             }
-
-            // Possibly multiple minor version changes leads duplicate
-            // dependencies but luckily consecutive so lets drop them
-            deps.dedup();
+            vdeps.sort_by(|a, b| b.cmp(a));
+            let mut vdeps_pkg = vdeps.iter().map(|p| pkg(&V::new_v(&p))).collect::<Vec<_>>();
+            vdeps_pkg.dedup();
+            deps.push(vdeps_pkg.iter().join(" | "));
         }
         (&Wildcard(WildcardVersion::Minor), _) => deps.push(pkg(&mmp)),
         (&Wildcard(WildcardVersion::Patch), _) => deps.push(format!("{} (>= {})", pkg(&mmp), mmp)),
@@ -250,7 +266,7 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> {
                 mdeps.extend(generate_package_name(dep, &pkg, &p, op, &mmp)?)
             }
 
-            deps.push(mdeps.join(" | "));
+            deps.extend(mdeps);
         }
     }
     Ok(deps)
