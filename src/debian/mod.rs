@@ -234,7 +234,7 @@ pub fn prepare_debian_folder(
 
         // debian/compat
         let mut compat = file("compat")?;
-        writeln!(compat, "10")?;
+        writeln!(compat, "11")?;
 
         // debian/copyright
         let mut copyright = io::BufWriter::new(file("copyright")?);
