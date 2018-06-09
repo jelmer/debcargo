@@ -19,6 +19,8 @@ update=false
 extraargs=
 use_rec_hack=false
 
+DEB_HOST_ARCH=${DEB_HOST_ARCH:-$(dpkg-architecture -qDEB_HOST_ARCH)}
+
 while getopts 'd:f:a:l:c:bkrux:zh?' o; do
 	case $o in
 	d ) directory=$OPTARG;;
@@ -99,11 +101,10 @@ run_lintian() {(
 	base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
 	changes="${base}_source.changes"
 	lintian -EIL +pedantic "$changes" || true
-	changes="${base}_$(dpkg-architecture -qDEB_HOST_ARCH).changes"
+	changes="${base}_${DEB_HOST_ARCH}.changes"
 	lintian -EIL +pedantic "$changes" || true
 )}
 
-DEB_HOST_ARCH=$(dpkg-architecture -qDEB_HOST_ARCH)
 chroot=${CHROOT:-unstable-"$(dpkg-architecture -q DEB_HOST_ARCH)"-sbuild}
 run_sbuild() {(
 	local crate="$1"
