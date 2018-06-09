@@ -12,8 +12,8 @@ use debian::dependency::deb_deps;
 use errors::*;
 use util::vec_opt_iter;
 
-const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
-const VCS_ALL: &'static str = "https://salsa.debian.org/rust-team/debcargo-conf";
+pub const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
+pub const VCS_ALL: &'static str = "https://salsa.debian.org/rust-team/debcargo-conf";
 
 pub struct Source {
     name: String,

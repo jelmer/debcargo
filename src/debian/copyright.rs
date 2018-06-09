@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read};
 
 use errors::*;
-use debian::control::get_deb_author;
+use debian::control::RUST_MAINT;
 
 const DEB_COPYRIGHT_FORMAT: &'static str = "https://www.debian.\
                                             org/doc/packaging-manuals/copyright-format/1.0/";
@@ -355,7 +355,8 @@ pub fn debian_copyright(
     let mut files = gen_files(srcdir)?;
 
     let current_year = chrono::Local::now().year();
-    let deb_notice = format!("{} {}", current_year, get_deb_author().unwrap_or_default());
+    let deb_notice = format!("{} {}\n           {} FIXME (overlay) Your Name <Your Email>",
+        current_year, RUST_MAINT, current_year);
     files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
 
     // Insert catch all block as the first block of copyright file. Capture
