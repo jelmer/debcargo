@@ -132,9 +132,9 @@ where
             let mut alts = vec![(pkg(&mmp), Some(format!("{} {}", ops, mmp)))];
             if major == 0 {
                 let minor = mmp.minor_0().unwrap();
-                alts.extend((minor+1..minor+5).map(|v| (pkg(&MM(0, v)), None)));
+                alts.extend((minor+1..minor+8).map(|v| (pkg(&MM(0, v)), None)));
             }
-            alts.extend((major+1..major+5).map(|v| (pkg(&M(v)), None)));
+            alts.extend((major+1..major+8).map(|v| (pkg(&M(v)), None)));
             deps.push(alts);
         },
         (&Lt, &M(0)) | (&Lt, &MM(0, 0)) | (&Lt, &MMP(0, 0, 0)) => debcargo_bail!(
