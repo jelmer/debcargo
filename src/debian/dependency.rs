@@ -104,12 +104,12 @@ fn generate_package_name<F>(
     p: &semver_parser::range::Predicate,
     op: &semver_parser::range::Op,
     mmp: &V,
-) -> Result<Vec<(String, Option<String>)>> // result is a OR-clause
+) -> Result<Vec<Vec<(String, Option<String>)>>> // result is a AND-clause-of-OR-clauses
 where
     F: Fn(&V) -> String,
 {
     use debian::dependency::V::*;
-    let mut deps : Vec<(String, Option<String>)> = Vec::new();
+    let mut deps : Vec<Vec<(String, Option<String>)>> = Vec::new();
     // see https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html
     // for semantics
     match (op, mmp) {
@@ -129,12 +129,13 @@ where
             // at the top so `sbuild` works without --resolve-alternatives
             let ops = if *op == Gt { ">>" } else { ">=" };
             let major = mmp.major();
-            deps.push((pkg(&mmp), Some(format!("{} {}", ops, mmp))));
+            let mut alts = vec![(pkg(&mmp), Some(format!("{} {}", ops, mmp)))];
             if major == 0 {
                 let minor = mmp.minor_0().unwrap();
-                deps.extend((minor+1..minor+5).map(|v| (pkg(&MM(0, v)), None)));
+                alts.extend((minor+1..minor+5).map(|v| (pkg(&MM(0, v)), None)));
             }
-            deps.extend((major+1..major+5).map(|v| (pkg(&M(v)), None)));
+            alts.extend((major+1..major+5).map(|v| (pkg(&M(v)), None)));
+            deps.push(alts);
         },
         (&Lt, &M(0)) | (&Lt, &MM(0, 0)) | (&Lt, &MMP(0, 0, 0)) => debcargo_bail!(
             "Unrepresentable dependency version predicate: {} {:?}",
@@ -146,51 +147,52 @@ where
             let major = mmp.major();
             // note that the "{} (<< {})" case is unsatisfiable e.g. when minor = 0, patch = 0
             // but this is fine because of the other alternatives
-            deps.push((pkg(&mmp), Some(format!("{} {}", ops, mmp))));
+            let mut alts = vec![(pkg(&mmp), Some(format!("{} {}", ops, mmp)))];
             if major >= 1 {
                 // if major > 0 they probably don't care about 0.x versions
-                deps.extend((1..major).rev().map(|v| (pkg(&M(v)), None)))
+                alts.extend((1..major).rev().map(|v| (pkg(&M(v)), None)))
             } else {
                 let minor = mmp.minor_0().unwrap();
-                deps.extend((0..minor).rev().map(|v| (pkg(&MM(0, v)), None)))
+                alts.extend((0..minor).rev().map(|v| (pkg(&MM(0, v)), None)))
             }
+            deps.push(alts);
         },
 
         (&Ex, &M(..)) => {
-            deps.push((pkg(&mmp), None));
+            deps.push(vec![(pkg(&mmp), None)]);
         }
         (&Ex, &MM(..)) => {
-            deps.push((pkg(&mmp), Some(format!(">= {}", mmp))));
+            deps.push(vec![(pkg(&mmp), Some(format!(">= {}", mmp)))]);
         }
         (&Ex, &MMP(..)) => {
-            deps.push((pkg(&mmp), Some(format!(">= {}", mmp))));
-            deps.push((pkg(&mmp), Some(format!("<< {}", mmp.inclast()))));
+            deps.push(vec![(pkg(&mmp), Some(format!(">= {}", mmp)))]);
+            deps.push(vec![(pkg(&mmp), Some(format!("<< {}", mmp.inclast())))]);
         }
 
         (&Tilde, &M(_)) | (&Tilde, &MM(0, _)) | (&Tilde, &MMP(0, _, 0)) => {
-            deps.push((pkg(&mmp), None));
+            deps.push(vec![(pkg(&mmp), None)]);
         }
         (&Tilde, &MM(..)) | (&Tilde, &MMP(0, _, _)) => {
-            deps.push((pkg(&mmp), Some(format!(">= {}", mmp))));
+            deps.push(vec![(pkg(&mmp), Some(format!(">= {}", mmp)))]);
         }
         (&Tilde, &MMP(major, minor, _)) => {
-            deps.push((pkg(&mmp), Some(format!(">= {}", mmp))));
-            deps.push((pkg(&mmp), Some(format!("<< {}", MM(major, minor + 1)))));
+            deps.push(vec![(pkg(&mmp), Some(format!(">= {}", mmp)))]);
+            deps.push(vec![(pkg(&mmp), Some(format!("<< {}", MM(major, minor + 1))))]);
         }
 
         (&Compatible, &MMP(0, 0, _)) => {
-            deps.push((pkg(&mmp), Some(format!(">= {}", mmp))));
-            deps.push((pkg(&mmp), Some(format!("<< {}", mmp.inclast()))));
+            deps.push(vec![(pkg(&mmp), Some(format!(">= {}", mmp)))]);
+            deps.push(vec![(pkg(&mmp), Some(format!("<< {}", mmp.inclast())))]);
         }
         (&Compatible, &M(_)) |
         (&Compatible, &MM(0, _)) |
         (&Compatible, &MM(_, 0)) |
         (&Compatible, &MMP(0, _, 0)) => {
-            deps.push((pkg(&mmp), None));
+            deps.push(vec![(pkg(&mmp), None)]);
         }
         (&Compatible, &MM(..)) |
         (&Compatible, &MMP(..))  => {
-            deps.push((pkg(&mmp), Some(format!(">= {}", mmp))));
+            deps.push(vec![(pkg(&mmp), Some(format!(">= {}", mmp)))]);
         }
 
         (&Wildcard(WildcardVersion::Major), _) => {
@@ -210,13 +212,13 @@ where
                 .map(|p| (pkg(&V::new_v(&p)), None))
                 .collect::<Vec<_>>();
             vdeps_pkg.dedup();
-            deps.extend(vdeps_pkg.into_iter());
+            deps.push(vdeps_pkg);
         }
         (&Wildcard(WildcardVersion::Minor), _) => {
-            deps.push((pkg(&mmp), None));
+            deps.push(vec![(pkg(&mmp), None)]);
         }
         (&Wildcard(WildcardVersion::Patch), _) => {
-            deps.push((pkg(&mmp), Some(format!(">= {}", mmp))));
+            deps.push(vec![(pkg(&mmp), Some(format!(">= {}", mmp)))]);
         }
     }
 
@@ -240,6 +242,10 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> // result is a AND-claus
     }
     let req = semver_parser::range::parse(&dep.version_req().to_string()).unwrap();
     let mut deps = Vec::new();
+    let fmt = |x: &(String, Option<String>)| match x {
+        (ref p, Some(ref c)) => format!("{} ({})", p, c),
+        (ref p, None) => p.to_string(),
+    };
     for suffix in suffixes {
         let pkg = |v: &V| {
             let (major, minor) = match *v {
@@ -253,57 +259,66 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> // result is a AND-claus
             }
         };
 
-        let mut mdeps = Vec::new();
+        let mut all_clauses = Vec::new();
         let mut all_candidates: Vec<String> = Vec::new();
         for p in &req.predicates {
             // Cargo/semver and Debian handle pre-release versions quite
             // differently, so a versioned Debian dependency cannot properly
             // handle pre-release crates. This might be OK most of the time,
             // coerce it to the non-pre-release version.
+            // FIXME: guard this with a config option.
             if !p.pre.is_empty() {
                 debcargo_warn!("Stripped off prerelease part of dependency: {} {:?}", dep.name(), p)
             }
 
             let mmp = V::new(p)?;
             let op = coerce_unacceptable_predicate(dep, &p, &mmp)?;
-            let ors = generate_package_name(dep, &pkg, &p, op, &mmp)?;
-            all_candidates.extend(ors.iter().map(|(x, _)| x.to_string()));
-            mdeps.push(ors);
+            let clauses = generate_package_name(dep, &pkg, &p, op, &mmp)?;
+            for ors in clauses.iter() {
+                for (p, _) in ors.iter() {
+                    all_candidates.push(p.to_string());
+                }
+            }
+            all_clauses.extend(clauses.into_iter());
         }
         all_candidates.sort();
         all_candidates.dedup();
-        // prune out unsatisfiable combinations, helps to solve #7
-        let dep = all_candidates.iter().filter_map(|p| {
-            // filter out all candidates that don't appear in all OR clauses
-            // also detect when a candidate has multiple constraints defined
-            // this is usually a fuck-up by the crate maintainer
-            mdeps.iter().fold(Some(None), |acc: Option<Option<String>>, ors| {
-                if let Some(cons) = acc {
-                    let mut it = ors.iter().filter(|&(p_, _)| p_ == p);
-                    if let Some((_, cons_)) = it.next() {
-                        assert!(it.next().is_none());
-                        match (cons, cons_) {
-                            (Some(ref x), Some(ref y)) => {
-                                debcargo_warn!("Crate somehow had two constraints for dependency {}: {}, {}; we'll use the first one, but this might be wrong", p, x, y);
-                                Some(Some(x.to_string()))
-                            },
-                            (None, Some(x)) => Some(Some(x.to_string())),
-                            (r, None) => Some(r),
+        if all_clauses.iter().all(|x| x.len() == 1) {
+            // we just have a single AND-clause so can include everything,
+            // even if it contains two constraints for the same package, e.g.
+            // a (>=, <<)-pair which is valid
+            deps.extend(all_clauses.iter().map(|v| fmt(&v[0])));
+        } else {
+            // prune out unsatisfiable combinations, helps to solve #7
+            let dep = all_candidates.iter().filter_map(|p| {
+                // filter out all candidates that don't appear in all OR clauses
+                // also detect when a candidate has multiple constraints defined
+                // this is usually a fuck-up by the crate maintainer
+                all_clauses.iter().fold(Some(None), |acc: Option<Option<String>>, ors| {
+                    if let Some(cons) = acc {
+                        let mut it = ors.iter().filter(|&(p_, _)| p_ == p);
+                        if let Some((_, cons_)) = it.next() {
+                            assert!(it.next().is_none());
+                            match (cons, cons_) {
+                                (Some(ref x), Some(ref y)) => {
+                                    debcargo_warn!("Crate somehow had two constraints for dependency {}: {}, {}; we'll use the first one, but this might be wrong", p, x, y);
+                                    Some(Some(x.to_string()))
+                                },
+                                (None, Some(x)) => Some(Some(x.to_string())),
+                                (r, None) => Some(r),
+                            }
+                        } else {
+                            // p not in this OR-clause, can't be used to satisfy all_clauses
+                            None
                         }
                     } else {
-                        // candidate not in this OR-clause, can't be satisfied
+                        // propagate None from previous candidates
                         None
                     }
-                } else {
-                    // propagate None from previous candidate
-                    None
-                }
-            }).map(|constraint| match constraint {
-                Some(c) => format!("{} ({})", p, c),
-                None => p.to_string(),
-            })
-        }).join(" | ");
-        deps.push(dep);
+                }).map(|c| fmt(&(p.to_string(), c)))
+            }).join(" | ");
+            deps.push(dep);
+        }
     }
     Ok(deps)
 }
