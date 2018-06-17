@@ -65,11 +65,10 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
     let crate_info = CrateInfo::new(crate_name, version)?;
-    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!());
+    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!(), config.semver_suffix);
 
-    let default_srcdir = pkgbase.package_source_dir(config.semver_suffix);
-    let pkg_srcdir = Path::new(directory.unwrap_or(&default_srcdir));
-    let orig_tar_gz = pkg_srcdir.parent().unwrap().join(pkgbase.orig_tarball_path(config.semver_suffix));
+    let pkg_srcdir = Path::new(directory.unwrap_or(pkgbase.package_source_dir()));
+    let orig_tar_gz = pkg_srcdir.parent().unwrap().join(pkgbase.orig_tarball_path());
 
     let excludes = util::vec_opt_iter(config.orig_tar_excludes()).map(|x| {
         Pattern::new(&("*/".to_owned() + x)).unwrap()
@@ -120,12 +119,9 @@ fn do_deb_src_name(matches: &ArgMatches) -> Result<()> {
     let version = matches.value_of("version");
 
     let crate_info = CrateInfo::new(crate_name, version)?;
-    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!());
-    match version {
-    None => println!("{}", pkgbase.package_basename()),
-    Some(_) => println!("{}{}", pkgbase.package_basename(), crate_info.semver_suffix()),
-    };
+    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!(), version.is_some());
 
+    println!("{}", pkgbase.package_name());
     Ok(())
 }
 
@@ -135,13 +131,10 @@ fn do_extract(matches: &ArgMatches) -> Result<()> {
     let directory = matches.value_of("directory");
 
     let crate_info = CrateInfo::new(crate_name, version)?;
-    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!());
-
-    let default_srcdir = pkgbase.package_source_dir(false);
-    let pkg_srcdir = Path::new(directory.unwrap_or(&default_srcdir));
+    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!(), false);
+    let pkg_srcdir = Path::new(directory.unwrap_or(pkgbase.package_source_dir()));
 
     crate_info.extract_crate(pkg_srcdir, &vec![])?;
-
     Ok(())
 }
 

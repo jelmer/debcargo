@@ -33,25 +33,43 @@ pub mod changelog;
 pub struct BaseInfo {
     upstream_name: String,
     base_package_name: String,
+    name_suffix: Option<String>,
+    package_name: String,
     debian_version: String,
     debcargo_version: String,
-    semver_suffix: String,
+    package_source_dir: String,
+    orig_tarball_path: String,
 }
 
 impl BaseInfo {
-    pub fn new(name: &str, crate_info: &CrateInfo, debcargo_version: &str) -> Self {
+    pub fn new(name: &str, crate_info: &CrateInfo,
+               debcargo_version: &str, semver_suffix: bool) -> Self {
         let upstream = name.to_string();
         let name_dashed = upstream.replace('_', "-");
-        let base_pkg_name = name_dashed.to_lowercase();
-        let semver_suffix = crate_info.semver_suffix();
-        let debver = deb_version(crate_info.version());
+        let base_package_name = name_dashed.to_lowercase();
+        let (name_suffix, package_name) = if semver_suffix {
+            (Some(crate_info.semver_suffix()),
+             format!("{}{}", base_package_name, crate_info.semver_suffix()))
+        } else {
+            (None, base_package_name.clone())
+        };
+        let debian_version = deb_version(crate_info.version());
+        let debian_source = match name_suffix {
+            Some(ref suf) => format!("rust-{}{}", base_package_name, suf),
+            None => format!("rust-{}", base_package_name),
+        };
+        let package_source_dir = format!("{}-{}", debian_source, debian_version);
+        let orig_tarball_path = format!("{}_{}.orig.tar.gz", debian_source, debian_version);
 
         BaseInfo {
             upstream_name: upstream,
-            base_package_name: base_pkg_name,
-            debian_version: debver,
+            base_package_name: base_package_name,
+            name_suffix: name_suffix,
+            package_name: package_name,
+            debian_version: debian_version,
             debcargo_version: debcargo_version.to_string(),
-            semver_suffix: semver_suffix,
+            package_source_dir: package_source_dir,
+            orig_tarball_path: orig_tarball_path,
         }
     }
 
@@ -59,24 +77,16 @@ impl BaseInfo {
         self.upstream_name.as_str()
     }
 
-    pub fn debian_source(&self, semver_suffix: bool) -> String {
-        if semver_suffix {
-            format!("rust-{}{}", self.base_package_name, self.semver_suffix)
-        } else {
-            format!("rust-{}", self.base_package_name)
-        }
-    }
-
-    pub fn package_source_dir(&self, semver_suffix: bool) -> String {
-        format!("{}-{}", self.debian_source(semver_suffix), self.debian_version)
-    }
-
-    pub fn orig_tarball_path(&self, semver_suffix: bool) -> String {
-        format!("{}_{}.orig.tar.gz", self.debian_source(semver_suffix), self.debian_version)
-    }
-
-    pub fn package_basename(&self) -> &str {
+    pub fn base_package_name(&self) -> &str {
         self.base_package_name.as_str()
+    }
+
+    pub fn name_suffix(&self) -> Option<&str> {
+        self.name_suffix.as_ref().map(|s| s.as_str())
+    }
+
+    pub fn package_name(&self) -> &str {
+        self.package_name.as_str()
     }
 
     pub fn debian_version(&self) -> &str {
@@ -87,9 +97,14 @@ impl BaseInfo {
         self.debcargo_version.as_str()
     }
 
-    pub fn semver_suffix(&self) -> &str {
-        self.semver_suffix.as_str()
+    pub fn package_source_dir(&self) -> &str {
+        self.package_source_dir.as_str()
     }
+
+    pub fn orig_tarball_path(&self) -> &str {
+        self.orig_tarball_path.as_str()
+    }
+
 }
 
 pub fn prepare_orig_tarball(
@@ -196,8 +211,8 @@ pub fn prepare_debian_folder(
     create.write(true).create_new(true);
 
     let tempdir = TempDir::new_in(".", "debcargo")?;
-    let base_pkgname = pkgbase.package_basename();
-    let version_suffix = if config.semver_suffix { Some(pkgbase.semver_suffix()) } else { None };
+    let base_pkgname = pkgbase.base_package_name();
+    let name_suffix = pkgbase.name_suffix();
     let upstream_name = pkgbase.upstream_name();
 
     let overlay = config
@@ -309,7 +324,7 @@ pub fn prepare_debian_folder(
         };
         let mut source = Source::new(
             base_pkgname,
-            version_suffix,
+            name_suffix,
             upstream_name,
             if let Some(ref home) = meta.homepage { home } else { "" },
             lib,
@@ -352,7 +367,7 @@ pub fn prepare_debian_folder(
             }
             for (feature, (f_deps, o_deps)) in features_with_deps.into_iter() {
                 let mut feature_package =
-                    Package::new(base_pkgname, version_suffix, upstream_name,
+                    Package::new(base_pkgname, name_suffix, upstream_name,
                         summary.as_ref(), description.as_ref(),
                         if feature == "" { None } else { Some(feature) },
                         f_deps, deb_deps(&o_deps)?,
