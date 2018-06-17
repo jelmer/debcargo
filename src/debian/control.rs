@@ -6,9 +6,7 @@ use itertools::Itertools;
 use semver::Version;
 use textwrap::fill;
 
-use cargo::core::Dependency;
 use config::{Config, OverrideDefaults};
-use debian::dependency::deb_deps;
 use errors::*;
 use util::vec_opt_iter;
 
@@ -181,7 +179,7 @@ impl Package {
         description: Option<&String>,
         feature: Option<&str>,
         f_deps: Vec<&str>,
-        o_deps: Vec<Dependency>,
+        o_deps: Vec<String>,
         f_provides: Vec<&str>,
         f_recommends: Vec<&str>,
         f_suggests: Vec<&str>,
@@ -203,7 +201,7 @@ impl Package {
         let provides = f_provides.into_iter().map(deb_feature).collect();
         let mut depends = vec!["${misc:Depends}".to_string()];
         depends.extend(f_deps.into_iter().map(deb_feature));
-        depends.extend(deb_deps(&o_deps)?);
+        depends.extend(o_deps);
 
         let short_desc = match summary {
             None => format!("Rust source code for crate \"{}\"", basename),

@@ -339,7 +339,7 @@ impl CrateInfo {
         bins
     }
 
-    pub fn version_suffix(&self) -> String {
+    pub fn semver_suffix(&self) -> String {
         let lib = self.is_lib();
         let bins = self.get_binary_targets();
 
@@ -458,7 +458,7 @@ impl CrateInfo {
             return Err(Error::from(Error::from(e).context(format!(
                 concat!(
                     "Could not create source directory {0}\n",
-                    "To regenerate,move or remove {0}"
+                    "To regenerate, move or remove {0}"
                 ),
                 path.display()
             ))));

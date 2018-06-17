@@ -37,13 +37,15 @@ pub struct BaseInfo {
     debian_version: String,
     original_source_archive: PathBuf,
     debcargo_version: String,
+    semver_suffix: String,
 }
 
 impl BaseInfo {
     pub fn new(name: &str, crate_info: &CrateInfo, debcargo_version: &str) -> Self {
         let upstream = name.to_string();
         let name_dashed = upstream.replace('_', "-");
-        let base_pkg_name = format!("{}{}", name_dashed.to_lowercase(), crate_info.version_suffix());
+        let base_pkg_name = name_dashed.to_lowercase();
+        let semver_suffix = crate_info.semver_suffix();
 
         let debian_source = format!("rust-{}", base_pkg_name);
         let debver = deb_version(crate_info.version());
@@ -59,6 +61,7 @@ impl BaseInfo {
             original_source_archive: orig_tar_gz,
             package_source: srcdir,
             debcargo_version: debcargo_version.to_string(),
+            semver_suffix: semver_suffix,
         }
     }
 
@@ -84,6 +87,10 @@ impl BaseInfo {
 
     pub fn debcargo_version(&self) -> &str {
         self.debcargo_version.as_str()
+    }
+
+    pub fn semver_suffix(&self) -> &str {
+        self.semver_suffix.as_str()
     }
 }
 
@@ -349,7 +356,7 @@ pub fn prepare_debian_folder(
                     Package::new(base_pkgname, upstream_name,
                         summary.as_ref(), description.as_ref(),
                         if feature == "" { None } else { Some(feature) },
-                        f_deps, o_deps,
+                        f_deps, deb_deps(&o_deps)?,
                         provides.remove(feature).unwrap(),
                         if feature == "" { recommends.clone() } else { vec![] },
                         if feature == "" { suggests.clone() } else { vec![] })?;
