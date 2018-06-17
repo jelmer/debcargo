@@ -1,2 +1,2 @@
-[packages."librust-cmake-0.1-dev"]
+[packages."librust-cmake-dev"]
 depends = ["cmake"]

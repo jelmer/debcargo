@@ -6,5 +6,5 @@ excludes = ["libssh2/**"]
 [source]
 build_depends = ["libssh2-1-dev <!nocheck>", "zlib1g-dev <!nocheck>"]
 
-[packages."librust-libssh2-sys-0.2-dev"]
+[packages."librust-libssh2-sys-dev"]
 depends = ["libssh2-1-dev", "zlib1g-dev"]

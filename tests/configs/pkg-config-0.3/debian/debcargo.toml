@@ -1,4 +1,5 @@
 overlay = "."
+overlay_write_back = false
 
-[packages."librust-pkg-config-0.3-dev"]
+[packages."librust-pkg-config-dev"]
 depends = ["pkg-config"]
