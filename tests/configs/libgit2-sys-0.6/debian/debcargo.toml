@@ -1,3 +1,4 @@
+semver_suffix = true
 overlay = "."
 overlay_write_back = false
 excludes = ["libgit2/**"]
