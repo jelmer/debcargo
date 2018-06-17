@@ -3,7 +3,7 @@ pub use self::dependency::deb_deps;
 
 use std::fs;
 use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::os::unix::fs::PermissionsExt;
 
 use cargo::util::FileLock;
@@ -33,9 +33,7 @@ pub mod changelog;
 pub struct BaseInfo {
     upstream_name: String,
     base_package_name: String,
-    package_source: PathBuf,
     debian_version: String,
-    original_source_archive: PathBuf,
     debcargo_version: String,
     semver_suffix: String,
 }
@@ -46,20 +44,12 @@ impl BaseInfo {
         let name_dashed = upstream.replace('_', "-");
         let base_pkg_name = name_dashed.to_lowercase();
         let semver_suffix = crate_info.semver_suffix();
-
-        let debian_source = format!("rust-{}", base_pkg_name);
         let debver = deb_version(crate_info.version());
-
-        let srcdir = Path::new(&format!("{}-{}", debian_source, debver)).to_owned();
-        let orig_tar_gz =
-            Path::new(&format!("{}_{}.orig.tar.gz", debian_source, debver)).to_owned();
 
         BaseInfo {
             upstream_name: upstream,
             base_package_name: base_pkg_name,
             debian_version: debver,
-            original_source_archive: orig_tar_gz,
-            package_source: srcdir,
             debcargo_version: debcargo_version.to_string(),
             semver_suffix: semver_suffix,
         }
@@ -69,12 +59,20 @@ impl BaseInfo {
         self.upstream_name.as_str()
     }
 
-    pub fn package_source_dir(&self) -> &Path {
-        self.package_source.as_path()
+    pub fn debian_source(&self, semver_suffix: bool) -> String {
+        if semver_suffix {
+            format!("rust-{}{}", self.base_package_name, self.semver_suffix)
+        } else {
+            format!("rust-{}", self.base_package_name)
+        }
     }
 
-    pub fn orig_tarball_path(&self) -> &Path {
-        self.original_source_archive.as_path()
+    pub fn package_source_dir(&self, semver_suffix: bool) -> String {
+        format!("{}-{}", self.debian_source(semver_suffix), self.debian_version)
+    }
+
+    pub fn orig_tarball_path(&self, semver_suffix: bool) -> String {
+        format!("{}_{}.orig.tar.gz", self.debian_source(semver_suffix), self.debian_version)
     }
 
     pub fn package_basename(&self) -> &str {
@@ -199,6 +197,7 @@ pub fn prepare_debian_folder(
 
     let tempdir = TempDir::new_in(".", "debcargo")?;
     let base_pkgname = pkgbase.package_basename();
+    let version_suffix = if config.semver_suffix { Some(pkgbase.semver_suffix()) } else { None };
     let upstream_name = pkgbase.upstream_name();
 
     let overlay = config
@@ -309,9 +308,9 @@ pub fn prepare_debian_folder(
              }).collect::<Vec<_>>())
         };
         let mut source = Source::new(
-            upstream_name,
             base_pkgname,
-            pkgbase.debian_version(),
+            version_suffix,
+            upstream_name,
             if let Some(ref home) = meta.homepage { home } else { "" },
             lib,
             ["debhelper (>= 11)", "dh-cargo (>= 4)"].iter()
@@ -353,7 +352,7 @@ pub fn prepare_debian_folder(
             }
             for (feature, (f_deps, o_deps)) in features_with_deps.into_iter() {
                 let mut feature_package =
-                    Package::new(base_pkgname, upstream_name,
+                    Package::new(base_pkgname, version_suffix, upstream_name,
                         summary.as_ref(), description.as_ref(),
                         if feature == "" { None } else { Some(feature) },
                         f_deps, deb_deps(&o_deps)?,
@@ -404,9 +403,10 @@ pub fn prepare_debian_folder(
             ),
         ];
 
+        let source_version = format!("{}-1", pkgbase.debian_version());
         let changelog_entry = ChangelogEntry::new(
             source.srcname(),
-            source.version(),
+            &source_version,
             changelog::DEFAULT_DIST,
             "medium",
             source.main_uploader(),

@@ -25,7 +25,6 @@ pub struct Source {
     vcs_browser: String,
     homepage: String,
     x_cargo: String,
-    version: String,
 }
 
 pub struct Package {
@@ -94,14 +93,17 @@ impl fmt::Display for Package {
 
 impl Source {
     pub fn new(
-        upstream_name: &str,
         basename: &str,
-        version: &str,
+        name_suffix: Option<&str>,
+        upstream_name: &str,
         home: &str,
         lib: bool,
         build_deps: Vec<String>,
     ) -> Result<Source> {
-        let source = format!("rust-{}", basename);
+        let source = match name_suffix {
+            None => format!("rust-{}", basename),
+            Some(suf) => format!("rust-{}{}", basename, suf),
+        };
         let section = if lib { "rust" } else { "FIXME-(source.section)" };
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
@@ -126,16 +128,11 @@ impl Source {
             vcs_browser: vcs_browser,
             homepage: home.to_string(),
             x_cargo: cargo_crate,
-            version: format!("{}-1", version),
         })
     }
 
     pub fn srcname(&self) -> &String {
         &self.name
-    }
-
-    pub fn version(&self) -> &String {
-        &self.version
     }
 
     pub fn main_uploader(&self) -> &str {
@@ -174,6 +171,7 @@ impl OverrideDefaults for Source {
 impl Package {
     pub fn new(
         basename: &str,
+        name_suffix: Option<&str>,
         upstream_name: &str,
         summary: Option<&String>,
         description: Option<&String>,
@@ -184,11 +182,15 @@ impl Package {
         f_recommends: Vec<&str>,
         f_suggests: Vec<&str>,
     ) -> Result<Package> {
+        let pkgname = match name_suffix {
+            None => format!("{}", basename),
+            Some(suf) => format!("{}{}", basename, suf),
+        };
         let deb_feature = &|f: &str| {
             format!("{} (= ${{binary:Version}})", if f == "" {
-                deb_name(basename)
+                deb_name(&pkgname)
             } else {
-                deb_feature_name(basename, f)
+                deb_feature_name(&pkgname, f)
             })
         };
 
@@ -198,13 +200,28 @@ impl Package {
         } else {
             (vec![], vec![])
         };
-        let provides = f_provides.into_iter().map(deb_feature).collect();
+        let provides: Vec<String> = match name_suffix {
+            None => f_provides.into_iter().map(deb_feature).collect(),
+            Some(_) => {
+                let mut provides = f_provides.clone().into_iter().map(deb_feature).collect::<Vec<_>>();
+                let deb_feature_base = &|f: &str| {
+                    format!("{} (= ${{binary:Version}})", if f == "" {
+                        deb_name(basename)
+                    } else {
+                        deb_feature_name(basename, f)
+                    })
+                };
+                provides.push(deb_feature_base(feature.unwrap_or("")));
+                provides.extend(f_provides.into_iter().map(deb_feature_base));
+                provides
+            }
+        };
         let mut depends = vec!["${misc:Depends}".to_string()];
         depends.extend(f_deps.into_iter().map(deb_feature));
         depends.extend(o_deps);
 
         let short_desc = match summary {
-            None => format!("Rust source code for crate \"{}\"", basename),
+            None => format!("Rust source code for crate \"{}\"", upstream_name),
             Some(ref s) => if let Some(f) = feature {
                 format!("{} - feature \"{}\"", s, f)
             } else {
@@ -213,10 +230,9 @@ impl Package {
         };
 
         let name = match feature {
-            None => deb_name(basename),
-            Some(f) => deb_feature_name(basename, f),
+            None => deb_name(&pkgname),
+            Some(f) => deb_feature_name(&pkgname, f),
         };
-
         let long_desc = match description {
             None => "".to_string(),
             Some(ref s) => s.to_string(),

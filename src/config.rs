@@ -11,6 +11,7 @@ use errors::*;
 pub struct Config {
     pub bin: bool,
     pub bin_name: String,
+    pub semver_suffix: bool,
     pub overlay: Option<PathBuf>,
     pub overlay_write_back: bool,
     pub excludes: Option<Vec<String>>,
@@ -48,6 +49,7 @@ impl Default for Config {
         Config {
             bin: true,
             bin_name: "<default>".to_string(),
+            semver_suffix: false,
             overlay: None,
             overlay_write_back: true,
             excludes: None,
