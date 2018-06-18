@@ -3,6 +3,23 @@ important lintian errors that crop up.
 
 This document is probably better moved to the GitLab issue tracker on salsa.debian.org
 
+## Release-critical
+
+Our new package naming scheme (without the semver embedded in the name) is
+hitting a dpkg limitation, we cannot release until it is fixed:
+
+<infinity0> no, everything is working as intended, it's a problem with the expression syntax
+<infinity0> basically I have X build-depends A, B, C. A depends on slab >=0.1 <<0.2, B depends on slab >=0.3 <<0.4, C depends on slab >=0.4 <<0.5 and i have slab-0.1 provides slab=0.1 and slab-0.3 provides slab =0.3 and slab at version 0.4
+<infinity0> because i can only express >= and << constraints separately, dpkg is satisfied that slab-0.1 and slab (0.4) satisfy the two constraints (>= 0.3) (<< 4)
+<infinity0> what i need to express is that the two constraints must be met by a single package, and that is currently not expressible in the dpkg syntax
+<infinity0> rpm had this problem a while back with rust packages and they fixed it by allowing such syntax
+<infinity0> guillem: ^
+<infinity0> i guess one can additionally code the logic that if a package has both (>=) and (<<) defined for a single package, it should implicitly resolve it to one package rather than two packages (that provide two versions)
+<infinity0> DonKult: ^
+<infinity0> 02:17:38 <ignatenkobrain> infinity0: well, RPM supports that
+<infinity0> 02:18:04 <ignatenkobrain> `(x >= 1.0.0 with x < 2.0.0)` matches exactly ONE package
+
+
 ## Important issues
 
 - See debcargo.toml.example and the TODOs listed there
