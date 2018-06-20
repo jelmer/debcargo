@@ -1,4 +1,5 @@
-# Whether to generate a package for the binary crate.
+# Whether to generate a package for the binary crate. If omitted, defaults to
+# true unless semver_suffix (see below) is also true.
 #bin = true
 
 # Name for the binary crate. Defaults to "<default>" which means the crate
@@ -9,6 +10,9 @@
 # versions of the same crate. This should only be true for crates older than
 # the most up-to-date version in Debian, and only if they are needed as a
 # (direct or indirect) build dependency of another binary crate.
+#
+# If you set this to true, you should either omit "bin" or set it to false,
+# unless you are sure the old and new packages are co-installable.
 #semver_suffix = false
 
 # Overlay directory to copy on top of the generated one, given relative to the

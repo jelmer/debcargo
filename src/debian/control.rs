@@ -299,14 +299,19 @@ impl Package {
     }
 
     pub fn new_bin(
+        basename: &str,
+        name_suffix: Option<&str>,
         upstream_name: &str,
-        name: &str,
-        // TODO: version_suffix and Provides
         section: Option<&str>,
         summary: &Option<String>,
         description: &Option<String>,
         boilerplate: &str,
     ) -> Self {
+        let (name, provides) = match name_suffix {
+            None => (basename.to_string(), vec![]),
+            Some(suf) => (format!("{}{}", basename, suf),
+                          vec![format!("{} (= ${{binary:Version}})", basename)]),
+        };
         let short_desc = match *summary {
             None => format!("Binaries built from the Rust {} crate", upstream_name),
             Some(ref s) => s.to_string(),
@@ -318,7 +323,7 @@ impl Package {
         };
 
         Package {
-            name: name.to_string(),
+            name: name,
             arch: "any".to_string(),
             multi_arch: "allowed".to_string(),
             section: section.map(|s| s.to_string()),
@@ -328,7 +333,7 @@ impl Package {
             ],
             recommends: vec![],
             suggests: vec![],
-            provides: vec![],
+            provides: provides,
             summary: short_desc,
             description: long_desc,
             boilerplate: boilerplate.to_string(),

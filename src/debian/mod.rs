@@ -182,7 +182,7 @@ pub fn prepare_debian_folder(
     let mut bins = crate_info.get_binary_targets();
     let meta = crate_info.metadata();
 
-    if lib && !bins.is_empty() && !config.bin {
+    if lib && !bins.is_empty() && !config.build_bin_package() {
         bins.clear();
     }
     let default_bin_name = crate_info.package().name().to_string().replace('_', "-");
@@ -391,8 +391,9 @@ pub fn prepare_debian_folder(
             ));
 
             let mut bin_pkg = Package::new_bin(
-                upstream_name,
                 bin_name,
+                name_suffix,
+                upstream_name,
                 // if not-a-lib then Source section is already FIXME
                 if !lib { None } else { Some("FIXME-(packages.\"(name)\".section)") },
                 &summary,

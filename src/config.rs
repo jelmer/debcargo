@@ -9,7 +9,7 @@ use errors::*;
 #[derive(Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct Config {
-    pub bin: bool,
+    pub bin: Option<bool>,
     pub bin_name: String,
     pub semver_suffix: bool,
     pub overlay: Option<PathBuf>,
@@ -47,7 +47,7 @@ pub trait OverrideDefaults {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            bin: true,
+            bin: None,
             bin_name: "<default>".to_string(),
             semver_suffix: false,
             overlay: None,
@@ -61,6 +61,13 @@ impl Default for Config {
 }
 
 impl Config {
+    pub fn build_bin_package(&self) -> bool {
+        match self.bin {
+            None => !self.semver_suffix,
+            Some(b) => b,
+        }
+    }
+
     pub fn is_source_present(&self) -> bool {
         self.source.is_some()
     }
