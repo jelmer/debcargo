@@ -143,6 +143,10 @@ build_source() {(
 	if [ -f "$config" ]; then
 		option="--config $config"
 		echo >&2 "using config: $config"
+	elif grep -qF ${deb_src_name} "$config_dir/old-versions.txt"; then
+		config="$config_dir/old-version/debian/debcargo.toml"
+		option="--config $config"
+		echo >&2 "using config: $config"
 	fi
 
 	echo $debcargo package $extraargs --directory $cratedir $option "${crate}" $version
