@@ -440,12 +440,10 @@ pub fn prepare_debian_folder(
             let mut changelog_data = String::new();
             changelog.read_to_string(&mut changelog_data)?;
             let changelog_old = match ChangelogIterator::from(&changelog_data).next() {
-                Some(x) => if x.contains(changelog::DEFAULT_DIST) {
+                Some(x) if x.contains(changelog::DEFAULT_DIST) => {
                     &changelog_data[x.len()..]
-                } else {
-                    &changelog_data
                 },
-                None => &changelog_data,
+                _ => &changelog_data,
             };
             changelog.seek(io::SeekFrom::Start(0))?;
             if changelog_old.is_empty() {
@@ -453,6 +451,9 @@ pub fn prepare_debian_folder(
             } else {
                 write!(changelog, "{}\n{}", changelog_entry, changelog_old)?;
             }
+            // the new file might be shorter, truncate it to the current cursor position
+            let pos = changelog.seek(io::SeekFrom::Current(0))?;
+            changelog.set_len(pos)?;
         }
     }
 
