@@ -367,7 +367,7 @@ pub fn prepare_debian_folder(
             }
             for (feature, (f_deps, o_deps)) in features_with_deps.into_iter() {
                 let mut feature_package =
-                    Package::new(base_pkgname, name_suffix, upstream_name,
+                    Package::new(base_pkgname, name_suffix, &crate_info.version(), upstream_name,
                         summary.as_ref(), description.as_ref(),
                         if feature == "" { None } else { Some(feature) },
                         f_deps, deb_deps(&o_deps)?,

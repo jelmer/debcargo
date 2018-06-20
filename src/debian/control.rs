@@ -172,6 +172,7 @@ impl Package {
     pub fn new(
         basename: &str,
         name_suffix: Option<&str>,
+        version: &Version,
         upstream_name: &str,
         summary: Option<&String>,
         description: Option<&String>,
@@ -186,12 +187,19 @@ impl Package {
             None => format!("{}", basename),
             Some(suf) => format!("{}{}", basename, suf),
         };
-        let deb_feature = &|f: &str| {
+        let name = match feature {
+            None => deb_name(&pkgname),
+            Some(f) => deb_feature_name(&pkgname, f),
+        };
+        let deb_feature2 = &|b: &str, f: &str| {
             format!("{} (= ${{binary:Version}})", if f == "" {
-                deb_name(&pkgname)
+                deb_name(b)
             } else {
-                deb_feature_name(&pkgname, f)
+                deb_feature_name(b, f)
             })
+        };
+        let deb_feature = &|f: &str| {
+            deb_feature2(&pkgname, &f)
         };
 
         let (recommends, suggests) = if let None = feature {
@@ -200,22 +208,23 @@ impl Package {
         } else {
             (vec![], vec![])
         };
-        let provides: Vec<String> = match name_suffix {
-            None => f_provides.into_iter().map(deb_feature).collect(),
-            Some(_) => {
-                let mut provides = f_provides.clone().into_iter().map(deb_feature).collect::<Vec<_>>();
-                let deb_feature_base = &|f: &str| {
-                    format!("{} (= ${{binary:Version}})", if f == "" {
-                        deb_name(basename)
-                    } else {
-                        deb_feature_name(basename, f)
-                    })
-                };
-                provides.push(deb_feature_base(feature.unwrap_or("")));
-                provides.extend(f_provides.into_iter().map(deb_feature_base));
-                provides
-            }
+
+        let mut provides = vec![];
+        let suffixes = vec![
+            "".to_string(),
+            format!("-{}", version.major),
+            format!("-{}.{}", version.major, version.minor),
+            format!("-{}.{}.{}", version.major, version.minor, version.patch),
+        ];
+        for suffix in suffixes.iter() {
+            provides.push(deb_feature2(&format!("{}{}", basename, suffix), feature.unwrap_or("")));
+            provides.extend(f_provides.iter().map(|f| deb_feature2(&format!("{}{}", basename, suffix), f)));
         };
+        let provides_self = deb_feature(feature.unwrap_or(""));
+        // TODO: can use remove_item() when that is stabilised
+        let i = provides.iter().position(|x| *x == *provides_self);
+        i.map(|i| provides.remove(i));
+
         let mut depends = vec!["${misc:Depends}".to_string()];
         depends.extend(f_deps.into_iter().map(deb_feature));
         depends.extend(o_deps);
@@ -229,10 +238,6 @@ impl Package {
             },
         };
 
-        let name = match feature {
-            None => deb_name(&pkgname),
-            Some(f) => deb_feature_name(&pkgname, f),
-        };
         let long_desc = match description {
             None => "".to_string(),
             Some(ref s) => s.to_string(),
@@ -296,6 +301,7 @@ impl Package {
     pub fn new_bin(
         upstream_name: &str,
         name: &str,
+        // TODO: version_suffix and Provides
         section: Option<&str>,
         summary: &Option<String>,
         description: &Option<String>,
