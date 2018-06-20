@@ -4,37 +4,6 @@ important lintian errors that crop up.
 This document is probably better moved to the GitLab issue tracker on salsa.debian.org
 
 
-## Important issues
-
-- See debcargo.toml.example and the TODOs listed there
-
-  - allow_prerelease_deps will solve this error for cargo 0.24:
-
-    crates-io: Dependency on prerelease version: error-chain Predicate { op:
-    Compatible, major: 0, minor: Some(11), patch: Some(0), pre:
-    [AlphaNumeric("rc"), Numeric(2)] }
-
-    The issue doesn't crop up with cargo 0.25+ but might crop up with other
-    crates, i.e. it's still something we have to fix in debcargo.
-
-    This would allow us to delete `tests/sh/build-allow-fail`
-
-- (This is semi-fixed but needs more work.)
-
-  We don't handle version ranges well yet:
-
-  Cargo.toml dependency x (> a, < b) should convert to
-  d/control dependency x-a | x-(a+1) | .. | x-(b-1) | x-b
-
-  Cargo.toml dependency x (> a) should convert to
-  d/control dependency x-a | x-(a+1) | .. | x-(max(current version, a+4))
-
-  See ML thread starting 2018-02-18 for details:
-  "debcargo update handling alternative build depends"
-
-  Symptoms include sbuild failure like "unsat-dependency: dh-cargo:amd64 (>= 3)"
-
-
 ## Lower-priority tasks
 
 Minor issues

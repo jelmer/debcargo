@@ -40,7 +40,6 @@
 # See https://docs.rs/glob/latest/glob/struct.Pattern.html for syntax
 #excludes = ["libgit2/**"]
 
-# TODO, not yet implemented
 # Whether to allow prerelease deps, by rewriting these to the released version.
 # This should only be enabled for certain crates if really necessary, and first
 # you should check that they can actually build when this is enabled.

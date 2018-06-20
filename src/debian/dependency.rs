@@ -8,6 +8,7 @@ use std::cmp;
 use std::fmt;
 
 use errors::*;
+use config::Config;
 
 #[derive(Eq, Clone)]
 enum V {
@@ -181,8 +182,22 @@ impl VRange {
 fn coerce_unacceptable_predicate<'a>(
     dep: &Dependency,
     p: &'a semver_parser::range::Predicate,
-    mmp: &V,
+    allow_prerelease_deps: bool,
 ) -> Result<&'a semver_parser::range::Op> {
+    let mmp = &V::new(p)?;
+
+    // Cargo/semver and Debian handle pre-release versions quite
+    // differently, so a versioned Debian dependency cannot properly
+    // handle pre-release crates. This might be OK most of the time,
+    // coerce it to the non-pre-release version.
+    if !p.pre.is_empty() {
+        if allow_prerelease_deps {
+            debcargo_warn!("Coercing removal of prerelease part of dependency: {} {:?}", dep.name(), p)
+        } else {
+            debcargo_bail!("Cannot represent prerelease part of dependency: {} {:?}", dep.name(), p)
+        }
+    }
+
     use debian::dependency::V::M;
     match (&p.op, mmp) {
         (&Gt, &M(0)) => Ok(&p.op),
@@ -282,7 +297,7 @@ fn generate_version_constraints(
 }
 
 /// Translates a Cargo dependency into a Debian package dependency.
-pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> // result is a AND-clause
+pub fn deb_dep(config: &Config, dep: &Dependency) -> Result<Vec<String>> // result is a AND-clause
 {
     let dep_dashed = dep.name().replace('_', "-");
     let mut suffixes = Vec::new();
@@ -301,17 +316,7 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> // result is a AND-claus
         let base = format!("librust-{}", dep_dashed);
         let mut vr = VRange::new();
         for p in &req.predicates {
-            // Cargo/semver and Debian handle pre-release versions quite
-            // differently, so a versioned Debian dependency cannot properly
-            // handle pre-release crates. This might be OK most of the time,
-            // coerce it to the non-pre-release version.
-            // FIXME: guard this with a config option.
-            if !p.pre.is_empty() {
-                debcargo_warn!("Stripped off prerelease part of dependency: {} {:?}", dep.name(), p)
-            }
-
-            let mmp = V::new(p)?;
-            let op = coerce_unacceptable_predicate(dep, &p, &mmp)?;
+            let op = coerce_unacceptable_predicate(dep, &p, config.allow_prerelease_deps)?;
             generate_version_constraints(&mut vr, dep, &p, op)?;
         }
         deps.push(vr.to_deb_or_clause(&base, &suffix)?);
@@ -319,11 +324,11 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> // result is a AND-claus
     Ok(deps)
 }
 
-pub fn deb_deps(cdeps: &Vec<Dependency>) -> Result<Vec<String>> // result is a AND-clause
+pub fn deb_deps(config: &Config, cdeps: &Vec<Dependency>) -> Result<Vec<String>> // result is a AND-clause
 {
     let mut deps = Vec::new();
     for dep in cdeps {
-        deps.extend(deb_dep(dep)?.iter().map(String::to_string));
+        deps.extend(deb_dep(config, dep)?.iter().map(String::to_string));
     }
     deps.sort();
     deps.dedup();

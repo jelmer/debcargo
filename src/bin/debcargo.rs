@@ -14,6 +14,7 @@ extern crate tar;
 extern crate tempdir;
 extern crate walkdir;
 
+use ansi_term::Colour::Red;
 use clap::{App, AppSettings, ArgMatches, SubCommand};
 use glob::Pattern;
 use std::fs;
@@ -180,7 +181,7 @@ fn real_main() -> Result<()> {
 
 fn main() {
     if let Err(e) = real_main() {
-        eprintln!("Something failed: {:?}", e);
+        eprintln!("{}", Red.bold().paint(format!("Something failed: {:?}", e)));
         std::process::exit(1);
     }
 }

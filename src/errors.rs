@@ -42,15 +42,13 @@ macro_rules! debcargo_warn {
 #[macro_export]
 macro_rules! debcargo_bail {
     ($e:expr) => {{
-        use ansi_term::Colour::Red;
-        return Err(format_err!("{}", Red.bold().paint($e)));
+        return Err(format_err!("{}", $e));
     }};
 
     ($fmt:expr, $( $arg:tt)+) => {
         {
-            use ansi_term::Colour::Red;
             let error_string = format!($fmt, $($arg)+);
-            return Err(format_err!("{}", Red.bold().paint(error_string)));
+            return Err(format_err!("{}", error_string));
         }
     };
 }

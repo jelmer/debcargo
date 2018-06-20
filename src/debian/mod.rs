@@ -1,4 +1,3 @@
-pub use self::dependency::deb_dep;
 pub use self::dependency::deb_deps;
 
 use std::fs;
@@ -202,10 +201,10 @@ pub fn prepare_debian_folder(
     /*debcargo_info!("features_with_deps: {:?}", features_with_deps
         .iter()
         .map(|(&f, &(ref ff, ref dd))| {
-            (f, (ff, deb_deps(dd).unwrap()))
+            (f, (ff, deb_deps(config, dd).unwrap()))
         }).collect::<Vec<_>>());*/
     let default_deps = crate_info.feature_all_deps(&features_with_deps, "default");
-    //debcargo_info!("default_deps: {:?}", deb_deps(&default_deps)?);
+    //debcargo_info!("default_deps: {:?}", deb_deps(config, &default_deps)?);
 
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
@@ -309,14 +308,14 @@ pub fn prepare_debian_folder(
                 "cargo:native",
                 "rustc:native",
                 "libstd-rust-dev",
-             ], deb_deps(&default_deps)?)
+             ], deb_deps(config, &default_deps)?)
         } else {
             assert!(lib);
             (vec![
                 "cargo:native <!nocheck>",
                 "rustc:native <!nocheck>",
                 "libstd-rust-dev <!nocheck>",
-             ], deb_deps(&default_deps)?.iter().map(|x| {
+             ], deb_deps(config, &default_deps)?.iter().map(|x| {
                 x.to_string().split("|").map(|x| {
                     x.trim_right().to_string() + " <!nocheck> "
                 }).join("|").trim_right().to_string()
@@ -370,7 +369,7 @@ pub fn prepare_debian_folder(
                     Package::new(base_pkgname, name_suffix, &crate_info.version(), upstream_name,
                         summary.as_ref(), description.as_ref(),
                         if feature == "" { None } else { Some(feature) },
-                        f_deps, deb_deps(&o_deps)?,
+                        f_deps, deb_deps(config, &o_deps)?,
                         provides.remove(feature).unwrap(),
                         if feature == "" { recommends.clone() } else { vec![] },
                         if feature == "" { suggests.clone() } else { vec![] })?;
