@@ -97,7 +97,7 @@
 # the failing test on the architectures that they are expected to fail on.
 #build_depends_excludes = ["PLACEHOLDER", "PLACEHOLDER"]
 
-[packages."librust-PACKAGE-SEMVER-dev"]
+[packages."librust-PACKAGE_MAYBE_WITH_VERSION-dev"]
 
 # Section override for the binary package. Use this if your crate is both a
 # library and a binary crate; in this case, omit source.section which will
