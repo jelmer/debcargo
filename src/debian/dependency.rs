@@ -2,12 +2,14 @@ use semver_parser;
 use semver_parser::range::*;
 use semver_parser::range::Op::*;
 use cargo::core::Dependency;
+use itertools::Itertools;
 
+use std::cmp;
 use std::fmt;
 
 use errors::*;
 
-#[derive(PartialEq)]
+#[derive(Eq, Clone)]
 enum V {
     M(u64),
     MM(u64, u64),
@@ -21,7 +23,7 @@ impl V {
             (None, None) => M(p.major),
             (Some(minor), None) => MM(p.major, minor),
             (Some(minor), Some(patch)) => MMP(p.major, minor, patch),
-            (None, Some(_)) => panic!("semver had patch without minor"),
+            (None, Some(_)) => debcargo_bail!("semver had patch without minor"),
         };
         Ok(mmp)
     }
@@ -58,6 +60,33 @@ impl V {
             MMP(major, minor, patch) => MMP(major, minor, patch + 1),
         }
     }
+
+    fn mmp(&self) -> (u64, u64, u64) {
+        use self::V::*;
+        match *self {
+            M(major) => (major, 0, 0),
+            MM(major, minor) => (major, minor, 0),
+            MMP(major, minor, patch) => (major, minor, patch),
+        }
+    }
+}
+
+impl cmp::Ord for V {
+    fn cmp(&self, other: &V) -> cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+impl cmp::PartialOrd for V {
+    fn partial_cmp(&self, other: &V) -> Option<cmp::Ordering> {
+        self.mmp().partial_cmp(&other.mmp())
+    }
+}
+
+impl cmp::PartialEq for V {
+    fn eq(&self, other: &V) -> bool {
+        self.mmp() == other.mmp()
+    }
 }
 
 impl fmt::Display for V {
@@ -67,6 +96,84 @@ impl fmt::Display for V {
             M(major) => write!(f, "{}", major),
             MM(major, minor) => write!(f, "{}.{}", major, minor),
             MMP(major, minor, patch) => write!(f, "{}.{}.{}", major, minor, patch),
+        }
+    }
+}
+
+struct VRange {
+    ge: Option<V>,
+    lt: Option<V>,
+}
+
+impl VRange {
+    fn new() -> Self {
+        VRange { ge: None, lt: None }
+    }
+
+    fn constrain_ge(&mut self, ge: V) -> &Self {
+        match self.ge {
+            Some(ref ge_) if &ge < ge_ => (),
+            _ => self.ge = Some(ge),
+        };
+        self
+    }
+
+    fn constrain_lt(&mut self, lt: V) -> &Self {
+        match self.lt {
+            Some(ref lt_) if &lt >= lt_ => (),
+            _ => self.lt = Some(lt),
+        };
+        self
+    }
+
+    fn to_deb_or_clause(&self, base: &str, suffix: &str) -> Result<String> {
+        use debian::dependency::V::*;
+        match (&self.ge, &self.lt) {
+            (None, None) => Ok(format!("{}{}", base, suffix)),
+            (Some(ge), None) => Ok(format!("{}{} (>= {}~~)", base, suffix, ge)),
+            (None, Some(lt)) => Ok(format!("{}{} (<< {}~~)", base, suffix, lt)),
+            (Some(ge), Some(lt)) => {
+                if ge >= lt {
+                    debcargo_bail!("bad version range: >= {}, << {}", ge, lt);
+                }
+                let mut ranges = vec![];
+                let (lt_maj, lt_min, lt_pat) = lt.mmp();
+                let (ge_maj, ge_min, ge_pat) = ge.mmp();
+                if ge_maj < lt_maj {
+                    ranges.push((M(ge_maj), Some((true, ge))));
+                    ranges.extend((ge_maj+1..lt_maj).map(|maj| (M(maj), None)));
+                    ranges.push((M(lt_maj), Some((false, lt))));
+                } else {
+                    assert!(ge_maj == lt_maj);
+                    if ge_min < lt_min {
+                        ranges.push((MM(ge_maj, ge_min), Some((true, ge))));
+                        ranges.extend((ge_min+1..lt_min).map(|min| (MM(ge_maj, min), None)));
+                        ranges.push((MM(lt_maj, lt_min), Some((false, lt))));
+                    } else {
+                        assert!(ge_min == lt_min);
+                        ranges.push((MMP(ge_maj, ge_min, ge_pat), Some((true, ge))));
+                        ranges.extend((ge_pat+1..lt_pat).map(|pat| (MMP(ge_maj, ge_min, pat), None)));
+                        ranges.push((MMP(lt_maj, lt_min, lt_pat), Some((false, lt))));
+                    }
+                };
+                // reverse the order so higher versions go first
+                // this helps sbuild find build-deps, it does not resolve alternatives by default
+                Ok(ranges.iter().rev().filter_map(|(ver, cons)| match cons {
+                    None => Some(format!("{}-{}{}", base, ver, suffix)),
+                    Some((true, c)) => if c == &ver {
+                        // A-x >= x is redundant, drop the >=
+                        Some(format!("{}-{}{}", base, ver, suffix))
+                    } else {
+                        Some(format!("{}-{}{} (>= {}~~)", base, ver, suffix, c))
+                    },
+                    Some((false, c)) => if c == &ver {
+                        // A-x << x is unsatisfiable, drop it
+                        None
+                    } else {
+                        Some(format!("{}-{}{} (<< {}~~)", base, ver, suffix, c))
+                    },
+                }).join(" | "))
+            }
         }
     }
 }
@@ -99,79 +206,79 @@ fn coerce_unacceptable_predicate<'a>(
 }
 
 fn generate_version_constraints(
+    vr: &mut VRange,
     dep: &Dependency,
     p: &semver_parser::range::Predicate,
     op: &semver_parser::range::Op,
-    mmp: &V,
-) -> Result<Vec<String>> // result is a AND-clause
+) -> Result<()>
 {
+    let mmp = V::new(p)?;
     use debian::dependency::V::*;
-    let mut deps : Vec<String> = Vec::new();
     // see https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html
     // for semantics
-    match (op, mmp) {
+    match (op, &mmp.clone()) {
         (&Lt, &M(0)) | (&Lt, &MM(0, 0)) | (&Lt, &MMP(0, 0, 0)) => debcargo_bail!(
             "Unrepresentable dependency version predicate: {} {:?}",
             dep.name(),
             p
         ),
         (&Lt, _) => {
-            deps.push(format!("<< {}~~", mmp));
+            vr.constrain_lt(mmp);
         }
         (&LtEq, _) => {
-            deps.push(format!("<< {}~~", mmp.incpatch()));
+            vr.constrain_lt(mmp.incpatch());
         }
         (&Gt, _) => {
-            deps.push(format!(">= {}~~", mmp.incpatch()));
+            vr.constrain_ge(mmp.incpatch());
         }
         (&GtEq, _) => {
-            deps.push(format!(">= {}~~", mmp));
+            vr.constrain_ge(mmp);
         }
 
         (&Ex, _) => {
-            deps.push(format!(">= {}~~", mmp));
-            deps.push(format!("<< {}~~", mmp.incpatch()));
+            vr.constrain_lt(mmp.incpatch());
+            vr.constrain_ge(mmp);
         }
 
         (&Tilde, &M(_)) | (&Tilde, &MM(_, _)) => {
-            deps.push(format!(">= {}~~", mmp));
-            deps.push(format!("<< {}~~", mmp.inclast()));
+            vr.constrain_lt(mmp.inclast());
+            vr.constrain_ge(mmp);
         }
         (&Tilde, &MMP(major, minor, _)) => {
-            deps.push(format!(">= {}~~", mmp));
-            deps.push(format!("<< {}~~", MM(major, minor + 1)));
+            vr.constrain_lt(MM(major, minor + 1));
+            vr.constrain_ge(mmp);
         }
 
         (&Compatible, &MMP(0, 0, _)) => {
-            deps.push(format!(">= {}~~", mmp));
-            deps.push(format!("<< {}~~", mmp.inclast()));
+            vr.constrain_lt(mmp.inclast());
+            vr.constrain_ge(mmp);
         }
         (&Compatible, &MMP(0, minor, _)) |
         (&Compatible, &MM(0, minor)) => {
-            deps.push(format!(">= {}~~", mmp));
-            deps.push(format!("<< {}~~", MM(0, minor + 1)));
+            vr.constrain_lt(MM(0, minor + 1));
+            vr.constrain_ge(mmp);
         }
         (&Compatible, &MMP(major, _, _)) |
         (&Compatible, &MM(major, _)) |
         (&Compatible, &M(major)) => {
-            deps.push(format!(">= {}~~", mmp));
-            deps.push(format!("<< {}~~", M(major + 1)));
+            vr.constrain_lt(M(major + 1));
+            vr.constrain_ge(mmp);
         }
 
         (&Wildcard(WildcardVersion::Major), _) => {
             ();
         }
         (&Wildcard(WildcardVersion::Minor), _) => {
-            deps.push(format!(">= {}~~", mmp.major()));
-            deps.push(format!("<< {}~~", mmp.major() + 1));
+            vr.constrain_lt(M(mmp.major() + 1));
+            vr.constrain_ge(M(mmp.major()));
         }
         (&Wildcard(WildcardVersion::Patch), _) => {
-            deps.push(format!(">= {}~~", mmp));
-            deps.push(format!("<< {}~~", MM(mmp.major(), mmp.minor() + 1)));
+            vr.constrain_lt(MM(mmp.major(), mmp.minor() + 1));
+            vr.constrain_ge(mmp);
         }
     }
 
-    Ok(deps)
+    Ok(())
 }
 
 /// Translates a Cargo dependency into a Debian package dependency.
@@ -191,7 +298,8 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> // result is a AND-claus
     let req = semver_parser::range::parse(&dep.version_req().to_string()).unwrap();
     let mut deps = Vec::new();
     for suffix in suffixes {
-        let pkg = format!("librust-{}{}", dep_dashed, suffix);
+        let base = format!("librust-{}", dep_dashed);
+        let mut vr = VRange::new();
         for p in &req.predicates {
             // Cargo/semver and Debian handle pre-release versions quite
             // differently, so a versioned Debian dependency cannot properly
@@ -204,15 +312,9 @@ pub fn deb_dep(dep: &Dependency) -> Result<Vec<String>> // result is a AND-claus
 
             let mmp = V::new(p)?;
             let op = coerce_unacceptable_predicate(dep, &p, &mmp)?;
-            let constraints = generate_version_constraints(dep, &p, op, &mmp)?;
-            if constraints.is_empty() {
-                deps.push(pkg.to_string());
-            } else {
-                deps.extend(constraints
-                    .iter()
-                    .map(|c| format!("{} ({})", &pkg, &c)));
-            }
+            generate_version_constraints(&mut vr, dep, &p, op)?;
         }
+        deps.push(vr.to_deb_or_clause(&base, &suffix)?);
     }
     Ok(deps)
 }
@@ -223,5 +325,7 @@ pub fn deb_deps(cdeps: &Vec<Dependency>) -> Result<Vec<String>> // result is a A
     for dep in cdeps {
         deps.extend(deb_dep(dep)?.iter().map(String::to_string));
     }
+    deps.sort();
+    deps.dedup();
     Ok(deps)
 }
