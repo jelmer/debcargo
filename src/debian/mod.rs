@@ -214,10 +214,7 @@ pub fn prepare_debian_folder(
     let name_suffix = pkgbase.name_suffix();
     let upstream_name = pkgbase.upstream_name();
 
-    let overlay = config
-        .overlay
-        .as_ref()
-        .map(|p| config_path.unwrap().parent().unwrap().join(p));
+    let overlay = config.overlay_dir(config_path);
 
     overlay.as_ref().map(|p| {
         copy_tree(p.as_path(), tempdir.path()).unwrap();

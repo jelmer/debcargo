@@ -17,8 +17,9 @@ extern crate walkdir;
 use ansi_term::Colour::Red;
 use clap::{App, AppSettings, ArgMatches, SubCommand};
 use glob::Pattern;
+use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::io::{BufRead, BufReader};
 
 use debcargo::errors::*;
@@ -27,12 +28,11 @@ use debcargo::debian::{self, BaseInfo};
 use debcargo::config::{parse_config, Config};
 use debcargo::util;
 
-fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
+fn lookup_fixmes(srcdir: &Path) -> Result<Vec<PathBuf>> {
     let mut fixme_files = Vec::new();
     for entry in walkdir::WalkDir::new(srcdir) {
         let entry = entry?;
         if entry.file_type().is_file() {
-            let filename = entry.path().to_str().unwrap();
             let file = fs::File::open(entry.path())?;
             let reader = BufReader::new(file);
             // If we find one FIXME we break the loop and check next file. Idea
@@ -40,7 +40,7 @@ fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
             for line in reader.lines() {
                 if let Ok(line) = line {
                     if line.contains("FIXME") {
-                        fixme_files.push(filename.to_string());
+                        fixme_files.push(entry.path().to_path_buf());
                         break;
                     }
                 }
@@ -49,6 +49,10 @@ fn lookup_fixmes(srcdir: &Path) -> Result<Vec<String>> {
     }
 
     Ok(fixme_files)
+}
+
+fn rel_p<'a>(path: &'a Path, base: &'a Path) -> &'a str {
+    path.strip_prefix(base).unwrap_or(path).to_str().unwrap()
 }
 
 fn do_package(matches: &ArgMatches) -> Result<()> {
@@ -92,21 +96,37 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         copyright_guess_harder,
     )?;
 
+    let curdir = env::current_dir()?;
     debcargo_info!(
         concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
-        pkg_srcdir.to_str().unwrap(),
-        &orig_tar_gz.to_str().unwrap()
+        rel_p(pkg_srcdir, &curdir),
+        rel_p(&orig_tar_gz, &curdir)
     );
     let fixmes = lookup_fixmes(pkg_srcdir.join("debian").as_path());
     if let Ok(fixmes) = fixmes {
         if !fixmes.is_empty() {
             debcargo_warn!("FIXME found in the following files.");
-            debcargo_warn!("Either supply an overlay or add extra overrides to your config file.");
             for f in fixmes {
                 if util::is_hint_file(&f) {
-                    debcargo_warn!(format!("\t(•) {}", f));
+                    debcargo_warn!("\t(•) {}", rel_p(&f, &curdir));
                 } else {
-                    debcargo_warn!(format!("\t •  {}", f));
+                    debcargo_warn!("\t •  {}", rel_p(&f, &curdir));
+                }
+            }
+            debcargo_warn!("");
+            debcargo_warn!("To fix, try combinations of the following: ");
+            match config_path {
+                None => debcargo_warn!("\t •  Write a config file and use it with --config"),
+                Some(c) => {
+                    debcargo_warn!(format!("\t •  Add or edit overrides in your config file:"));
+                    debcargo_warn!(format!("\t    {}", rel_p(&c, &curdir)));
+                }
+            };
+            match config.overlay {
+                None => debcargo_warn!(format!("\t •  Create an overlay directory and add it to your config file with overlay = \"/path/to/overlay\"")),
+                Some(_) => {
+                    debcargo_warn!(format!("\t •  Add or edit files in your overlay directory:"));
+                    debcargo_warn!(format!("\t    {}", rel_p(&config.overlay_dir(config_path).unwrap(), &curdir)));
                 }
             }
         }

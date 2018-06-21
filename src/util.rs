@@ -1,15 +1,16 @@
 use std::fs;
 use std::io::Error;
 use std::iter::Iterator;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::symlink;
 
 use walkdir;
 
 pub const HINT_SUFFIX: &'static str = ".debcargo.hint";
 
-pub fn is_hint_file(file: &String) -> bool {
-    let file = file.as_bytes();
+pub fn is_hint_file(file: &PathBuf) -> bool {
+    let file = file.as_os_str().as_bytes();
     file.len() >= HINT_SUFFIX.len()
         && &file[file.len() - HINT_SUFFIX.len()..] == HINT_SUFFIX.as_bytes()
 }

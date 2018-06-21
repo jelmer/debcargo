@@ -68,6 +68,11 @@ impl Config {
         }
     }
 
+    pub fn overlay_dir(&self, config_path: Option<&Path>) -> Option<PathBuf> {
+        self.overlay.as_ref()
+            .map(|p| config_path.unwrap().parent().unwrap().join(p))
+    }
+
     pub fn is_source_present(&self) -> bool {
         self.source.is_some()
     }
