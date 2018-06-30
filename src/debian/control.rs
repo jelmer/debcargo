@@ -10,7 +10,7 @@ use config::{Config, OverrideDefaults};
 use errors::*;
 use util::vec_opt_iter;
 
-pub const RUST_MAINT: &'static str = "Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
+pub const RUST_MAINT: &'static str = "Debian Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
 pub const VCS_ALL: &'static str = "https://salsa.debian.org/rust-team/debcargo-conf";
 
 pub struct Source {
