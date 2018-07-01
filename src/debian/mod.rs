@@ -324,7 +324,7 @@ pub fn prepare_debian_folder(
             upstream_name,
             if let Some(ref home) = meta.homepage { home } else { "" },
             lib,
-            ["debhelper (>= 11)", "dh-cargo (>= 5)"].iter()
+            ["debhelper (>= 11)", "dh-cargo (>= 6)"].iter()
                 .chain(build_deps_base.iter())
                 .map(|x| x.to_string())
                 .chain(build_deps_extra)
