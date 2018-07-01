@@ -280,9 +280,6 @@ fn generate_version_constraints(
             vr.constrain_ge(mmp);
         }
 
-        (&Wildcard(WildcardVersion::Major), _) => {
-            ();
-        }
         (&Wildcard(WildcardVersion::Minor), _) => {
             vr.constrain_lt(M(mmp.major() + 1));
             vr.constrain_ge(M(mmp.major()));
