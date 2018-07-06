@@ -1,6 +1,6 @@
 use cargo::{Config,
-            core::{Dependency, Package, PackageId, Registry, Source, SourceId, Summary,
-                   TargetKind},
+            core::{Dependency, Package, PackageId, Source, SourceId, Summary,
+                   TargetKind, FeatureValue},
             sources::RegistrySource};
 use cargo::util::FileLock;
 use cargo::core::manifest;
@@ -162,7 +162,7 @@ impl CrateInfo {
         &self.manifest
     }
 
-    pub fn features(&self) -> &BTreeMap<String, Vec<String>> {
+    pub fn features(&self) -> &BTreeMap<String, Vec<FeatureValue>> {
         self.summary.features()
     }
 
@@ -204,7 +204,7 @@ impl CrateInfo {
 
         let deps_by_name : BTreeMap<&str, &Dependency> = self.dependencies().iter().filter_map(|dep| {
             // we treat build-dependencies also as dependencies in Debian
-            if dep.kind() == Kind::Development { None } else { Some((dep.name().to_inner(), dep)) }
+            if dep.kind() == Kind::Development { None } else { Some((dep.name().as_str(), dep)) }
         }).collect();
 
         // calculate dependencies of features from other crates
@@ -213,19 +213,22 @@ impl CrateInfo {
         for (feature, deps) in features {
             let mut feature_deps = vec![""];
             // always need "", because in dh-cargo we symlink /usr/share/doc/{$feature => $main} pkg
-            let mut other_deps = Vec::new();
+            let mut other_deps : Vec<Dependency> = Vec::new();
             for dep_str in deps {
-                let mut dep_tokens = dep_str.splitn(2, '/');
-                let dep_name = dep_tokens.next().unwrap();
-                match dep_tokens.next() {
-                    None => {
+                use self::FeatureValue::*;
+                match dep_str {
+                    Feature(dep_feature) =>
                         // another feature is a dependency
-                        feature_deps.push(dep_name);
-                    }
-                    Some(dep_feature) => {
+                        feature_deps.push(dep_feature),
+                    Crate(dep_name) => {
                         // another package is a dependency
-                        let &dep = deps_by_name.get(dep_name).unwrap(); // valid Cargo.toml files must have this
-                        let mut dep = dep.clone();
+                        let dep = *deps_by_name.get(dep_name.as_str()).unwrap(); // valid Cargo.toml files must have this
+                        other_deps.push((*dep).clone());
+                    },
+                    CrateFeature(dep_name, dep_feature) => {
+                        // another package is a dependency
+                        let dep = *deps_by_name.get(dep_name.as_str()).unwrap(); // valid Cargo.toml files must have this
+                        let mut dep = (*dep).clone();
                         dep.set_features(vec![dep_feature.to_string()]);
                         dep.set_default_features(false);
                         other_deps.push(dep);
@@ -238,7 +241,7 @@ impl CrateInfo {
         // calculate dependencies of "optional dependencies" that are also features
         let deps_required : Vec<Dependency> = deps_by_name.iter().filter_map(|(_, &dep)| {
             if dep.is_optional() {
-                features_with_deps.insert(&dep.name().to_inner(), (vec![""], vec![dep.clone()]));
+                features_with_deps.insert(&dep.name().as_str(), (vec![""], vec![dep.clone()]));
                 None
             } else {
                 Some(dep.clone())

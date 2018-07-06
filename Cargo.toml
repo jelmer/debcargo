@@ -10,7 +10,7 @@ repository = "https://salsa.debian.org/rust-team/debcargo"
 description = "Create a Debian package from a Cargo crate."
 
 [dependencies]
-cargo = "0.27"
+cargo = "0.28"
 clap = "2.18"
 chrono = "0.4"
 failure = "0.1"
