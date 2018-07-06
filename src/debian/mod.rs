@@ -263,7 +263,7 @@ pub fn prepare_debian_folder(
             crate_info.manifest(),
             copyright_guess_harder,
         )?;
-        writeln!(copyright, "{}", dep5_copyright)?;
+        write!(copyright, "{}", dep5_copyright)?;
 
         // debian/watch
         let mut watch = file("watch")?;

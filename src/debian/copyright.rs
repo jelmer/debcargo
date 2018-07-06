@@ -17,27 +17,18 @@ use std::io::{BufRead, BufReader, Read};
 use errors::*;
 use debian::control::RUST_MAINT;
 
-const DEB_COPYRIGHT_FORMAT: &'static str = "https://www.debian.\
-                                            org/doc/packaging-manuals/copyright-format/1.0/";
+const DEB_COPYRIGHT_FORMAT: &'static str = "\
+    https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/";
 
 macro_rules! format_para {
     ($fmt: expr, $text:expr) => {
         {
-            let text = Some($text.to_string());
-            for (n, s) in text.iter().enumerate() {
-                if n != 0 {
+            for line in $text.lines() {
+                let line = line.trim_right();
+                if line.is_empty() {
                     writeln!($fmt, " .")?;
-                }
-
-                for line in s.trim().lines() {
-                    let line = line.trim();
-                    if line.is_empty() {
-                        writeln!($fmt, " .")?;
-                    } else if line.starts_with("- ") {
-                        writeln!($fmt, " {}", line)?;
-                    } else {
-                        writeln!($fmt, " {}", line)?;
-                    }
+                } else {
+                    writeln!($fmt, " {}", line)?;
                 }
             }
             write!($fmt, "")
@@ -75,17 +66,17 @@ pub struct DebCopyright {
 impl fmt::Display for DebCopyright {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Format: {}\n", self.format)?;
-        writeln!(f, "{}", self.upstream)?;
+        write!(f, "{}", self.upstream)?;
 
         for file in &self.files {
-            write!(f, "{}", file)?;
+            write!(f, "\n{}", file)?;
         }
 
         for license in &self.licenses {
-            write!(f, "{}", license)?;
+            write!(f, "\n{}", license)?;
         }
 
-        write!(f, "\n")
+        Ok(())
     }
 }
 
@@ -111,7 +102,7 @@ impl fmt::Display for UpstreamInfo {
             write!(f, "Source: {}\n", self.source)?;
         }
 
-        write!(f, "")
+        Ok(())
     }
 }
 
@@ -134,8 +125,7 @@ impl fmt::Display for Files {
             write!(f, "Comment:\n")?;
             format_para!(f, &self.comment)?;
         }
-
-        write!(f, "\n")
+        Ok(())
     }
 }
 
@@ -166,7 +156,7 @@ impl fmt::Display for License {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "License: {}\n", self.name)?;
         format_para!(f, &self.text)?;
-        write!(f, "\n")
+        Ok(())
     }
 }
 
