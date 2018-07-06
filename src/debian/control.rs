@@ -110,7 +110,7 @@ impl Source {
         let vcs_browser = format!(
             "https://salsa.debian.org/rust-team/debcargo-conf/tree/master/src/{}", pkgname);
         let vcs_git = format!(
-            "https://salsa.debian.org/rust-team/debcargo-conf.git src/{}", pkgname);
+            "https://salsa.debian.org/rust-team/debcargo-conf.git [src/{}]", pkgname);
 
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
             upstream_name.to_string()
