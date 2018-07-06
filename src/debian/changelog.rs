@@ -100,6 +100,12 @@ impl ChangelogEntry {
         }
     }
 
+    pub fn version_parts(self: &ChangelogEntry) -> (String, String) {
+        let re = Regex::new(r"^(.*)-([^-]*)$").unwrap();
+        let matches = re.captures(&self.version).unwrap();
+        (matches[1].to_string(), matches[2].to_string())
+    }
+
     pub fn deb_version_suffix(self: &ChangelogEntry) -> String {
         let re = Regex::new(r".*-([^-]*)$").unwrap();
         re.captures(&self.version).unwrap()[1].to_string()
