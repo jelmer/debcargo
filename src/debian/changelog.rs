@@ -90,7 +90,7 @@ impl<'a> Iterator for ChangelogIterator<'a> {
             if *c != ('\n' as u8) {
                 continue;
             }
-            if slice.len() >= i || (slice[i + 1] as char).is_whitespace() {
+            if i < (slice.len()-1) && (slice[i + 1] as char).is_whitespace() {
                 continue;
             }
             self.index += i + 1;
