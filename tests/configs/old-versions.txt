@@ -6,6 +6,7 @@ bitflags-0.9
 bytecount-0.1
 byteorder-0.4
 bytes-0.3
+cargo-0.27
 crossbeam-0.2
 env-logger-0.3
 filetime-0.1
@@ -27,6 +28,7 @@ regex-0.2
 regex-syntax-0.3
 regex-syntax-0.4
 regex-syntax-0.5
+semver-parser-0.7
 serde-0.9
 serde-json-0.9
 slab-0.1
