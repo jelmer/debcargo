@@ -123,7 +123,7 @@ impl Source {
             priority: priority,
             maintainer: maintainer,
             uploaders: uploaders,
-            standards: "4.1.4".to_string(),
+            standards: "4.1.5".to_string(),
             build_deps: build_deps,
             vcs_git: vcs_git,
             vcs_browser: vcs_browser,
