@@ -11,7 +11,6 @@ use errors::*;
 use util::vec_opt_iter;
 
 pub const RUST_MAINT: &'static str = "Debian Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
-pub const VCS_ALL: &'static str = "https://salsa.debian.org/rust-team/debcargo-conf";
 
 pub struct Source {
     name: String,
@@ -100,16 +99,18 @@ impl Source {
         lib: bool,
         build_deps: Vec<String>,
     ) -> Result<Source> {
-        let source = match name_suffix {
-            None => format!("rust-{}", basename),
-            Some(suf) => format!("rust-{}{}", basename, suf),
+        let pkgname = match name_suffix {
+            None => format!("{}", basename),
+            Some(suf) => format!("{}{}", basename, suf),
         };
         let section = if lib { "rust" } else { "FIXME-(source.section)" };
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
         let uploaders = vec![get_deb_author()?];
-        let vcs_browser = VCS_ALL.to_string();
-        let vcs_git = format!("{}.git", vcs_browser);
+        let vcs_browser = format!(
+            "https://salsa.debian.org/rust-team/debcargo-conf/tree/master/src/{}", pkgname);
+        let vcs_git = format!(
+            "https://salsa.debian.org/rust-team/debcargo-conf.git src/{}", pkgname);
 
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
             upstream_name.to_string()
@@ -117,7 +118,7 @@ impl Source {
             "".to_string()
         };
         Ok(Source {
-            name: source,
+            name: format!("rust-{}", pkgname),
             section: section.to_string(),
             priority: priority,
             maintainer: maintainer,
