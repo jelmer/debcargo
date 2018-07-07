@@ -45,7 +45,7 @@ struct UpstreamInfo {
 #[derive(Clone)]
 pub struct Files {
     files: String,
-    copyright: String,
+    copyright: Vec<String>,
     license: String,
     comment: String,
 }
@@ -95,6 +95,9 @@ impl fmt::Display for UpstreamInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Upstream-Name: {}\n", self.name)?;
         write!(f, "Upstream-Contact:")?;
+        if self.contacts.len() > 1 {
+            write!(f, "\n")?;
+        }
         for contact in &self.contacts {
             write!(f, " {}\n", contact)?;
         }
@@ -108,6 +111,7 @@ impl fmt::Display for UpstreamInfo {
 
 impl UpstreamInfo {
     fn new(name: String, authors: &[String], repo: &str) -> UpstreamInfo {
+        assert!(authors.len() > 0);
         UpstreamInfo {
             name: name,
             contacts: authors.to_vec(),
@@ -119,7 +123,13 @@ impl UpstreamInfo {
 impl fmt::Display for Files {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Files: {}\n", self.files)?;
-        write!(f, "Copyright: {}\n", self.copyright)?;
+        write!(f, "Copyright:")?;
+        if self.copyright.len() > 1 {
+            write!(f, "\n")?;
+        }
+        for copyright in &self.copyright {
+            write!(f, " {}\n", copyright)?;
+        }
         write!(f, "License: {}\n", self.license)?;
         if !self.comment.is_empty() {
             write!(f, "Comment:\n")?;
@@ -130,10 +140,11 @@ impl fmt::Display for Files {
 }
 
 impl Files {
-    pub fn new(name: &str, notice: &str, license: &str, comment: &str) -> Files {
+    pub fn new<T: ToString>(name: &str, notice: &[T], license: &str, comment: &str) -> Files {
+        assert!(notice.len() > 0);
         Files {
             files: name.to_string(),
-            copyright: notice.to_string(),
+            copyright: notice.iter().map(|s| s.to_string()).collect(),
             license: license.to_string(),
             comment: comment.to_string(),
         }
@@ -141,10 +152,6 @@ impl Files {
 
     pub fn files(&self) -> &str {
         &self.files
-    }
-
-    pub fn copyright_str(&self) -> &str {
-        &self.copyright
     }
 
     pub fn license(&self) -> &str {
@@ -176,7 +183,7 @@ macro_rules! default_files {
             "review them before uploading to the archive.");
         Files::new($file,
                    $notice,
-                   "UNKNOWN; FIXME (overlay)",
+                   "UNKNOWN-LICENSE; FIXME (overlay)",
                    &fill(comment, 79))
     }}
 }
@@ -201,7 +208,7 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     for entry in walkdir::WalkDir::new(".").sort_by(|a,b| a.file_name().cmp(b.file_name())) {
         let entry = try!(entry);
         if entry.file_type().is_file() {
-            let copyright_file = entry.path().to_str().unwrap();
+            let copyright_file = entry.path().to_str().unwrap().to_string();
             let file = try!(fs::File::open(entry.path()));
             let reader = BufReader::new(file);
             for line in reader.lines() {
@@ -214,7 +221,10 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
                             .trim_right()
                             .trim_right_matches(". See the COPYRIGHT")
                             .to_string();
-                        copyright_notices.insert(copyright_file.to_string(), notice);
+                        if !copyright_notices.contains_key(&copyright_file) {
+                            copyright_notices.insert(copyright_file.clone(), vec![]);
+                        }
+                        copyright_notices.get_mut(&copyright_file).unwrap().push(notice);
                     }
                 } else {
                     break;
@@ -228,10 +238,8 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     env::set_current_dir(current_dir.as_path())?;
 
     let mut notices: Vec<Files> = Vec::new();
-    if !copyright_notices.is_empty() {
-        for (filename, notice) in &copyright_notices {
-            notices.push(default_files!(filename, notice));
-        }
+    for (filename, notice) in &copyright_notices {
+        notices.push(default_files!(filename, notice));
     }
 
     Ok(notices)
@@ -334,7 +342,7 @@ pub fn debian_copyright(
         fs::File::open(license_file)?.read_to_end(&mut text)?;
         licenses.reserve(1);
         let stext = String::from_utf8(text)?;
-        licenses.push(License::new("UNKNOWN; FIXME (overlay)".to_string(), stext));
+        licenses.push(License::new("UNKNOWN-LICENSE; FIXME (overlay)".to_string(), stext));
     } else if let Some(ref license) = meta.license {
         licenses = get_licenses(license).unwrap();
         crate_license = license.trim().replace("/", " or ");
@@ -345,9 +353,10 @@ pub fn debian_copyright(
     let mut files = gen_files(srcdir)?;
 
     let current_year = chrono::Local::now().year();
-    let deb_notice = format!("{} {}\n           {} FIXME (overlay) Your Name <Your Email>",
-        current_year, RUST_MAINT, current_year);
-    files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
+    let deb_notice = &[
+        format!("{} {}", current_year, RUST_MAINT),
+        format!("{} FIXME (overlay) Your Name <Your Email>", current_year)];
+    files.push(Files::new("debian/*", deb_notice, &crate_license, ""));
 
     // Insert catch all block as the first block of copyright file. Capture
     // copyright notice from git log of the upstream repository.
@@ -360,20 +369,19 @@ pub fn debian_copyright(
                     repository,
                     e
                 );
-                "FIXME (overlay) UNKNOWN".to_string()
+                "FIXME (overlay) UNKNOWN-YEARS".to_string()
             }
         }
     } else {
-        "FIXME (overlay) UNKNOWN".to_string()
+        "FIXME (overlay) UNKNOWN-YEARS".to_string()
     };
     let notice = match meta.authors.len() {
-        1 => format!("{} {}", years, &meta.authors[0]),
+        1 => vec![format!("{} {}", years, &meta.authors[0])],
         _ => {
-            let author_notices: Vec<String> = meta.authors
+            meta.authors
                 .iter()
                 .map(|s| format!("{} {}", years, s))
-                .collect();
-            author_notices.join("\n ").trim().to_owned()
+                .collect()
         }
     };
     let comment = concat!(
@@ -384,7 +392,7 @@ pub fn debian_copyright(
     );
     files.insert(
         0,
-        Files::new("*", &notice, &crate_license, &fill(comment, 79)),
+        Files::new("*", notice.as_slice(), &crate_license, &fill(comment, 79)),
     );
 
     Ok(DebCopyright::new(upstream, &files, &licenses))
