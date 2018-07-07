@@ -217,6 +217,10 @@ pub fn prepare_debian_folder(
     overlay.as_ref().map(|p| {
         copy_tree(p.as_path(), tempdir.path()).unwrap();
     });
+    if (tempdir.path().join("control").exists()) {
+        debcargo_warn!("Most of the time you shouldn't overlay debian/control, \
+                        it's a maintenance burden. Use debcargo.toml instead.")
+    }
 
     let mut new_hints = vec![];
     {
