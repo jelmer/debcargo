@@ -1,5 +1,2 @@
-[source]
-build_depends = ["libssl-dev <!nocheck>"]
-
-[packages."librust-openssl-sys-dev"]
+[packages.lib]
 depends = ["libssl-dev"]

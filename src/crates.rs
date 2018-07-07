@@ -258,17 +258,21 @@ impl CrateInfo {
         features_with_deps
     }
 
-    pub fn feature_all_deps(&self,
-            features_with_deps: &BTreeMap<&str, (Vec<&str>, Vec<Dependency>)>,
+    pub fn feature_all_deps<'a>(&self,
+            features_with_deps: &'a BTreeMap<&str, (Vec<&str>, Vec<Dependency>)>,
             feature: &str)
-            -> Vec<Dependency> {
+            -> (Vec<&'a str>, Vec<Dependency>) {
+        let mut all_features = Vec::new();
         let mut all_deps = Vec::new();
         let &(ref ff, ref dd) = features_with_deps.get(feature).unwrap();
+        all_features.extend(ff.clone());
         all_deps.extend(dd.clone());
         for f in ff {
-            all_deps.extend(self.feature_all_deps(&features_with_deps, f));
+            let (ff1, dd1) = self.feature_all_deps(&features_with_deps, f);
+            all_features.extend(ff1);
+            all_deps.extend(dd1);
         };
-        all_deps
+        (all_features, all_deps)
     }
 
     // Note: this mutates features_with_deps so you need to run e.g.

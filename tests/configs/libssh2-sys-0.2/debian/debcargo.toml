@@ -3,8 +3,5 @@ excludes = ["libssh2/**"]
 # zlib1g-dev is only needed because libssh2-1-dev incorrectly omits it, TB fixed
 # see the relevant Debian bug report at https://bugs.debian.org/libssh2-1-dev
 
-[source]
-build_depends = ["libssh2-1-dev <!nocheck>", "zlib1g-dev <!nocheck>"]
-
-[packages."librust-libssh2-sys-dev"]
+[packages.lib]
 depends = ["libssh2-1-dev", "zlib1g-dev"]

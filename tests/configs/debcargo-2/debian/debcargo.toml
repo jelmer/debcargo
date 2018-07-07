@@ -1,5 +1,2 @@
 overlay = "."
 overlay_write_back = false
-
-[source]
-build_depends = ["libssl-dev", "libcurl4-gnutls-dev"]

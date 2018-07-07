@@ -1,5 +1,3 @@
-pub use self::dependency::deb_deps;
-
 use std::fs;
 use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
 use std::path::Path;
@@ -8,7 +6,6 @@ use std::str::FromStr;
 
 use cargo::util::FileLock;
 use glob::Pattern;
-use itertools::Itertools;
 use tempdir::TempDir;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
@@ -18,13 +15,14 @@ use tar::{Archive, Builder};
 
 use crates::CrateInfo;
 use errors::*;
-use config::{Config, OverrideDefaults};
-use util::{self, copy_tree};
+use config::{Config, package_key_for_feature, PACKAGE_KEY_FOR_BIN};
+use util::{self, copy_tree, vec_opt_iter};
 
 use self::control::deb_version;
 use self::control::{Package, Source};
 use self::copyright::debian_copyright;
 use self::changelog::{ChangelogEntry, ChangelogIterator};
+pub use self::dependency::{deb_deps, deb_dep_add_nocheck};
 
 pub mod control;
 mod dependency;
@@ -205,8 +203,6 @@ pub fn prepare_debian_folder(
         .map(|(&f, &(ref ff, ref dd))| {
             (f, (ff, deb_deps(config, dd).unwrap()))
         }).collect::<Vec<_>>());*/
-    let default_deps = crate_info.feature_all_deps(&features_with_deps, "default");
-    //debcargo_info!("default_deps: {:?}", deb_deps(config, &default_deps)?);
 
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
@@ -302,23 +298,28 @@ pub fn prepare_debian_folder(
         )?;
 
         // debian/control
-        let (build_deps_base, build_deps_extra) = if !bins.is_empty() {
-            (vec![
+        let build_deps = {
+            let build_deps = [
+                "debhelper (>= 11)",
+                "dh-cargo (>= 6)"
+                ].iter().map(|x| x.to_string());
+            let (default_features, default_deps) = crate_info.feature_all_deps(&features_with_deps, "default");
+            //debcargo_info!("default_features: {:?}", default_features);
+            //debcargo_info!("default_deps: {:?}", deb_deps(config, &default_deps)?);
+            let extra_override_deps = config.package_depends_for_feature("default", default_features);
+            let build_deps_extra = [
                 "cargo:native",
                 "rustc:native",
                 "libstd-rust-dev",
-             ], deb_deps(config, &default_deps)?)
-        } else {
-            assert!(lib);
-            (vec![
-                "cargo:native <!nocheck>",
-                "rustc:native <!nocheck>",
-                "libstd-rust-dev <!nocheck>",
-             ], deb_deps(config, &default_deps)?.iter().map(|x| {
-                x.to_string().split("|").map(|x| {
-                    x.trim_right().to_string() + " <!nocheck> "
-                }).join("|").trim_right().to_string()
-             }).collect::<Vec<_>>())
+                ].iter().map(|s| s.to_string())
+                .chain(deb_deps(config, &default_deps)?)
+                .chain(extra_override_deps.map(|s| s.to_string()));
+            if !bins.is_empty() {
+                build_deps.chain(build_deps_extra).collect()
+            } else {
+                assert!(lib);
+                build_deps.chain(build_deps_extra.map(|d| deb_dep_add_nocheck(&d))).collect()
+            }
         };
         let mut source = Source::new(
             base_pkgname,
@@ -326,11 +327,7 @@ pub fn prepare_debian_folder(
             upstream_name,
             if let Some(ref home) = meta.homepage { home } else { "" },
             lib,
-            ["debhelper (>= 11)", "dh-cargo (>= 6)"].iter()
-                .chain(build_deps_base.iter())
-                .map(|x| x.to_string())
-                .chain(build_deps_extra)
-                .collect::<Vec<_>>(),
+            build_deps
         )?;
 
         // If source overrides are present update related parts.
@@ -369,18 +366,20 @@ pub fn prepare_debian_folder(
                 }
             }
             for (feature, (f_deps, o_deps)) in features_with_deps.into_iter() {
-                let mut feature_package =
+                let f_provides = provides.remove(feature).unwrap();
+                let mut package =
                     Package::new(base_pkgname, name_suffix, &crate_info.version(), upstream_name,
                         summary, description.as_ref(),
                         if feature == "" { None } else { Some(feature) },
                         f_deps, deb_deps(config, &o_deps)?,
-                        provides.remove(feature).unwrap(),
+                        f_provides.clone(),
                         if feature == "" { recommends.clone() } else { vec![] },
                         if feature == "" { suggests.clone() } else { vec![] })?;
 
                 // If any overrides present for this package it will be taken care.
-                feature_package.apply_overrides(config);
-                write!(control, "\n{}", feature_package)?;
+                package.apply_overrides(config, &package_key_for_feature(feature),
+                    config.package_depends_for_feature(feature, f_provides));
+                write!(control, "\n{}", package)?;
             }
             assert!(provides.is_empty());
             // features_with_deps consumed by into_iter, no longer usable
@@ -408,7 +407,8 @@ pub fn prepare_debian_folder(
             );
 
             // Binary package overrides.
-            bin_pkg.apply_overrides(config);
+            bin_pkg.apply_overrides(config, PACKAGE_KEY_FOR_BIN,
+                vec_opt_iter(config.package_depends(PACKAGE_KEY_FOR_BIN)));
             write!(control, "\n{}", bin_pkg)?;
         }
 

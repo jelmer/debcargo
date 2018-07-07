@@ -2,8 +2,5 @@ overlay = "."
 overlay_write_back = false
 excludes = ["libgit2/**"]
 
-[source]
-build_depends = ["libgit2-dev <!nocheck>"]
-
-[packages."librust-libgit2-sys-dev"]
+[packages.lib]
 depends = ["libgit2-dev"]

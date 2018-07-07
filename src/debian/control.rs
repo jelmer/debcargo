@@ -6,7 +6,7 @@ use itertools::Itertools;
 use semver::Version;
 use textwrap::fill;
 
-use config::{Config, OverrideDefaults};
+use config::Config;
 use errors::*;
 use util::vec_opt_iter;
 
@@ -139,10 +139,8 @@ impl Source {
     pub fn main_uploader(&self) -> &str {
         &self.uploaders[0]
     }
-}
 
-impl OverrideDefaults for Source {
-    fn apply_overrides(&mut self, config: &Config) {
+    pub fn apply_overrides(&mut self, config: &Config) {
         if let Some(section) = config.section() {
             self.section = section.to_string();
         }
@@ -361,15 +359,13 @@ impl Package {
         }
         Ok(())
     }
-}
 
-impl OverrideDefaults for Package {
-    fn apply_overrides(&mut self, config: &Config) {
-        if let Some(section) = config.package_section(&self.name) {
+    pub fn apply_overrides<I: IntoIterator<Item = T>, T: ToString>(&mut self, config: &Config, key: &str, deps: I) {
+        if let Some(section) = config.package_section(key) {
             self.section = Some(section.to_string());
         }
 
-        if let Some((s, d)) = config.package_summary(&self.name) {
+        if let Some((s, d)) = config.package_summary(key) {
             if !s.is_empty() {
                 self.summary = s.to_string();
             }
@@ -379,7 +375,7 @@ impl OverrideDefaults for Package {
             }
         }
 
-        self.depends.extend(vec_opt_iter(config.package_depends(&self.name)).map(String::to_string));
+        self.depends.extend(deps.into_iter().map(|s| s.to_string()));
     }
 }
 

@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::fs::File;
 use errors::*;
+use itertools::Itertools;
+use util::vec_opt_iter;
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(default)]
@@ -39,10 +41,6 @@ pub struct PackageOverride {
     summary: Option<String>,
     description: Option<String>,
     depends: Option<Vec<String>>,
-}
-
-pub trait OverrideDefaults {
-    fn apply_overrides(&mut self, config: &Config);
 }
 
 impl Default for Config {
@@ -158,6 +156,16 @@ impl Config {
         })
     }
 
+    pub fn package_depends_for_feature<'a>(
+        &'a self,
+        feature: &'a str,
+        f_depends: Vec<&'a str>)
+    -> impl Iterator<Item = &str> + 'a {
+        Some(feature).into_iter().chain(f_depends.into_iter()).map(move |f|
+            vec_opt_iter(self.package_depends(&package_key_for_feature(f)))
+        ).flatten().map(|s| s.as_str())
+    }
+
     pub fn vcs_git(&self) -> Option<&str> {
         if let Some(ref s) = self.source {
             if let Some(ref vcs_git) = s.vcs_git {
@@ -184,3 +192,14 @@ pub fn parse_config(src: &Path) -> Result<Config> {
 
     Ok(toml::from_str(&content)?)
 }
+
+pub fn package_key_for_feature(feature: &str) -> String {
+    if feature == "" {
+        PACKAGE_KEY_FOR_LIB.to_string()
+    } else {
+        format!("{}+{}", PACKAGE_KEY_FOR_LIB, feature)
+    }
+}
+
+pub const PACKAGE_KEY_FOR_BIN : &'static str = "bin";
+pub const PACKAGE_KEY_FOR_LIB : &'static str = "lib";

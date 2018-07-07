@@ -331,3 +331,9 @@ pub fn deb_deps(config: &Config, cdeps: &Vec<Dependency>) -> Result<Vec<String>>
     deps.dedup();
     Ok(deps)
 }
+
+pub fn deb_dep_add_nocheck(x: &str) -> String {
+    x.to_string().split("|").map(|x| {
+        x.trim_right().to_string() + " <!nocheck> "
+    }).join("|").trim_right().to_string()
+}

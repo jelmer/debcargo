@@ -138,12 +138,12 @@ build_source() {(
 		return 0
 	fi
 
-	local deb_src_name=$($debcargo deb-src-name $crate $version)
+	local deb_src_name="$($debcargo deb-src-name "$crate" "$version")"
 	local config="$config_dir/${deb_src_name}/debian/debcargo.toml"
 	if [ -f "$config" ]; then
 		option="--config $config"
 		echo >&2 "using config: $config"
-	elif grep -qF ${deb_src_name} "$config_dir/old-versions.txt"; then
+	elif [ "$deb_src_name" != "$($debcargo deb-src-name "$crate" "")" ]; then
 		config="$config_dir/old-version/debian/debcargo.toml"
 		option="--config $config"
 		echo >&2 "using config: $config"

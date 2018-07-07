@@ -1,5 +1,5 @@
 overlay = "."
 overlay_write_back = false
 
-[packages."librust-pkg-config-dev"]
+[packages.lib]
 depends = ["pkg-config"]
