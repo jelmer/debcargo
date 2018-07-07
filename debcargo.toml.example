@@ -45,6 +45,14 @@
 # you should check that they can actually build when this is enabled.
 #allow_prerelease_deps = false
 
+# This is the stem of the short description for each binary package. By default
+# `debcargo` will try to auto-extract a description from `Cargo.toml` but
+# sometimes this may lead to a meaningless, weird short description.
+#
+# The full short description of each binary package is constructed using this
+# string (or the autoextracted default) plus a suffix describing the feature.
+#summary = "PLACEHOLDER"
+
 [source]
 
 # Debian Standards-Version to use. By default debcargo uses latest policy version.
@@ -53,12 +61,13 @@
 # Override or provide missing homepage for crate
 #homepage = "https://clap.rs"
 
-# Override the VCS entries. By default the git entries are built with the pattern
-# "https://salsa.debian.org/rust-team/rust-<packagename>-<version>[.git]".
-#
-# Please only use this if your package is truly special, e.g. it combines lots
-# of languages and/or there is not a crate at the top-level directory. In most
-# cases you should prefer packaging as part of the Debian Rust Team, see
+# Override the VCS entries.
+# By default this points to a relevant subdirectory underneath the main
+# repository for debcargo config files, owned by the Debian Rust Maintainers:
+# https://salsa.debian.org/rust-team/debcargo-conf/
+# Please only override this if your package is truly special, e.g. it combines
+# lots of languages and/or there is not a crate at the top-level directory. In
+# most cases you should prefer packaging as part of the Debian Rust Team, see
 # https://wiki.debian.org/Teams/RustPackaging/Policy
 #
 #vcs_git = "https://salsa.debian.org/special_package/rust-special-0.1.git"
@@ -104,12 +113,12 @@
 # default to "rust" and override this value for your binary package.
 #section = "PLACEHOLDER"
 
-# This is the short description for package. By default `debcargo` will try to
-# use a description from `Cargo.toml` but sometimes this may lead to a
-# meaningless, weird short description.
+# Short description for the package. If omitted, debcargo autogenerates this
+# using the earlier "summary" key plus a suffix describing the feature.
 #summary = "PLACEHOLDER"
 
-# Long description for the package.
+# Long description for the package. If omitted, a generic boilerplate will be
+# used, which is good enough for most cases.
 #description = """
 #PLACEHOLDER
 #"""

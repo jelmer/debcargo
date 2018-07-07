@@ -341,13 +341,18 @@ pub fn prepare_debian_folder(
 
         // Summary and description generated from Cargo.toml
         let (summary, description) = crate_info.get_summary_description();
-        if let Some(summary) = summary.as_ref() {
-            if summary.len() > 72 {
-                writeln!(control, "\n{}", concat!(
-                    "# FIXME (packages.\"(name)\".section) debcargo ",
-                    "auto-generated summaries are very long, consider overriding"))?;
+        let summary = if !config.summary.is_empty() {
+            Some(&config.summary)
+        } else {
+            if let Some(summary) = summary.as_ref() {
+                if summary.len() > 72 {
+                    writeln!(control, "\n{}", concat!(
+                        "# FIXME (packages.\"(name)\".section) debcargo ",
+                        "auto-generated summaries are very long, consider overriding"))?;
+                }
             }
-        }
+            summary.as_ref()
+        };
 
         if lib {
             let mut provides = crate_info.calculate_provides(&mut features_with_deps);
@@ -366,7 +371,7 @@ pub fn prepare_debian_folder(
             for (feature, (f_deps, o_deps)) in features_with_deps.into_iter() {
                 let mut feature_package =
                     Package::new(base_pkgname, name_suffix, &crate_info.version(), upstream_name,
-                        summary.as_ref(), description.as_ref(),
+                        summary, description.as_ref(),
                         if feature == "" { None } else { Some(feature) },
                         f_deps, deb_deps(config, &o_deps)?,
                         provides.remove(feature).unwrap(),
@@ -394,8 +399,8 @@ pub fn prepare_debian_folder(
                 upstream_name,
                 // if not-a-lib then Source section is already FIXME
                 if !lib { None } else { Some("FIXME-(packages.\"(name)\".section)") },
-                &summary,
-                &description,
+                summary,
+                description.as_ref(),
                 match boilerplate {
                     Some(ref s) => s,
                     None => "",

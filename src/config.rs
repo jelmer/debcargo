@@ -16,6 +16,7 @@ pub struct Config {
     pub overlay_write_back: bool,
     pub excludes: Option<Vec<String>>,
     pub allow_prerelease_deps: bool,
+    pub summary: String,
 
     pub source: Option<SourceOverride>,
     pub packages: Option<HashMap<String, PackageOverride>>,
@@ -54,6 +55,7 @@ impl Default for Config {
             overlay_write_back: true,
             excludes: None,
             allow_prerelease_deps: false,
+            summary: "".to_string(),
             source: None,
             packages: None,
         }

@@ -230,13 +230,11 @@ impl Package {
         depends.extend(f_deps.into_iter().map(deb_feature));
         depends.extend(o_deps);
 
-        let short_desc = match summary {
-            None => format!("Rust source code for crate \"{}\"", upstream_name),
-            Some(ref s) => if let Some(f) = feature {
-                format!("{} - feature \"{}\"", s, f)
-            } else {
-                format!("{} - Rust source code", s)
-            },
+        let summary_default = format!("Rust crate \"{}\"", upstream_name);
+        let summary = summary.unwrap_or(&summary_default);
+        let short_desc = match feature {
+            Some(f) => format!("{} - feature \"{}\"", summary, f),
+            None => format!("{} - Rust source code", summary),
         };
 
         let long_desc = match description {
@@ -304,8 +302,8 @@ impl Package {
         name_suffix: Option<&str>,
         upstream_name: &str,
         section: Option<&str>,
-        summary: &Option<String>,
-        description: &Option<String>,
+        summary: Option<&String>,
+        description: Option<&String>,
         boilerplate: &str,
     ) -> Self {
         let (name, provides) = match name_suffix {
@@ -313,14 +311,14 @@ impl Package {
             Some(suf) => (format!("{}{}", basename, suf),
                           vec![format!("{} (= ${{binary:Version}})", basename)]),
         };
-        let short_desc = match *summary {
+        let short_desc = match summary {
             None => format!("Binaries built from the Rust {} crate", upstream_name),
-            Some(ref s) => s.to_string(),
+            Some(s) => s.to_string(),
         };
 
-        let long_desc = match *description {
+        let long_desc = match description {
             None => "".to_string(),
-            Some(ref s) => s.to_string(),
+            Some(s) => s.to_string(),
         };
 
         Package {
