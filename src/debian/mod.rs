@@ -332,7 +332,6 @@ pub fn prepare_debian_folder(
             match ChangelogIterator::from(&changelog_data).next() {
                 Some(x) => {
                     let e = ChangelogEntry::from_str(x)?;
-                    debcargo_warn!("lol {}", e.maintainer);
                     vec![e.maintainer]
                 },
                 None => vec![control::get_deb_author()?]
@@ -340,7 +339,6 @@ pub fn prepare_debian_folder(
         } else {
             vec![control::get_deb_author()?]
         };
-        debcargo_warn!("lol {:?}", uploaders);
         let mut source = Source::new(
             base_pkgname,
             name_suffix,
