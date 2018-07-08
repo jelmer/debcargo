@@ -97,6 +97,7 @@ impl Source {
         upstream_name: &str,
         home: &str,
         lib: bool,
+        uploaders: Vec<String>,
         build_deps: Vec<String>,
     ) -> Result<Source> {
         let pkgname = match name_suffix {
@@ -106,7 +107,6 @@ impl Source {
         let section = if lib { "rust" } else { "FIXME-(source.section)" };
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
-        let uploaders = vec![get_deb_author()?];
         let vcs_browser = format!(
             "https://salsa.debian.org/rust-team/debcargo-conf/tree/master/src/{}", pkgname);
         let vcs_git = format!(
