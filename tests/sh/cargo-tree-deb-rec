@@ -28,7 +28,7 @@ def cargo_tree_args(*args):
 	# non-dev dependencies, default feature set.
 	# this is what we put in Build-Depends in Debian
 	return subprocess.check_output([os.path.join(scriptdir, "cargo-tree-any")] +
-		list(args) + ["--no-dev-dependencies", "--all-targets", "--prefix-depth", "-a"], stderr=subprocess.DEVNULL)
+		list(args) + ["--no-dev-dependencies", "--all-targets", "--prefix-depth", "-a"])
 
 lock = threading.Lock()
 want = 0

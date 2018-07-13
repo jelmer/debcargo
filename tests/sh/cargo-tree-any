@@ -10,16 +10,23 @@
 
 set -e
 
-scriptdir="$(dirname "$0")"
+scriptdir="$(readlink -f "$(dirname "$0")")"
 
 if ! cargo tree --help | grep -q no-dev-dependencies; then
 	echo >&2 "wrong version of cargo-tree, get it from https://github.com/infinity0/cargo-tree"
 	exit 1
 fi
-DEBCARGO=${DEBCARGO:-$(readlink -f $scriptdir/../../target/debug/debcargo)}
+export DEBCARGO=${DEBCARGO:-$scriptdir/../../target/debug/debcargo}
+if [ ! -x "$DEBCARGO" ]; then
+	echo >&2 "DEBCARGO non-existent: $DEBCARGO"
+	exit 1
+fi
 
 dir=$(mktemp -d)
-( cd "$dir"; cargo init -q cargo-tree-tmp )
+# Note: here and elsewhere "2>/dev/null" is a hacky way to filter out the
+# distracting "Blocking waiting for file lock on the registry index" messages
+# you get when you run this through cargo-tree-deb-rec.
+( cd "$dir"; cargo 2>/dev/null init -q cargo-tree-tmp )
 trap 'rm -rf "$dir"' EXIT INT TERM KILL
 
 if test -f "$1/Cargo.toml"; then
@@ -36,7 +43,7 @@ else
 	if [ -n "$ver" ]; then
 		echo "version = \"$ver\"" >> "$dir/cargo-tree-tmp"/Cargo.toml
 	fi
-	( cd $dir && $DEBCARGO extract $name $ver --directory "$dir/cargo-manifest" >/dev/null 2>/dev/null )
+	( cd $dir && $DEBCARGO 2>/dev/null extract $name $ver --directory "$dir/cargo-manifest" >/dev/null )
 	manifest="$dir/cargo-manifest/Cargo.toml"
 fi
 
@@ -64,7 +71,7 @@ esac
 (
 cd "$dir/cargo-tree-tmp"
 cargo update -q
-cargo tree "$@" | tail -n+2
+cargo 2>/dev/null tree "$@" | tail -n+2
 )
 
 rm -rf "$dir"
