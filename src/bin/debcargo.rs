@@ -69,7 +69,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let changelog_ready = matches.is_present("changelog-ready");
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
-    let crate_info = CrateInfo::new(crate_name, version)?;
+    let mut crate_info = CrateInfo::new(crate_name, version)?;
     let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!(), config.semver_suffix);
 
     let pkg_srcdir = Path::new(directory.unwrap_or(pkgbase.package_source_dir()));
@@ -88,7 +88,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     )?;
     debian::prepare_debian_folder(
         &pkgbase,
-        &crate_info,
+        &mut crate_info,
         pkg_srcdir,
         config_path,
         &config,

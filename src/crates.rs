@@ -1,9 +1,10 @@
 use cargo::{Config,
             core::{Dependency, Package, PackageId, Source, SourceId, Summary,
                    TargetKind, FeatureValue},
+            core::manifest::{self, EitherManifest},
             sources::RegistrySource};
 use cargo::util::FileLock;
-use cargo::core::manifest;
+use cargo::util::toml::read_manifest;
 use failure::Error;
 use filetime::{set_file_times, FileTime};
 use glob::Pattern;
@@ -16,15 +17,15 @@ use regex::Regex;
 use std;
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::io::{self, Read, Write};
 use std::fs;
 
 use errors::*;
 
 pub struct CratesIo {
-    config: Config,
-    source_id: SourceId,
+    pub config: Config,
+    pub source_id: SourceId,
 }
 
 pub struct CrateInfo {
@@ -32,6 +33,8 @@ pub struct CrateInfo {
     manifest: manifest::Manifest,
     summary: Summary,
     crate_file: FileLock,
+    config: Config,
+    source_id: SourceId,
 }
 
 fn hash<H: Hash>(hashable: &H) -> u64 {
@@ -132,21 +135,27 @@ impl CrateInfo {
 
         let pkgid = summary.package_id();
 
-        let mut registry = crates_io.registry();
-        let package = registry.download(pkgid)?;
-        let manifest = package.manifest();
-        let filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
-        let crate_file = crates_io
-            .config
-            .registry_cache_path()
-            .join(&registry_name)
-            .open_ro(&filename, &crates_io.config, &filename)?;
+
+        let (package, manifest, crate_file) = {
+            let mut registry = crates_io.registry();
+            let package = registry.download(pkgid)?;
+            let manifest = package.manifest();
+            let filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
+            let crate_file = crates_io
+                .config
+                .registry_cache_path()
+                .join(&registry_name)
+                .open_ro(&filename, &crates_io.config, &filename)?;
+            (package.clone(), manifest.clone(), crate_file)
+        };
 
         Ok(CrateInfo {
-            package: package.clone(),
-            manifest: manifest.clone(),
+            package: package,
+            manifest: manifest,
             summary: summary.clone(),
             crate_file: crate_file,
+            config: crates_io.config,
+            source_id: crates_io.source_id,
         })
     }
 
@@ -160,6 +169,13 @@ impl CrateInfo {
 
     pub fn manifest(&self) -> &manifest::Manifest {
         &self.manifest
+    }
+
+    pub fn replace_manifest(&mut self, path: &PathBuf) -> Result<&Self> {
+        if let (EitherManifest::Real(v), _) = read_manifest(path, &self.source_id, &self.config)? {
+            self.manifest = v;
+        }
+        Ok(self)
     }
 
     pub fn features(&self) -> &BTreeMap<String, Vec<FeatureValue>> {

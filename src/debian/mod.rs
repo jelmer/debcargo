@@ -3,6 +3,7 @@ use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
 use std::path::Path;
 use std::os::unix::fs::PermissionsExt;
 use std::str::FromStr;
+use std::process::Command;
 
 use cargo::util::FileLock;
 use glob::Pattern;
@@ -170,13 +171,38 @@ pub fn prepare_orig_tarball(
 
 pub fn prepare_debian_folder(
     pkgbase: &BaseInfo,
-    crate_info: &CrateInfo,
+    crate_info: &mut CrateInfo,
     pkg_srcdir: &Path,
     config_path: Option<&Path>,
     config: &Config,
     changelog_ready: bool,
     copyright_guess_harder: bool,
 ) -> Result<()> {
+    let tempdir = TempDir::new_in(".", "debcargo")?;
+    let overlay = config.overlay_dir(config_path);
+    overlay.as_ref().map(|p| {
+        copy_tree(p.as_path(), tempdir.path()).unwrap();
+    });
+    if tempdir.path().join("control").exists() {
+        debcargo_warn!("Most of the time you shouldn't overlay debian/control, \
+                        it's a maintenance burden. Use debcargo.toml instead.")
+    }
+    if tempdir.path().join("patches").join("series").exists() {
+        // apply patches to Cargo.toml in case they exist, and re-read it
+        let pkg_srcdir = &fs::canonicalize(&pkg_srcdir)?;
+        Command::new("quilt")
+                .current_dir(&pkg_srcdir)
+                .env("QUILT_PATCHES", tempdir.path().join("patches"))
+                .args(&["push", "-a"])
+                .status().expect("failed to apply patches");
+        crate_info.replace_manifest(&pkg_srcdir.join("Cargo.toml"))?;
+        Command::new("quilt")
+                .current_dir(&pkg_srcdir)
+                .env("QUILT_PATCHES", tempdir.path().join("patches"))
+                .args(&["pop", "-a"])
+                .status().expect("failed to unapply patches");
+    }
+
     let lib = crate_info.is_lib();
     let mut bins = crate_info.get_binary_targets();
     let meta = crate_info.metadata();
@@ -207,20 +233,9 @@ pub fn prepare_debian_folder(
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
 
-    let tempdir = TempDir::new_in(".", "debcargo")?;
     let base_pkgname = pkgbase.base_package_name();
     let name_suffix = pkgbase.name_suffix();
     let upstream_name = pkgbase.upstream_name();
-
-    let overlay = config.overlay_dir(config_path);
-
-    overlay.as_ref().map(|p| {
-        copy_tree(p.as_path(), tempdir.path()).unwrap();
-    });
-    if tempdir.path().join("control").exists() {
-        debcargo_warn!("Most of the time you shouldn't overlay debian/control, \
-                        it's a maintenance burden. Use debcargo.toml instead.")
-    }
 
     let mut new_hints = vec![];
     {
