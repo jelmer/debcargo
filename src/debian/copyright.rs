@@ -247,34 +247,36 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
 
 fn get_licenses(license: &str) -> Result<Vec<License>> {
     let mut licenses = BTreeMap::new();
-    let sep = regex::Regex::new(r"(?i:[or|/])")?;
+    let sep = regex::Regex::new(r"(?i:(or|/|and))")?;
+    let known_licenses = vec![
+        ("agpl-3.0", include_str!("licenses/AGPL-3.0")),
+        ("apache-2.0", include_str!("licenses/Apache-2.0")),
+        ("bsd-2-clause", include_str!("licenses/BSD-2-Clause")),
+        ("bsd-3-clause", include_str!("licenses/BSD-3-Clause")),
+        ("cc0-1.0", include_str!("licenses/CC0-1.0")),
+        ("gpl-2.0", include_str!("licenses/GPL-2.0")),
+        ("gpl-3.0", include_str!("licenses/GPL-3.0")),
+        ("isc", include_str!("licenses/ISC")),
+        ("lgpl-2.0", include_str!("licenses/LGPL-2.0")),
+        ("lgpl-2.1", include_str!("licenses/LGPL-2.1")),
+        ("lgpl-3.0", include_str!("licenses/LGPL-3.0")),
+        ("mit", include_str!("licenses/MIT")),
+        ("mpl-1.1", include_str!("licenses/MPL-1.1")),
+        ("mpl-2.0", include_str!("licenses/MPL-2.0")),
+        ("unlicense", include_str!("licenses/Unlicense")),
+        ("zlib", include_str!("licenses/Zlib")),
+    ].into_iter().collect::<BTreeMap<_, _>>();
 
     let lses: Vec<&str> = sep.split(license).filter(|s| s.len() != 0).collect();
     for ls in lses {
-        let text: &str = match ls.trim().to_lowercase().trim_right_matches('+') {
-            "agpl-3.0" => include_str!("licenses/AGPL-3.0"),
-            "apache-2.0" => include_str!("licenses/Apache-2.0"),
-            "bsd-2-clause" => include_str!("licenses/BSD-2-Clause"),
-            "bsd-3-clause" => include_str!("licenses/BSD-3-Clause"),
-            "cc0-1.0" => include_str!("licenses/CC0-1.0"),
-            "gpl-2.0" => include_str!("licenses/GPL-2.0"),
-            "gpl-3.0" => include_str!("licenses/GPL-3.0"),
-            "isc" => include_str!("licenses/ISC"),
-            "lgpl-2.0" => include_str!("licenses/LGPL-2.0"),
-            "lgpl-2.1" => include_str!("licenses/LGPL-2.1"),
-            "lgpl-3.0" => include_str!("licenses/LGPL-3.0"),
-            "mit" => include_str!("licenses/MIT"),
-            "mpl-1.1" => include_str!("licenses/MPL-1.1"),
-            "mpl-2.0" => include_str!("licenses/MPL-2.0"),
-            "unlicense" => include_str!("licenses/Unlicense"),
-            "zlib" => include_str!("licenses/Zlib"),
-            ls => debcargo_bail!(
-                "Unrecognized crate license: {} (parsed from {})",
-                ls,
-                license
-            ),
+        let lname = ls.trim().to_lowercase().trim_right_matches('+').to_string();
+        let text = match known_licenses.get(lname.as_str()) {
+            Some(s) => s.to_string(),
+            None => "FIXME (overlay): Unrecognized crate license, please find the \
+                full license text in the rest of the crate source code and \
+                copy-paste it here".to_string()
         };
-        licenses.insert(ls.to_string(), text.to_string());
+        licenses.insert(ls.trim().to_string(), text);
     }
 
     let mut lblocks: Vec<License> = Vec::new();
