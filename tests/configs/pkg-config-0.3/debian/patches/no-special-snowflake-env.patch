@@ -10,7 +10,7 @@
  //!   probing for the library named `foo`.
  //!
 @@ -81,7 +79,7 @@
-
+ 
      // Only use pkg-config in host == target situations by default (allowing an
      // override).
 -    (host == target || env::var_os("PKG_CONFIG_ALLOW_CROSS").is_some())
@@ -30,7 +30,7 @@
      CrossCompilation,
  
      /// Failed to run `pkg-config`.
-@@ -137,10 +134,6 @@
+@@ -137,13 +134,9 @@
      fn description(&self) -> &str {
          match *self {
              Error::EnvNoPkgConfig(_) => "pkg-config requested to be aborted",
@@ -40,7 +40,11 @@
 -            }
              Error::Command { .. } => "failed to run pkg-config",
              Error::Failure { .. } => "pkg-config did not exit sucessfully",
-             Error::__Nonexhaustive => panic!(),
+-            Error::__Nonexhaustive => panic!(),
++            Error::CrossCompilation | Error::__Nonexhaustive => panic!(),
+         }
+     }
+ 
 @@ -214,10 +207,6 @@
              Error::EnvNoPkgConfig(ref name) => {
                  write!(f, "Aborted because {} is set", name)
@@ -52,6 +56,15 @@
              Error::Command { ref command, ref cause } => {
                  write!(f, "Failed to run `{}`: {}", command, cause)
              }
+@@ -233,7 +222,7 @@
+                 }
+                 Ok(())
+             }
+-            Error::__Nonexhaustive => panic!(),
++            Error::CrossCompilation | Error::__Nonexhaustive => panic!(),
+         }
+     }
+ }
 @@ -388,7 +377,11 @@
      }
  
