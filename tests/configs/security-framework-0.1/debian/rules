@@ -1,0 +1,8 @@
+#!/usr/bin/make -f
+include /usr/share/rustc/architecture.mk
+%:
+	dh $@ --buildsystem cargo
+
+# only supported on macos
+override_dh_auto_test:
+	case $(DEB_HOST_RUST_TYPE) in *-apple-darwin) dh_auto_test;; *) true;; esac
