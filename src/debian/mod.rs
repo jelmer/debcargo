@@ -177,6 +177,7 @@ pub fn prepare_debian_folder(
     config: &Config,
     changelog_ready: bool,
     copyright_guess_harder: bool,
+    overlay_write_back: bool,
 ) -> Result<()> {
     let tempdir = TempDir::new_in(".", "debcargo")?;
     let overlay = config.overlay_dir(config_path);
@@ -511,7 +512,7 @@ pub fn prepare_debian_folder(
         }
     }
 
-    if config.overlay_write_back {
+    if overlay_write_back {
         overlay.as_ref().map(|p| {
             if !changelog_ready {
                 // Special-case d/changelog:

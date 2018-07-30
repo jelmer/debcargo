@@ -149,8 +149,8 @@ build_source() {(
 		echo >&2 "using config: $config"
 	fi
 
-	echo $debcargo package $extraargs --directory $cratedir $option "${crate}" $version
-	if $debcargo package $extraargs --directory $cratedir $option "${crate}" $version; then
+	echo $debcargo package $extraargs --no-overlay-write-back --directory $cratedir $option "${crate}" $version
+	if $debcargo package $extraargs --no-overlay-write-back --directory $cratedir $option "${crate}" $version; then
 		:
 	else
 		local x=$?

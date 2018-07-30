@@ -1,5 +1,4 @@
 overlay = "."
-overlay_write_back = false
 excludes = ["libgit2/**"]
 
 [packages.lib]

@@ -67,6 +67,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         })
         .unwrap_or((None, Config::default()));
     let changelog_ready = matches.is_present("changelog-ready");
+    let overlay_write_back = !matches.is_present("no-overlay-write-back");
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
     let mut crate_info = CrateInfo::new(crate_name, version)?;
@@ -94,6 +95,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         &config,
         changelog_ready,
         copyright_guess_harder,
+        overlay_write_back,
     )?;
 
     let curdir = env::current_dir()?;
@@ -174,6 +176,7 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("--directory [directory] 'Output directory.'")
                               .arg_from_usage("--changelog-ready 'Assume the changelog is already bumped, and leave it alone.'")
                               .arg_from_usage("--copyright-guess-harder 'Guess extra values for d/copyright. Might be slow.'")
+                              .arg_from_usage("--no-overlay-write-back 'Don\'t write back hint files or d/changelog to the source overlay directory.'")
                               .arg_from_usage("--config [file] 'TOML file providing additional \
                                                package-specific options.'")
                      ])
