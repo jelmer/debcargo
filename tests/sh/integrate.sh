@@ -105,7 +105,14 @@ run_lintian() {(
 	lintian -EIL +pedantic "$changes" || true
 )}
 
-chroot=${CHROOT:-unstable-"$(dpkg-architecture -q DEB_HOST_ARCH)"-sbuild}
+DEB_HOST_ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
+if [ -z "$CHROOT" ]; then
+	if schroot -i -c "debcargo-unstable-${DEB_HOST_ARCH}-sbuild" >/dev/null 2>&1; then
+		CHROOT="debcargo-unstable-${DEB_HOST_ARCH}-sbuild"
+	else
+		CHROOT=${CHROOT:-unstable-"$DEB_HOST_ARCH"-sbuild}
+	fi
+fi
 run_sbuild() {(
 	local crate="$1"
 	local version="$2"
@@ -124,7 +131,7 @@ run_sbuild() {(
 	fi
 
 	echo >&2 "sbuild $dsc logging to $build"
-	sbuild --arch-all --arch-any --no-run-lintian --resolve-alternatives -c "$chroot" -d unstable --extra-package=. $SBUILD_EXTRA_ARGS "$dsc"
+	sbuild --arch-all --arch-any --no-run-lintian --resolve-alternatives -c "$CHROOT" -d unstable --extra-package=. $SBUILD_EXTRA_ARGS "$dsc"
 )}
 
 build_source() {(
@@ -245,11 +252,11 @@ test -x $debcargo
 
 for i in "$@"; do run_x_or_deps "$i" build_source; done
 if $run_sbuild; then
-	if ! schroot -i -c "$chroot" >/dev/null; then
-		echo >&2 "create the $chroot schroot by running e.g.:"
-		echo >&2 "  sudo sbuild-createchroot unstable /srv/chroot/$chroot http://deb.debian.org/debian"
-		echo >&2 "  sudo schroot -c source:$chroot -- apt-get -y install dh-cargo"
-		echo >&2 "  sudo sbuild-update -udr $chroot"
+	if ! schroot -i -c "$CHROOT" >/dev/null; then
+		echo >&2 "create the $CHROOT schroot by running e.g.:"
+		echo >&2 "  sudo sbuild-createchroot unstable /srv/chroot/$CHROOT http://deb.debian.org/debian"
+		echo >&2 "  sudo schroot -c source:$CHROOT -- apt-get -y install dh-cargo"
+		echo >&2 "  sudo sbuild-update -udr $CHROOT"
 		echo >&2 "See https://wiki.debian.org/sbuild for more details"
 		exit 1
 	fi

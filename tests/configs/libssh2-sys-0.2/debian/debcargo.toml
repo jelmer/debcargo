@@ -1,7 +1,5 @@
+overlay = "."
 excludes = ["libssh2/**"]
 
-# zlib1g-dev is only needed because libssh2-1-dev incorrectly omits it, TB fixed
-# see the relevant Debian bug report at https://bugs.debian.org/libssh2-1-dev
-
 [packages.lib]
-depends = ["libssh2-1-dev", "zlib1g-dev"]
+depends = ["libssh2-1-dev"]
