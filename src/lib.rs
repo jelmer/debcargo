@@ -15,7 +15,7 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate tar;
-extern crate tempdir;
+extern crate tempfile;
 extern crate textwrap;
 extern crate toml;
 extern crate walkdir;

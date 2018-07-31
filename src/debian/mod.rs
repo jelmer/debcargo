@@ -7,7 +7,7 @@ use std::process::Command;
 
 use cargo::util::FileLock;
 use glob::Pattern;
-use tempdir::TempDir;
+use tempfile;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
@@ -114,7 +114,7 @@ pub fn prepare_orig_tarball(
     pkg_srcdir: &Path,
     excludes: &Vec<Pattern>,
 ) -> Result<()> {
-    let tempdir = TempDir::new_in(".", "debcargo")?;
+    let tempdir = tempfile::Builder::new().prefix("debcargo").tempdir_in(".")?;
     let temp_archive_path = tempdir.path().join(tarball);
 
     let mut create = fs::OpenOptions::new();
@@ -179,7 +179,7 @@ pub fn prepare_debian_folder(
     copyright_guess_harder: bool,
     overlay_write_back: bool,
 ) -> Result<()> {
-    let tempdir = TempDir::new_in(".", "debcargo")?;
+    let tempdir = tempfile::Builder::new().prefix("debcargo").tempdir_in(".")?;
     let overlay = config.overlay_dir(config_path);
     overlay.as_ref().map(|p| {
         copy_tree(p.as_path(), tempdir.path()).unwrap();

@@ -1,6 +1,6 @@
 [package]
 name = "debcargo"
-version = "2.2.5"
+version = "2.2.6-alpha.0"
 authors = [
  "Josh Triplett <josh@joshtriplett.org>",
  "Ximin Luo <infinity0@debian.org>",
@@ -22,7 +22,7 @@ regex = "1.0"
 semver = "0.9"
 semver-parser = "0.9"
 tar = "0.4"
-tempdir = "0.3"
+tempfile = "3"
 walkdir = "2"
 ansi_term = "0.11"
 serde = "1.0"

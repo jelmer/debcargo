@@ -2,7 +2,7 @@ use walkdir;
 use regex;
 use chrono::{self, DateTime, Datelike, NaiveDateTime, Utc};
 use cargo::core::{manifest, package};
-use tempdir::TempDir;
+use tempfile;
 use textwrap::fill;
 use git2::Repository;
 
@@ -290,7 +290,7 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
 }
 
 fn copyright_fromgit(repo_url: &str) -> Result<String> {
-    let tempdir = TempDir::new_in(".", "debcargo")?;
+    let tempdir = tempfile::Builder::new().prefix("debcargo").tempdir_in(".")?;
     let repo = Repository::clone(repo_url, tempdir.path())?;
 
     let mut revwalker = repo.revwalk()?;

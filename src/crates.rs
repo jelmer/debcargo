@@ -11,7 +11,7 @@ use glob::Pattern;
 use semver::Version;
 use flate2::read::GzDecoder;
 use tar::Archive;
-use tempdir::TempDir;
+use tempfile;
 use regex::Regex;
 
 use std;
@@ -445,7 +445,7 @@ impl CrateInfo {
 
     pub fn extract_crate(&self, path: &Path, excludes: &Vec<Pattern>) -> Result<bool> {
         let mut archive = Archive::new(GzDecoder::new(self.crate_file.file()));
-        let tempdir = TempDir::new_in(".", "debcargo")?;
+        let tempdir = tempfile::Builder::new().prefix("debcargo").tempdir_in(".")?;
         let mut source_modified = false;
         let mut last_mtime = 0;
 

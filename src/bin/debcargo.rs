@@ -11,7 +11,7 @@ extern crate itertools;
 extern crate semver;
 extern crate semver_parser;
 extern crate tar;
-extern crate tempdir;
+extern crate tempfile;
 extern crate walkdir;
 
 use ansi_term::Colour::Red;

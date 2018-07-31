@@ -3,7 +3,6 @@ important lintian errors that crop up.
 
 This document is probably better moved to the GitLab issue tracker on salsa.debian.org
 
-
 ## Lower-priority tasks
 
 Minor issues
