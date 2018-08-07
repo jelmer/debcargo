@@ -1,7 +1,11 @@
-Generally, run `tests/sh/integrate.sh -rb ./` and fix any build errors and
-important lintian errors that crop up.
+See https://salsa.debian.org/groups/rust-team/-/issues
 
-This document is probably better moved to the GitLab issue tracker on salsa.debian.org
+Whenever you make a major change, you can run:
+
+  tests/sh/integrate.sh -krbz debcargo mdbook ripgrep exa sccache
+
+in order to test it over a few hundred crates. Fix any build errors and
+important lintian errors that crop up.
 
 ## Lower-priority tasks
 
