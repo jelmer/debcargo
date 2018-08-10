@@ -25,7 +25,7 @@ For building:
 
 ```shell
 $ apt-get build-dep cargo
-$ apt-get install libssl-dev libcurl4-gnutls-dev
+$ apt-get install libssl-dev libcurl4-gnutls-dev quilt
 $ cargo build debcargo
 ```
 
