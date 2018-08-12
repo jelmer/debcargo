@@ -285,18 +285,13 @@ pub fn prepare_debian_folder(
         let mut watch = file("watch")?;
         writeln!(
             watch,
-            "{}",
-            format!(
-                concat!(
-                    "version=4\n",
-                    "opts=filenamemangle=s/.*\\/(.*)\\/download/{name}-$1\\.\
-                     tar\\.gz/g\\ \n",
-                    " https://qa.debian.org/cgi-bin/fakeupstream.\
-                     cgi?upstream=crates.io/{name} ",
-                    ".*/crates/{name}/@ANY_VERSION@/download\n"
-                ),
-                name = upstream_name
-            )
+            "{}\n{}\n{}\n{}\n",
+            r"version=4",
+            format!(r"opts=filenamemangle=s/.*\/(.*)\/download/{name}-$1\.tar\.gz/g,\", name = upstream_name),
+            r"uversionmangle=s/(\d)[_\.\-\+]?((RC|rc|pre|dev|beta|alpha)\d*)$/$1~$2/ \",
+            format!("https://qa.debian.org/cgi-bin/fakeupstream.cgi?upstream=crates.io/{name} \
+                     .*/crates/{name}/@ANY_VERSION@/download",
+                    name = upstream_name)
         )?;
 
         // debian/source/format
