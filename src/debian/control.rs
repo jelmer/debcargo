@@ -38,6 +38,7 @@ pub struct Package {
     summary: String,
     description: String,
     boilerplate: String,
+    extra_lines: Vec<String>,
 }
 
 impl fmt::Display for Source {
@@ -84,6 +85,10 @@ impl fmt::Display for Package {
         }
         if !self.provides.is_empty() {
             writeln!(f, "Provides:\n {}", self.provides.join(",\n "))?;
+        }
+
+        for line in &self.extra_lines {
+            writeln!(f, "{}", line)?;
         }
 
         self.write_description(f)
@@ -292,6 +297,7 @@ impl Package {
             summary: short_desc,
             description: fill(&long_desc, 79),
             boilerplate: fill(&boilerplate, 79),
+            extra_lines: vec![],
         })
     }
 
@@ -334,6 +340,10 @@ impl Package {
             summary: short_desc,
             description: long_desc,
             boilerplate: boilerplate.to_string(),
+            extra_lines: vec![
+                "Built-Using: ${cargo:Built-Using}".to_string(),
+                "XB-X-Cargo-Built-Using: ${cargo:X-Cargo-Built-Using}".to_string(),
+            ],
         }
     }
 
