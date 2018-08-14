@@ -31,7 +31,6 @@ pub struct CratesIo {
 pub struct CrateInfo {
     package: Package,
     manifest: manifest::Manifest,
-    summary: Summary,
     crate_file: FileLock,
     config: Config,
     source_id: SourceId,
@@ -135,7 +134,6 @@ impl CrateInfo {
 
         let pkgid = summary.package_id();
 
-
         let (package, manifest, crate_file) = {
             let mut registry = crates_io.registry();
             let package = registry.download(pkgid)?;
@@ -152,7 +150,6 @@ impl CrateInfo {
         Ok(CrateInfo {
             package: package,
             manifest: manifest,
-            summary: summary.clone(),
             crate_file: crate_file,
             config: crates_io.config,
             source_id: crates_io.source_id,
@@ -164,7 +161,7 @@ impl CrateInfo {
     }
 
     pub fn version(&self) -> &Version {
-        self.summary.package_id().version()
+        self.manifest.summary().package_id().version()
     }
 
     pub fn manifest(&self) -> &manifest::Manifest {
@@ -179,15 +176,15 @@ impl CrateInfo {
     }
 
     pub fn features(&self) -> &BTreeMap<String, Vec<FeatureValue>> {
-        self.summary.features()
+        self.manifest.summary().features()
     }
 
     pub fn checksum(&self) -> Option<&str> {
-        self.summary.checksum()
+        self.manifest.summary().checksum()
     }
 
     pub fn package_id(&self) -> &PackageId {
-        self.summary.package_id()
+        self.manifest.summary().package_id()
     }
 
     pub fn metadata(&self) -> &manifest::ManifestMetadata {
@@ -195,7 +192,7 @@ impl CrateInfo {
     }
 
     pub fn summary(&self) -> &Summary {
-        &self.summary
+        self.manifest.summary()
     }
 
     pub fn package(&self) -> &Package {
@@ -225,7 +222,7 @@ impl CrateInfo {
 
         // calculate dependencies of features from other crates
         let mut features_with_deps = BTreeMap::new();
-        let features = self.summary.features();
+        let features = self.features();
         for (feature, deps) in features {
             let mut feature_deps = vec![""];
             // always need "", because in dh-cargo we symlink /usr/share/doc/{$feature => $main} pkg
