@@ -295,7 +295,7 @@ pub fn prepare_debian_folder(
         )?;
 
         // debian/source/format
-        fs::create_dir(tempdir.path().join("source"))?;
+        fs::create_dir_all(tempdir.path().join("source"))?;
         let mut source_format = file("source/format")?;
         writeln!(source_format, "3.0 (quilt)")?;
 
