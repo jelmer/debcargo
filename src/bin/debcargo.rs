@@ -59,13 +59,15 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let crate_name = matches.value_of("crate").unwrap();
     let version = matches.value_of("version");
     let directory = matches.value_of("directory");
-    let (config_path, config) = matches
-        .value_of("config")
-        .map(|p| {
+    let (config_path, config) = match matches.value_of("config") {
+        Some(p) => {
             let path = Path::new(p);
-            (Some(path), parse_config(path).unwrap())
-        })
-        .unwrap_or((None, Config::default()));
+            let config = parse_config(path)
+                .context("failed to parse debcargo.toml")?;
+            (Some(path), config)
+        },
+        None => (None, Config::default()),
+    };
     let changelog_ready = matches.is_present("changelog-ready");
     let overlay_write_back = !matches.is_present("no-overlay-write-back");
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
