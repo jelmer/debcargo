@@ -194,13 +194,13 @@ pub fn prepare_debian_folder(
         Command::new("quilt")
                 .current_dir(&pkg_srcdir)
                 .env("QUILT_PATCHES", tempdir.path().join("patches"))
-                .args(&["push", "-a"])
+                .args(&["push", "--quiltrc=-", "-a"])
                 .status().expect("failed to apply patches");
         crate_info.replace_manifest(&pkg_srcdir.join("Cargo.toml"))?;
         Command::new("quilt")
                 .current_dir(&pkg_srcdir)
                 .env("QUILT_PATCHES", tempdir.path().join("patches"))
-                .args(&["pop", "-a"])
+                .args(&["pop", "--quiltrc=-", "-a"])
                 .status().expect("failed to unapply patches");
     }
 
