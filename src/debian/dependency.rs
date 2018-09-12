@@ -296,7 +296,7 @@ fn generate_version_constraints(
 /// Translates a Cargo dependency into a Debian package dependency.
 pub fn deb_dep(config: &Config, dep: &Dependency) -> Result<Vec<String>> // result is a AND-clause
 {
-    let dep_dashed = dep.name().replace('_', "-");
+    let dep_dashed = dep.name().replace('_', "-").to_lowercase();
     let mut suffixes = Vec::new();
     if dep.uses_default_features() {
         suffixes.push("+default-dev".to_string());
