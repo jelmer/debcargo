@@ -169,6 +169,10 @@ impl Source {
         if let Some(vcs_browser) = config.vcs_browser() {
             self.vcs_browser = vcs_browser.to_string();
         }
+
+        self.uploaders.extend(vec_opt_iter(config.uploaders()).map(String::to_string));
+        self.uploaders.sort();
+        self.uploaders.dedup();
     }
 }
 

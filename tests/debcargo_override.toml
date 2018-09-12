@@ -1,3 +1,5 @@
+uploaders = ["Sylvestre Ledru <sylvestre@debian.org>", "Ximin Luo <infinity0@debian.org>" ]
+
 [source]
 section = "rust"
 build_depends = ["libssl-dev"]

@@ -1,3 +1,5 @@
+uploaders = ["Sylvestre Ledru <sylvestre@debian.org>", "Ximin Luo <infinity0@debian.org>" ]
+
 [source]
 policy = "4.0.0"
 homepage = "https://clap.rs"
