@@ -1,6 +1,6 @@
 use walkdir;
 use regex;
-use chrono::{self, DateTime, Datelike, NaiveDateTime, Utc};
+use chrono::{DateTime, Datelike, NaiveDateTime, Utc};
 use cargo::core::{manifest, package};
 use tempfile;
 use textwrap::fill;
@@ -326,6 +326,7 @@ pub fn debian_copyright(
     srcdir: &Path,
     manifest: &manifest::Manifest,
     uploaders: &Vec<&str>,
+    year_range: (i32, i32),
     guess_harder: bool,
 ) -> Result<DebCopyright> {
     let meta = manifest.metadata().clone();
@@ -358,10 +359,15 @@ pub fn debian_copyright(
 
     let mut files = gen_files(srcdir)?;
 
-    let current_year = chrono::Local::now().year();
+    let (y0, y1) = year_range;
+    let years = if y0 == y1 {
+        format!("{}", y0)
+    } else {
+        format!("{}-{}", y0, y1)
+    };
     let mut deb_notice = vec![
-        format!("{} {}", current_year, RUST_MAINT)];
-    deb_notice.extend(uploaders.iter().map(|s| format!("{} {}", current_year, s)));
+        format!("{} {}", years, RUST_MAINT)];
+    deb_notice.extend(uploaders.iter().map(|s| format!("{} {}", years, s)));
     files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
 
     // Insert catch all block as the first block of copyright file. Capture

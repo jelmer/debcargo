@@ -6,6 +6,7 @@ use std::str::FromStr;
 use std::process::Command;
 
 use cargo::util::FileLock;
+use chrono::{self, Datelike};
 use glob::Pattern;
 use tempfile;
 use flate2::read::GzDecoder;
@@ -274,11 +275,23 @@ pub fn prepare_debian_folder(
         // debian/copyright
         let uploaders: Vec<&str> = vec_opt_iter(config.uploaders()).map(String::as_str).collect();
         let mut copyright = io::BufWriter::new(file("copyright")?);
+        let year_range = if changelog_ready {
+            // if changelog is ready, unconditionally read the year range from it
+            changelog_first_last(tempdir.path())?
+        } else {
+            // otherwise use the first date if it exists
+            let last = chrono::Local::now().year();
+            match changelog_first_last(tempdir.path()) {
+                Ok((first, _)) => (first, last),
+                Err(_) => (last, last),
+            }
+        };
         let dep5_copyright = debian_copyright(
             crate_info.package(),
             pkg_srcdir,
             crate_info.manifest(),
             &uploaders,
+            year_range,
             copyright_guess_harder,
         )?;
         write!(copyright, "{}", dep5_copyright)?;
@@ -539,4 +552,24 @@ fn changelog_or_new(tempdir: &Path) -> Result<(fs::File, String)> {
     let mut changelog_data = String::new();
     changelog.read_to_string(&mut changelog_data)?;
     Ok((changelog, changelog_data))
+}
+
+fn changelog_first_last(tempdir: &Path) -> Result<(i32, i32)> {
+    let mut changelog = fs::File::open(tempdir.join("changelog"))?;
+    let mut changelog_data = String::new();
+    changelog.read_to_string(&mut changelog_data)?;
+    let mut last = None;
+    let mut first = None;
+    for x in ChangelogIterator::from(&changelog_data) {
+        let e = ChangelogEntry::from_str(x)?;
+        if None == last {
+            last = Some(e.date.year());
+        }
+        first = Some(e.date.year());
+    }
+    if None == last {
+        Err(format_err!("changelog had no entries"))
+    } else {
+        Ok((first.unwrap(), last.unwrap()))
+    }
 }
