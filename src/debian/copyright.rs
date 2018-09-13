@@ -348,7 +348,10 @@ pub fn debian_copyright(
         licenses.push(License::new("UNKNOWN-LICENSE; FIXME (overlay)".to_string(), stext));
     } else if let Some(ref license) = meta.license {
         licenses = get_licenses(license).unwrap();
-        crate_license = license.trim().replace("/", " or ");
+        crate_license = license.trim()
+            .replace("/", " or ")
+            .replace(" OR ", " or ")
+            .replace(" AND ", " and ");
     } else {
         debcargo_bail!("Crate has no license or license_file");
     }
