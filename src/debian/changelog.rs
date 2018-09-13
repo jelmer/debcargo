@@ -101,6 +101,12 @@ impl ChangelogEntry {
         }
     }
 
+    pub fn maintainer_name(self: &ChangelogEntry) -> String {
+        let re = Regex::new(r"^\s*(\S.*\S)\s*<.*>\s*$").unwrap();
+        let matches = re.captures(&self.maintainer).unwrap();
+        matches[1].to_string()
+    }
+
     pub fn version_parts(self: &ChangelogEntry) -> (String, String) {
         let re = Regex::new(r"^(.*)-([^-]*)$").unwrap();
         let matches = re.captures(&self.version).unwrap();
