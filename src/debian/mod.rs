@@ -272,11 +272,13 @@ pub fn prepare_debian_folder(
         writeln!(compat, "11")?;
 
         // debian/copyright
+        let uploaders: Vec<&str> = vec_opt_iter(config.uploaders()).map(String::as_str).collect();
         let mut copyright = io::BufWriter::new(file("copyright")?);
         let dep5_copyright = debian_copyright(
             crate_info.package(),
             pkg_srcdir,
             crate_info.manifest(),
+            &uploaders,
             copyright_guess_harder,
         )?;
         write!(copyright, "{}", dep5_copyright)?;
@@ -336,27 +338,13 @@ pub fn prepare_debian_folder(
                 build_deps.chain(build_deps_extra.map(|d| deb_dep_add_nocheck(&d))).collect()
             }
         };
-        let uploaders = if changelog_ready {
-            // Use changelog maintainer as uploader if --changelog-ready
-            // helps to give contributors more visibility in sponsored packages
-            let (_changelog, changelog_data) = changelog_or_new(tempdir.path())?;
-            match ChangelogIterator::from(&changelog_data).next() {
-                Some(x) => {
-                    let e = ChangelogEntry::from_str(x)?;
-                    vec![e.maintainer]
-                },
-                None => vec![control::get_deb_author()?]
-            }
-        } else {
-            vec![control::get_deb_author()?]
-        };
         let mut source = Source::new(
             base_pkgname,
             name_suffix,
             upstream_name,
             if let Some(ref home) = meta.homepage { home } else { "" },
             lib,
-            uploaders,
+            uploaders.iter().map(|s| s.to_string()).collect(),
             build_deps
         )?;
 
@@ -458,7 +446,7 @@ pub fn prepare_debian_folder(
             // - Always prepend to any existing file from the overlay.
             // - If the first entry is changelog::DEFAULT_DIST then write over that, smartly
             let (mut changelog, changelog_data) = changelog_or_new(tempdir.path())?;
-            let (changelog_old, changelog_items, deb_version_suffix) = match ChangelogIterator::from(&changelog_data).next() {
+            let (changelog_old, mut changelog_items, deb_version_suffix) = match ChangelogIterator::from(&changelog_data).next() {
                 Some(x) => if x.contains(changelog::DEFAULT_DIST) {
                     let mut e = ChangelogEntry::from_str(x)?;
                     let (ups, suf) = e.version_parts();
@@ -485,12 +473,19 @@ pub fn prepare_debian_folder(
             };
 
             let source_deb_version = format!("{}-{}", pkgbase.debian_version(), &deb_version_suffix);
+            let author = control::get_deb_author()?;
+            if !uploaders.contains(&author.as_str()) {
+                debcargo_warn!("You are not in Uploaders; adding \"Team upload\" to d/changelog");
+                if !changelog_items.contains(&changelog::COMMENT_TEAM_UPLOAD.to_string()) {
+                    changelog_items.insert(0, changelog::COMMENT_TEAM_UPLOAD.to_string());
+                }
+            }
             let changelog_new_entry = ChangelogEntry::new(
                 source.srcname().to_string(),
                 source_deb_version,
                 changelog::DEFAULT_DIST.to_string(),
                 "urgency=medium".to_string(),
-                source.main_uploader().to_string(),
+                author,
                 changelog::local_now(),
                 changelog_items,
             );

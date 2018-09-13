@@ -48,7 +48,9 @@ impl fmt::Display for Source {
         writeln!(f, "Priority: {}", self.priority)?;
         writeln!(f, "Build-Depends: {}", self.build_deps.join(",\n "))?;
         writeln!(f, "Maintainer: {}", self.maintainer)?;
-        writeln!(f, "Uploaders: {}", self.uploaders.join(",\n "))?;
+        if !self.uploaders.is_empty() {
+            writeln!(f, "Uploaders:\n {}", self.uploaders.join(",\n "))?;
+        }
         writeln!(f, "Standards-Version: {}", self.standards)?;
         writeln!(f, "Vcs-Git: {}", self.vcs_git)?;
         writeln!(f, "Vcs-Browser: {}", self.vcs_browser)?;
@@ -141,10 +143,6 @@ impl Source {
         &self.name
     }
 
-    pub fn main_uploader(&self) -> &str {
-        &self.uploaders[0]
-    }
-
     pub fn apply_overrides(&mut self, config: &Config) {
         if let Some(section) = config.section() {
             self.section = section.to_string();
@@ -169,10 +167,6 @@ impl Source {
         if let Some(vcs_browser) = config.vcs_browser() {
             self.vcs_browser = vcs_browser.to_string();
         }
-
-        self.uploaders.extend(vec_opt_iter(config.uploaders()).map(String::to_string));
-        self.uploaders.sort();
-        self.uploaders.dedup();
     }
 }
 

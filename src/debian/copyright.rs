@@ -325,6 +325,7 @@ pub fn debian_copyright(
     package: &package::Package,
     srcdir: &Path,
     manifest: &manifest::Manifest,
+    uploaders: &Vec<&str>,
     guess_harder: bool,
 ) -> Result<DebCopyright> {
     let meta = manifest.metadata().clone();
@@ -355,10 +356,10 @@ pub fn debian_copyright(
     let mut files = gen_files(srcdir)?;
 
     let current_year = chrono::Local::now().year();
-    let deb_notice = &[
-        format!("{} {}", current_year, RUST_MAINT),
-        format!("{} FIXME (overlay) Your Name <Your Email>", current_year)];
-    files.push(Files::new("debian/*", deb_notice, &crate_license, ""));
+    let mut deb_notice = vec![
+        format!("{} {}", current_year, RUST_MAINT)];
+    deb_notice.extend(uploaders.iter().map(|s| format!("{} {}", current_year, s)));
+    files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
 
     // Insert catch all block as the first block of copyright file. Capture
     // copyright notice from git log of the upstream repository.
