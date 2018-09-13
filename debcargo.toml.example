@@ -52,6 +52,9 @@
 # string (or the autoextracted default) plus a suffix describing the feature.
 #summary = "PLACEHOLDER"
 
+# Uploaders
+uploaders = [ "foo bar <foo@debian.org>" ]
+
 [source]
 
 # Debian Standards-Version to use. By default debcargo uses latest policy version.

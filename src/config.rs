@@ -18,6 +18,7 @@ pub struct Config {
     pub excludes: Option<Vec<String>>,
     pub allow_prerelease_deps: bool,
     pub summary: String,
+    pub uploaders: Option<Vec<String>>,
 
     pub source: Option<SourceOverride>,
     pub packages: Option<HashMap<String, PackageOverride>>,
@@ -52,6 +53,7 @@ impl Default for Config {
             excludes: None,
             allow_prerelease_deps: false,
             summary: "".to_string(),
+            uploaders: None,
             source: None,
             packages: None,
         }
@@ -105,6 +107,10 @@ impl Config {
         self.source.as_ref().and_then(|s| {
             s.build_depends.as_ref()
         })
+    }
+
+    pub fn uploaders(&self) -> Option<&Vec<String>> {
+        self.uploaders.as_ref()
     }
 
     pub fn build_depends_excludes(&self) -> Option<&Vec<String>> {
