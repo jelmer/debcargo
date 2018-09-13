@@ -318,7 +318,7 @@ pub fn prepare_debian_folder(
         let build_deps = {
             let build_deps = [
                 "debhelper (>= 11)",
-                "dh-cargo (>= 9)"
+                "dh-cargo (>= 10)"
                 ].iter().map(|x| x.to_string());
             let (default_features, default_deps) = crate_info.feature_all_deps(&features_with_deps, "default");
             //debcargo_info!("default_features: {:?}", default_features);
