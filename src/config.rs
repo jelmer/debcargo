@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::fs::File;
 use errors::*;
-use itertools::Itertools;
 use util::vec_opt_iter;
 
 #[derive(Deserialize, Debug, Clone)]
