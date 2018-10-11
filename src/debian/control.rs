@@ -356,7 +356,7 @@ impl Package {
             if x.is_empty() { None } else { Some(x) }
         }).join("\n\n");
         for line in description.trim().lines() {
-            let line = line.trim();
+            let line = line.trim_right();
             if line.is_empty() {
                 writeln!(out, " .")?;
             } else if line.starts_with("- ") {
