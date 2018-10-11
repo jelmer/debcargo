@@ -127,7 +127,7 @@ impl CrateInfo {
                         "update` to",
                         "update the crates.io index"
                     ),
-                    dependency.name(),
+                    dependency.package_name(),
                     dependency.version_req()
                 )
             })?;
@@ -175,10 +175,6 @@ impl CrateInfo {
         Ok(self)
     }
 
-    pub fn features(&self) -> &BTreeMap<String, Vec<FeatureValue>> {
-        self.manifest.summary().features()
-    }
-
     pub fn checksum(&self) -> Option<&str> {
         self.manifest.summary().checksum()
     }
@@ -217,13 +213,12 @@ impl CrateInfo {
 
         let deps_by_name : BTreeMap<&str, &Dependency> = self.dependencies().iter().filter_map(|dep| {
             // we treat build-dependencies also as dependencies in Debian
-            if dep.kind() == Kind::Development { None } else { Some((dep.name().as_str(), dep)) }
+            if dep.kind() == Kind::Development { None } else { Some((dep.package_name().as_str(), dep)) }
         }).collect();
 
         // calculate dependencies of features from other crates
         let mut features_with_deps = BTreeMap::new();
-        let features = self.features();
-        for (feature, deps) in features {
+        for (feature, deps) in self.manifest.summary().features() {
             let mut feature_deps = vec![""];
             // always need "", because in dh-cargo we symlink /usr/share/doc/{$feature => $main} pkg
             let mut other_deps : Vec<Dependency> = Vec::new();
@@ -254,7 +249,7 @@ impl CrateInfo {
         // calculate dependencies of "optional dependencies" that are also features
         let deps_required : Vec<Dependency> = deps_by_name.iter().filter_map(|(_, &dep)| {
             if dep.is_optional() {
-                features_with_deps.insert(&dep.name().as_str(), (vec![""], vec![dep.clone()]));
+                features_with_deps.insert(&dep.package_name().as_str(), (vec![""], vec![dep.clone()]));
                 None
             } else {
                 Some(dep.clone())

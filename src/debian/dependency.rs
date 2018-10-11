@@ -192,9 +192,9 @@ fn coerce_unacceptable_predicate<'a>(
     // coerce it to the non-pre-release version.
     if !p.pre.is_empty() {
         if allow_prerelease_deps {
-            debcargo_warn!("Coercing removal of prerelease part of dependency: {} {:?}", dep.name(), p)
+            debcargo_warn!("Coercing removal of prerelease part of dependency: {} {:?}", dep.package_name(), p)
         } else {
-            debcargo_bail!("Cannot represent prerelease part of dependency: {} {:?}", dep.name(), p)
+            debcargo_bail!("Cannot represent prerelease part of dependency: {} {:?}", dep.package_name(), p)
         }
     }
 
@@ -204,7 +204,7 @@ fn coerce_unacceptable_predicate<'a>(
         (&GtEq, &M(0)) => {
             debcargo_warn!(
                 "Coercing unrepresentable dependency version predicate 'GtEq 0' to 'Gt 0': {} {:?}",
-                dep.name(),
+                dep.package_name(),
                 p
             );
             Ok(&Gt)
@@ -213,7 +213,7 @@ fn coerce_unacceptable_predicate<'a>(
         // 0.0.0* so for now commenting this out.
         // (_, &M(0)) => debcargo_bail!(
         //     "Unrepresentable dependency version predicate: {} {:?}",
-        //     dep.name(),
+        //     dep.package_name(),
         //     p
         // ),
         (_, _) => Ok(&p.op),
@@ -234,7 +234,7 @@ fn generate_version_constraints(
     match (op, &mmp.clone()) {
         (&Lt, &M(0)) | (&Lt, &MM(0, 0)) | (&Lt, &MMP(0, 0, 0)) => debcargo_bail!(
             "Unrepresentable dependency version predicate: {} {:?}",
-            dep.name(),
+            dep.package_name(),
             p
         ),
         (&Lt, _) => {
@@ -296,7 +296,7 @@ fn generate_version_constraints(
 /// Translates a Cargo dependency into a Debian package dependency.
 pub fn deb_dep(config: &Config, dep: &Dependency) -> Result<Vec<String>> // result is a AND-clause
 {
-    let dep_dashed = dep.name().replace('_', "-").to_lowercase();
+    let dep_dashed = dep.package_name().replace('_', "-").to_lowercase();
     let mut suffixes = Vec::new();
     if dep.uses_default_features() {
         suffixes.push("+default-dev".to_string());
