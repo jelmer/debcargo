@@ -296,8 +296,8 @@ impl Package {
                     let mut v = version.clone();
                     v.increment_patch();
                     vec![
-                        format!("Replaces: {} (<< {}~~)", deb_name(basename), v),
-                        format!("Breaks: {} (<< {}~~)", deb_name(basename), v),
+                        format!("Replaces: {} (<< {}-~~)", deb_name(basename), deb_version(&v)),
+                        format!("Breaks: {} (<< {}-~~)", deb_name(basename), deb_version(&v)),
                     ]
                 },
                 (_, _) => vec![],

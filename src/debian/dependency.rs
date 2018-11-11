@@ -131,8 +131,8 @@ impl VRange {
         use debian::dependency::V::*;
         match (&self.ge, &self.lt) {
             (None, None) => Ok(format!("{}{}", base, suffix)),
-            (Some(ge), None) => Ok(format!("{}{} (>= {}~~)", base, suffix, ge)),
-            (None, Some(lt)) => Ok(format!("{}{} (<< {}~~)", base, suffix, lt)),
+            (Some(ge), None) => Ok(format!("{}{} (>= {}-~~)", base, suffix, ge)),
+            (None, Some(lt)) => Ok(format!("{}{} (<< {}-~~)", base, suffix, lt)),
             (Some(ge), Some(lt)) => {
                 if ge >= lt {
                     debcargo_bail!("bad version range: >= {}, << {}", ge, lt);
@@ -165,13 +165,13 @@ impl VRange {
                         // A-x >= x is redundant, drop the >=
                         Some(format!("{}-{}{}", base, ver, suffix))
                     } else {
-                        Some(format!("{}-{}{} (>= {}~~)", base, ver, suffix, c))
+                        Some(format!("{}-{}{} (>= {}-~~)", base, ver, suffix, c))
                     },
                     Some((false, c)) => if c == &ver {
                         // A-x << x is unsatisfiable, drop it
                         None
                     } else {
-                        Some(format!("{}-{}{} (<< {}~~)", base, ver, suffix, c))
+                        Some(format!("{}-{}{} (<< {}-~~)", base, ver, suffix, c))
                     },
                 }).join(" | "))
             }
