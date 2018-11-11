@@ -370,7 +370,7 @@ pub fn prepare_debian_folder(
         // Summary and description generated from Cargo.toml
         let (summary, description) = crate_info.get_summary_description();
         let summary = if !config.summary.is_empty() {
-            Some(&config.summary)
+            Some(config.summary.as_str())
         } else {
             if let Some(summary) = summary.as_ref() {
                 if summary.len() > 80 {
@@ -379,8 +379,9 @@ pub fn prepare_debian_folder(
                         "auto-generated summaries are very long, consider overriding"))?;
                 }
             }
-            summary.as_ref()
+            summary.as_ref().map(String::as_str)
         };
+        let description = description.as_ref().map(String::as_str);
 
         if lib {
             let mut provides = crate_info.calculate_provides(&mut features_with_deps);
@@ -400,7 +401,7 @@ pub fn prepare_debian_folder(
                 let f_provides = provides.remove(feature).unwrap();
                 let mut package =
                     Package::new(base_pkgname, name_suffix, &crate_info.version(), upstream_name,
-                        summary, description.as_ref(),
+                        summary, description,
                         if feature == "" { None } else { Some(feature) },
                         f_deps, deb_deps(config, &o_deps)?,
                         f_provides.clone(),
@@ -430,7 +431,7 @@ pub fn prepare_debian_folder(
                 // if not-a-lib then Source section is already FIXME
                 if !lib { None } else { Some("FIXME-(packages.\"(name)\".section)") },
                 summary,
-                description.as_ref(),
+                description,
                 match boilerplate {
                     Some(ref s) => s,
                     None => "",

@@ -139,8 +139,8 @@ impl Source {
         })
     }
 
-    pub fn srcname(&self) -> &String {
-        &self.name
+    pub fn srcname(&self) -> &str {
+        self.name.as_str()
     }
 
     pub fn apply_overrides(&mut self, config: &Config) {
@@ -176,8 +176,8 @@ impl Package {
         name_suffix: Option<&str>,
         version: &Version,
         upstream_name: &str,
-        summary: Option<&String>,
-        description: Option<&String>,
+        summary: Option<&str>,
+        description: Option<&str>,
         feature: Option<&str>,
         f_deps: Vec<&str>,
         o_deps: Vec<String>,
@@ -235,7 +235,7 @@ impl Package {
             None => format!("{} - Rust source code", summary),
         };
 
-        let long_desc = description.unwrap_or(&String::new()).to_string();
+        let long_desc = description.unwrap_or("");
         let boilerplate = match feature {
             None => format!(
                 concat!(
@@ -310,8 +310,8 @@ impl Package {
         name_suffix: Option<&str>,
         upstream_name: &str,
         section: Option<&str>,
-        summary: Option<&String>,
-        description: Option<&String>,
+        summary: Option<&str>,
+        description: Option<&str>,
         boilerplate: &str,
     ) -> Self {
         let (name, provides) = match name_suffix {
@@ -351,8 +351,8 @@ impl Package {
         }
     }
 
-    pub fn name(&self) -> &String {
-        &self.name
+    pub fn name(&self) -> &str {
+        self.name.as_str()
     }
 
     fn write_description(&self, out: &mut fmt::Formatter) -> fmt::Result {
