@@ -107,7 +107,7 @@ impl Source {
         uploaders: Vec<String>,
         build_deps: Vec<String>,
     ) -> Result<Source> {
-        let pkgname = match name_suffix {
+        let pkgbase = match name_suffix {
             None => format!("{}", basename),
             Some(suf) => format!("{}{}", basename, suf),
         };
@@ -115,9 +115,9 @@ impl Source {
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
         let vcs_browser = format!(
-            "https://salsa.debian.org/rust-team/debcargo-conf/tree/master/src/{}", pkgname);
+            "https://salsa.debian.org/rust-team/debcargo-conf/tree/master/src/{}", pkgbase);
         let vcs_git = format!(
-            "https://salsa.debian.org/rust-team/debcargo-conf.git [src/{}]", pkgname);
+            "https://salsa.debian.org/rust-team/debcargo-conf.git [src/{}]", pkgbase);
 
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
             upstream_name.to_string()
@@ -125,7 +125,7 @@ impl Source {
             "".to_string()
         };
         Ok(Source {
-            name: format!("rust-{}", pkgname),
+            name: format!("rust-{}", pkgbase),
             section: section.to_string(),
             priority: priority,
             maintainer: maintainer,
@@ -185,42 +185,39 @@ impl Package {
         f_recommends: Vec<&str>,
         f_suggests: Vec<&str>,
     ) -> Result<Package> {
-        let pkgname = match name_suffix {
+        let pkgbase = match name_suffix {
             None => format!("{}", basename),
             Some(suf) => format!("{}{}", basename, suf),
         };
-        let name = match feature {
-            None => deb_name(&pkgname),
-            Some(f) => deb_feature_name(&pkgname, f),
-        };
-        let deb_feature2 = &|b: &str, f: &str| {
-            format!("{} (= ${{binary:Version}})", if f == "" {
-                deb_name(b)
-            } else {
-                deb_feature_name(b, f)
+        let deb_feature2 = &|p: &str, f: &str| {
+            format!("{} (= ${{binary:Version}})", match f {
+                "" => deb_name(p),
+                _ => deb_feature_name(p, f),
             })
         };
-        let deb_feature = &|f: &str| {
-            deb_feature2(&pkgname, &f)
+        let deb_feature = &|f: &str| deb_feature2(&pkgbase, &f);
+
+        let filter_provides = &|x: Vec<&str>| x.into_iter()
+                .filter(|f| !f_provides.contains(f)).map(deb_feature).collect();
+        let (recommends, suggests) = match feature {
+            Some(_) => (vec![], vec![]),
+            None => (filter_provides(f_recommends), filter_provides(f_suggests)),
         };
 
-        let (recommends, suggests) = if let None = feature {
-            (f_recommends.into_iter().filter(|f| !f_provides.contains(f)).map(deb_feature).collect(),
-             f_suggests.into_iter().filter(|f| !f_provides.contains(f)).map(deb_feature).collect())
-        } else {
-            (vec![], vec![])
-        };
-
+        // Provides for all possible versions, see:
+        // https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=901827#35
+        // https://wiki.debian.org/Teams/RustPackaging/Policy#Package_provides
         let mut provides = vec![];
-        let suffixes = vec![
+        let version_suffixes = vec![
             "".to_string(),
             format!("-{}", version.major),
             format!("-{}.{}", version.major, version.minor),
             format!("-{}.{}.{}", version.major, version.minor, version.patch),
         ];
-        for suffix in suffixes.iter() {
-            provides.push(deb_feature2(&format!("{}{}", basename, suffix), feature.unwrap_or("")));
-            provides.extend(f_provides.iter().map(|f| deb_feature2(&format!("{}{}", basename, suffix), f)));
+        for suffix in version_suffixes.iter() {
+            let p = format!("{}{}", basename, suffix);
+            provides.push(deb_feature2(&p, feature.unwrap_or("")));
+            provides.extend(f_provides.iter().map(|f| deb_feature2(&p, f)));
         };
         let provides_self = deb_feature(feature.unwrap_or(""));
         // TODO: can use remove_item() when that is stabilised
@@ -238,11 +235,7 @@ impl Package {
             None => format!("{} - Rust source code", summary),
         };
 
-        let long_desc = match description {
-            None => "".to_string(),
-            Some(ref s) => s.to_string(),
-        };
-
+        let long_desc = description.unwrap_or(&String::new()).to_string();
         let boilerplate = match feature {
             None => format!(
                 concat!(
@@ -264,7 +257,10 @@ impl Package {
         };
 
         Ok(Package {
-            name: name,
+            name: match feature {
+                None => deb_name(&pkgbase),
+                Some(f) => deb_feature_name(&pkgbase, f),
+            },
             arch: "any".to_string(),
             // This is the best but not ideal option for us.
             //
