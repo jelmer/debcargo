@@ -295,7 +295,17 @@ impl Package {
             summary: short_desc,
             description: fill(&long_desc, 79),
             boilerplate: fill(&boilerplate, 79),
-            extra_lines: vec![],
+            extra_lines: match (name_suffix, feature) {
+                (Some(_), None) => {
+                    let mut v = version.clone();
+                    v.increment_patch();
+                    vec![
+                        format!("Replaces: {} (<< {}~~)", deb_name(basename), v),
+                        format!("Breaks: {} (<< {}~~)", deb_name(basename), v),
+                    ]
+                },
+                (_, _) => vec![],
+            },
         })
     }
 
