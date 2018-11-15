@@ -211,50 +211,62 @@ impl CrateInfo {
     {
         use cargo::core::dependency::Kind;
 
-        let deps_by_name : BTreeMap<&str, &Dependency> = self.dependencies().iter().filter_map(|dep| {
+        let mut deps_by_name : BTreeMap<&str, Vec<&Dependency>> = BTreeMap::new();
+        for dep in self.dependencies() {
             // we treat build-dependencies also as dependencies in Debian
-            if dep.kind() == Kind::Development { None } else { Some((dep.package_name().as_str(), dep)) }
-        }).collect();
+            if dep.kind() != Kind::Development {
+                let s = dep.package_name().as_str();
+                deps_by_name.entry(s).or_default().push(dep);
+            }
+        }
+        let deps_by_name = deps_by_name;
 
-        // calculate dependencies of features from other crates
         let mut features_with_deps = BTreeMap::new();
+
+        // calculate dependencies of this crate's features
         for (feature, deps) in self.manifest.summary().features() {
             let mut feature_deps = vec![""];
             // always need "", because in dh-cargo we symlink /usr/share/doc/{$feature => $main} pkg
             let mut other_deps : Vec<Dependency> = Vec::new();
-            for dep_str in deps {
+            for dep in deps {
                 use self::FeatureValue::*;
-                match dep_str {
+                match dep {
+                    // another feature is a dependency
                     Feature(dep_feature) =>
-                        // another feature is a dependency
                         feature_deps.push(dep_feature),
+                    // another package is a dependency
                     Crate(dep_name) => {
-                        // another package is a dependency
-                        let dep = *deps_by_name.get(dep_name.as_str()).unwrap(); // valid Cargo.toml files must have this
-                        other_deps.push((*dep).clone());
+                        // unwrap is ok, valid Cargo.toml files must have this
+                        for &dep in deps_by_name.get(dep_name.as_str()).unwrap() {
+                            other_deps.push(dep.clone());
+                        }
                     },
+                    // another package is a dependency
                     CrateFeature(dep_name, dep_feature) => {
-                        // another package is a dependency
-                        let dep = *deps_by_name.get(dep_name.as_str()).unwrap(); // valid Cargo.toml files must have this
-                        let mut dep = (*dep).clone();
-                        dep.set_features(vec![dep_feature.to_string()]);
-                        dep.set_default_features(false);
-                        other_deps.push(dep);
+                        // unwrap is ok, valid Cargo.toml files must have this
+                        for &dep in deps_by_name.get(dep_name.as_str()).unwrap() {
+                            let mut dep = dep.clone();
+                            dep.set_features(vec![dep_feature.to_string()]);
+                            dep.set_default_features(false);
+                            other_deps.push(dep);
+                        }
                     }
                 }
             }
             features_with_deps.insert(feature.as_str(), (feature_deps, other_deps));
         }
 
-        // calculate dependencies of "optional dependencies" that are also features
-        let deps_required : Vec<Dependency> = deps_by_name.iter().filter_map(|(_, &dep)| {
-            if dep.is_optional() {
-                features_with_deps.insert(&dep.package_name().as_str(), (vec![""], vec![dep.clone()]));
-                None
-            } else {
-                Some(dep.clone())
+        // calculate dependencies of this crate's "optional dependencies", since they are also features
+        let mut deps_required : Vec<Dependency> = Vec::new();
+        for deps in deps_by_name.values() {
+            for &dep in deps {
+                if dep.is_optional() {
+                    features_with_deps.insert(&dep.package_name().as_str(), (vec![""], vec![dep.clone()]));
+                } else {
+                    deps_required.push(dep.clone())
+                }
             }
-        }).collect();
+        }
 
         // implicit no-default-features
         features_with_deps.insert("", (vec![], deps_required));
@@ -263,6 +275,7 @@ impl CrateInfo {
         if !features_with_deps.contains_key("default") {
             features_with_deps.insert("default", (vec![""], vec![]));
         }
+
         features_with_deps
     }
 
