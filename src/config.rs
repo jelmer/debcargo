@@ -15,6 +15,7 @@ pub struct Config {
     pub semver_suffix: bool,
     pub overlay: Option<PathBuf>,
     pub excludes: Option<Vec<String>>,
+    pub whitelist: Option<Vec<String>>,
     pub allow_prerelease_deps: bool,
     pub summary: String,
     pub uploaders: Option<Vec<String>>,
@@ -53,6 +54,7 @@ impl Default for Config {
             semver_suffix: false,
             overlay: None,
             excludes: None,
+            whitelist: None,
             allow_prerelease_deps: false,
             summary: "".to_string(),
             uploaders: None,
@@ -85,6 +87,10 @@ impl Config {
 
     pub fn orig_tar_excludes(&self) -> Option<&Vec<String>> {
         self.excludes.as_ref()
+    }
+
+    pub fn orig_tar_whitelist(&self) -> Option<&Vec<String>> {
+        self.whitelist.as_ref()
     }
 
     pub fn policy_version(&self) -> Option<&str> {

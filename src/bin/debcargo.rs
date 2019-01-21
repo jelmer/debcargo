@@ -16,7 +16,6 @@ extern crate walkdir;
 
 use ansi_term::Colour::Red;
 use clap::{App, AppSettings, ArgMatches, SubCommand};
-use glob::Pattern;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -77,17 +76,13 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
     let pkg_srcdir = Path::new(directory.unwrap_or(pkgbase.package_source_dir()));
     let orig_tar_gz = pkg_srcdir.parent().unwrap().join(pkgbase.orig_tarball_path());
-
-    let excludes = util::vec_opt_iter(config.orig_tar_excludes()).map(|x| {
-        Pattern::new(&("*/".to_owned() + x)).unwrap()
-    }).collect::<Vec<_>>();
-    let source_modified = crate_info.extract_crate(pkg_srcdir, &excludes)?;
+    crate_info.set_includes_excludes(config.orig_tar_excludes(), config.orig_tar_whitelist());
+    let source_modified = crate_info.extract_crate(pkg_srcdir)?;
     debian::prepare_orig_tarball(
-        crate_info.crate_file(),
+        &crate_info,
         &orig_tar_gz,
         source_modified,
         pkg_srcdir,
-        &excludes,
     )?;
     debian::prepare_debian_folder(
         &pkgbase,
@@ -159,7 +154,7 @@ fn do_extract(matches: &ArgMatches) -> Result<()> {
     let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!(), false);
     let pkg_srcdir = Path::new(directory.unwrap_or(pkgbase.package_source_dir()));
 
-    crate_info.extract_crate(pkg_srcdir, &vec![])?;
+    crate_info.extract_crate(pkg_srcdir)?;
     Ok(())
 }
 

@@ -5,9 +5,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::str::FromStr;
 use std::process::Command;
 
-use cargo::util::FileLock;
 use chrono::{self, Datelike};
-use glob::Pattern;
 use tempfile;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
@@ -112,12 +110,12 @@ impl BaseInfo {
 }
 
 pub fn prepare_orig_tarball(
-    crate_file: &FileLock,
+    crate_info: &CrateInfo,
     tarball: &Path,
     src_modified: bool,
     pkg_srcdir: &Path,
-    excludes: &Vec<Pattern>,
 ) -> Result<()> {
+    let crate_file = crate_info.crate_file();
     let tempdir = tempfile::Builder::new().prefix("debcargo").tempdir_in(".")?;
     let temp_archive_path = tempdir.path().join(tarball);
 
@@ -153,14 +151,19 @@ pub fn prepare_orig_tarball(
                     "Rewrote {:?} to canonical form.",
                     &entry.path()?
                 )?;
-            } else if !CrateInfo::filter_path(excludes, &entry.path()?) {
-                new_archive.append(&entry.header().clone(), entry)?;
             } else {
-                writeln!(
-                    io::stderr(),
-                    "Filtered out files from .orig.tar.gz: {:?}",
-                    &entry.path()?
-                )?;
+                match crate_info.filter_path(&entry.path()?) {
+                    Err(e) => debcargo_bail!(e),
+                    Ok(r) => if !r {
+                        new_archive.append(&entry.header().clone(), entry)?;
+                    } else {
+                        writeln!(
+                            io::stderr(),
+                            "Filtered out files from .orig.tar.gz: {:?}",
+                            &entry.path()?
+                        )?;
+                    }
+                }
             }
         }
 

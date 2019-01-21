@@ -19,6 +19,7 @@ use std::io::{self, Read, Write};
 use std::fs;
 
 use errors::*;
+use util::vec_opt_iter;
 
 pub struct CrateInfo {
     package: Package,
@@ -26,6 +27,8 @@ pub struct CrateInfo {
     crate_file: FileLock,
     config: Config,
     source_id: SourceId,
+    excludes: Vec<Pattern>,
+    includes: Vec<Pattern>,
 }
 
 fn hash<H: Hash>(hashable: &H) -> u64 {
@@ -138,6 +141,8 @@ impl CrateInfo {
             crate_file: crate_file,
             config: config,
             source_id: source_id,
+            excludes: vec![],
+            includes: vec![],
         })
     }
 
@@ -425,36 +430,54 @@ impl CrateInfo {
         (summary, description)
     }
 
-    pub fn filter_path(excludes: &Vec<Pattern>, path: &Path) -> bool {
-        // Filter out static libraries, to avoid needing to patch all the winapi crates to remove
-        // import libraries.
-        if excludes.iter().any(|p| p.matches_path(path)) {
-            return true
+    pub fn set_includes_excludes(&mut self, excludes: Option<&Vec<String>>, includes: Option<&Vec<String>>) {
+        self.excludes = vec_opt_iter(excludes).map(|x| {
+            Pattern::new(&("*/".to_owned() + x)).unwrap()
+        }).collect::<Vec<_>>();
+        self.includes = vec_opt_iter(includes).map(|x| {
+            Pattern::new(&("*/".to_owned() + x)).unwrap()
+        }).collect::<Vec<_>>();
+    }
+
+    pub fn filter_path(&self, path: &Path) -> ::std::result::Result<bool, String> {
+        if self.excludes.iter().any(|p| p.matches_path(path)) {
+            return Ok(true)
         }
-        match path.extension() {
-            Some(ext) => if ext == "a" {
+        let suspicious = match path.extension() {
+            Some(ext) => if ext == "c" || ext == "a" {
                 true
             } else {
-                if ext == "c" {
-                    debcargo_warn!("Suspicious file, maybe should be excluded: {:?}", path);
-                }
                 false
             },
             _ => false,
+        };
+        if suspicious {
+            if self.includes.iter().any(|p| p.matches_path(path)) {
+                debcargo_info!("Suspicious file, on whitelist so ignored: {:?}", path);
+                Ok(false)
+            } else {
+                Err(format!("Suspicious file, should probably be excluded: {:?}", path))
+            }
+        } else {
+            Ok(false)
         }
     }
 
-    pub fn extract_crate(&self, path: &Path, excludes: &Vec<Pattern>) -> Result<bool> {
+    pub fn extract_crate(&self, path: &Path) -> Result<bool> {
         let mut archive = Archive::new(GzDecoder::new(self.crate_file.file()));
         let tempdir = tempfile::Builder::new().prefix("debcargo").tempdir_in(".")?;
         let mut source_modified = false;
         let mut last_mtime = 0;
+        let mut err = vec![];
 
         for entry in archive.entries()? {
             let mut entry = entry?;
-            if Self::filter_path(excludes, &(entry.path()?)) {
-                source_modified = true;
-                continue;
+            match self.filter_path(&(entry.path()?)) {
+                Err(e) => err.push(e),
+                Ok(r) => if r {
+                    source_modified = true;
+                    continue;
+                }
             }
 
             if !entry.unpack_in(tempdir.path())? {
@@ -466,6 +489,12 @@ impl CrateInfo {
                     last_mtime = mtime;
                 }
             }
+        }
+        if !err.is_empty() {
+            for e in err {
+                debcargo_warn!("{}", e);
+            }
+            debcargo_bail!("Suspicious files detected, aborting. Ask on #debian-rust if you are stuck.")
         }
 
         let entries = tempdir.path().read_dir()?.collect::<io::Result<Vec<_>>>()?;

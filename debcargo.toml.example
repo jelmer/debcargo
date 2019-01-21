@@ -39,6 +39,12 @@
 # See https://docs.rs/glob/latest/glob/struct.Pattern.html for syntax
 #excludes = ["libgit2/**"]
 
+# Paths from the crate tarball, that have been manually reviewed to adhere to
+# Debian policy. debcargo has a crude method for detecting files that might not
+# fit within policy, and will give a fatal error if any are detected. In the
+# exceptional cases where the method gives a false-positive, add them here.
+#whitelist = ["libgit2/**"]
+
 # Whether to allow prerelease deps, by rewriting these to the released version.
 # This should only be enabled for certain crates if really necessary, and first
 # you should check that they can actually build when this is enabled.
