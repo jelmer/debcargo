@@ -1,10 +1,7 @@
-use cargo::{Config,
-            core::{Dependency, Package, PackageId, Source, SourceId, Summary,
-                   TargetKind, FeatureValue},
-            core::manifest::{self, EitherManifest},
-            sources::RegistrySource};
-use cargo::util::FileLock;
-use cargo::util::toml::read_manifest;
+use cargo::{Config, core::manifest::ManifestMetadata, core::registry::PackageRegistry,
+            core::{Dependency, EitherManifest, FeatureValue, Manifest, Package, PackageId,
+                   Registry, SourceId, Summary, Target, TargetKind},
+            util::{FileLock, toml::read_manifest}};
 use failure::Error;
 use filetime::{set_file_times, FileTime};
 use glob::Pattern;
@@ -23,14 +20,9 @@ use std::fs;
 
 use errors::*;
 
-pub struct CratesIo {
-    pub config: Config,
-    pub source_id: SourceId,
-}
-
 pub struct CrateInfo {
     package: Package,
-    manifest: manifest::Manifest,
+    manifest: Manifest,
     crate_file: FileLock,
     config: Config,
     source_id: SourceId,
@@ -45,7 +37,7 @@ fn hash<H: Hash>(hashable: &H) -> u64 {
 
 fn traverse_depth<'a>(map: &BTreeMap<&'a str, Vec<&'a str>>, key: &'a str) -> Vec<&'a str> {
     let mut x = Vec::new();
-    if let Some (pp) = (*map).get(key) {
+    if let Some(pp) = (*map).get(key) {
         x.extend(pp);
         for p in pp {
             x.extend(traverse_depth(map, p));
@@ -54,47 +46,19 @@ fn traverse_depth<'a>(map: &BTreeMap<&'a str, Vec<&'a str>>, key: &'a str) -> Ve
     x
 }
 
-impl CratesIo {
-    pub fn new() -> Result<Self> {
-        let config = Config::default()?;
-        let source_id = SourceId::crates_io(&config)?;
-
-        Ok(CratesIo {
-            config: config,
-            source_id: source_id,
-        })
-    }
-
-    pub fn create_dependency(&self, name: &str, version: Option<&str>) -> Result<Dependency> {
-        Dependency::parse_no_deprecated(name, version, &self.source_id)
-    }
-
-    pub fn fetch_candidates(&self, dep: &Dependency) -> Result<Vec<Summary>> {
-        let mut registry = self.registry();
-        let mut summaries = registry.query_vec(dep)?;
-        summaries.sort_by(|a, b| b.package_id().partial_cmp(a.package_id()).unwrap());
-        Ok(summaries)
-    }
-
-    pub fn fetch_as_dependency(&self, dep: &Dependency) -> Result<Vec<Dependency>> {
-        let summaries = self.fetch_candidates(dep)?;
-        let deps: Vec<Dependency> = summaries
-            .iter()
-            .map(|s| {
-                self.create_dependency(&s.name(), Some(format!("{}", s.version()).as_str()))
-                    .unwrap()
-            })
-            .collect();
-        Ok(deps)
-    }
-
-    pub fn registry(&self) -> RegistrySource {
-        RegistrySource::remote(&self.source_id, &self.config)
-    }
+fn fetch_candidates(registry: &mut PackageRegistry, dep: &Dependency) -> Result<Vec<Summary>> {
+    let mut summaries = registry.query_vec(dep, false)?;
+    summaries.sort_by(|a, b| b.package_id().partial_cmp(a.package_id()).unwrap());
+    Ok(summaries)
 }
 
 impl CrateInfo {
     pub fn new(crate_name: &str, version: Option<&str>) -> Result<CrateInfo> {
+        let config = Config::default()?;
+        let source_id = SourceId::crates_io(&config)?;
+        //this seems to be already done by the new code
+        //RegistrySource::remote(&source_id, &config).update();
+
         let version = version.map(|v| {
             if v.starts_with(|c: char| c.is_digit(10)) {
                 ["=", v].concat()
@@ -103,47 +67,46 @@ impl CrateInfo {
             }
         });
 
-        let crates_io = CratesIo::new()?;
         let dependency = Dependency::parse_no_deprecated(
             crate_name,
             version.as_ref().map(String::as_str),
-            &crates_io.source_id,
+            &source_id,
         )?;
-        let summaries = crates_io.fetch_candidates(&dependency)?;
 
         let registry_name = format!(
             "{}-{:016x}",
-            crates_io.source_id.url().host_str().unwrap_or(""),
-            hash(&crates_io.source_id).swap_bytes()
+            source_id.url().host_str().unwrap_or(""),
+            hash(&source_id).swap_bytes()
         );
 
-        let summary = summaries
-            .iter()
-            .max_by_key(|s| s.package_id())
-            .ok_or_else(|| {
+        let (package, manifest, crate_file) = {
+            let mut registry = PackageRegistry::new(&config)?;
+            registry.lock_patches();
+            let summaries = fetch_candidates(&mut registry, &dependency)?;
+            let pkgids = summaries
+                .into_iter()
+                .map(|s| s.package_id().clone())
+                .collect::<Vec<_>>();
+            let pkgid = pkgids.iter().max().ok_or_else(|| {
                 format_err!(
                     concat!(
                         "Couldn't find any crate matching {} {}\n Try `cargo ",
-                        "update` to",
+                        "update` to ",
                         "update the crates.io index"
                     ),
                     dependency.package_name(),
                     dependency.version_req()
                 )
             })?;
-
-        let pkgid = summary.package_id();
-
-        let (package, manifest, crate_file) = {
-            let mut registry = crates_io.registry();
-            let package = registry.download(pkgid)?;
+            let pkgset = registry.get(pkgids.as_slice())?;
+            let package = pkgset.get_one(pkgid)?;
             let manifest = package.manifest();
             let filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
-            let crate_file = crates_io
-                .config
-                .registry_cache_path()
-                .join(&registry_name)
-                .open_ro(&filename, &crates_io.config, &filename)?;
+            let crate_file = config.registry_cache_path().join(&registry_name).open_ro(
+                &filename,
+                &config,
+                &filename,
+            )?;
             (package.clone(), manifest.clone(), crate_file)
         };
 
@@ -151,12 +114,12 @@ impl CrateInfo {
             package: package,
             manifest: manifest,
             crate_file: crate_file,
-            config: crates_io.config,
-            source_id: crates_io.source_id,
+            config: config,
+            source_id: source_id,
         })
     }
 
-    pub fn targets(&self) -> &[manifest::Target] {
+    pub fn targets(&self) -> &[Target] {
         self.manifest.targets()
     }
 
@@ -164,7 +127,7 @@ impl CrateInfo {
         self.manifest.summary().package_id().version()
     }
 
-    pub fn manifest(&self) -> &manifest::Manifest {
+    pub fn manifest(&self) -> &Manifest {
         &self.manifest
     }
 
@@ -183,7 +146,7 @@ impl CrateInfo {
         self.manifest.summary().package_id()
     }
 
-    pub fn metadata(&self) -> &manifest::ManifestMetadata {
+    pub fn metadata(&self) -> &ManifestMetadata {
         self.manifest.metadata()
     }
 
