@@ -142,3 +142,9 @@ uploaders = [ "foo bar <foo@debian.org>" ]
 # want the -dev versions of the library packages, since our crate packages are
 # development packages and not runtime packages.
 #depends = ["PLACEHOLDER", "PLACEHOLDER"]
+
+# More additional fields. This is mostly useful for binary packages that might
+# relate to other external programs, e.g. debcargo Recommends cargo.
+#recommends = ["PLACEHOLDER", "PLACEHOLDER"]
+#suggests = ["PLACEHOLDER", "PLACEHOLDER"]
+#provides = ["PLACEHOLDER", "PLACEHOLDER"]

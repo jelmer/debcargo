@@ -345,7 +345,7 @@ pub fn prepare_debian_folder(
             //debcargo_info!("default_features: {:?}", default_features);
             //debcargo_info!("default_deps: {:?}", deb_deps(config, &default_deps)?);
             let extra_override_deps =
-                package_field_for_feature(&|x| config.package_depends(x), PackageKey::feature("default"), default_features);
+                package_field_for_feature(&|x| config.package_depends(x), PackageKey::feature("default"), &default_features);
             let build_deps_extra = [
                 "cargo:native",
                 "rustc:native",

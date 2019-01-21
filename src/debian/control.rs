@@ -395,7 +395,14 @@ impl Package {
             }
         }
 
-        self.depends.extend(package_field_for_feature(&|x| config.package_depends(x), key, f_provides));
+        self.depends.extend(
+            package_field_for_feature(&|x| config.package_depends(x), key, &f_provides));
+        self.recommends.extend(
+            package_field_for_feature(&|x| config.package_recommends(x), key, &f_provides));
+        self.suggests.extend(
+            package_field_for_feature(&|x| config.package_suggests(x), key, &f_provides));
+        self.provides.extend(
+            package_field_for_feature(&|x| config.package_provides(x), key, &f_provides));
     }
 }
 

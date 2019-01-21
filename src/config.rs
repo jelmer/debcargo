@@ -40,6 +40,9 @@ pub struct PackageOverride {
     summary: Option<String>,
     description: Option<String>,
     depends: Option<Vec<String>>,
+    recommends: Option<Vec<String>>,
+    suggests: Option<Vec<String>>,
+    provides: Option<Vec<String>>,
 }
 
 impl Default for Config {
@@ -159,6 +162,30 @@ impl Config {
         })
     }
 
+    pub fn package_recommends(&self, key: PackageKey) -> Option<&Vec<String>> {
+        self.packages.as_ref().and_then(|pkg| {
+            pkg.get(&package_key_string(key)).and_then(|package| {
+                package.recommends.as_ref()
+            })
+        })
+    }
+
+    pub fn package_suggests(&self, key: PackageKey) -> Option<&Vec<String>> {
+        self.packages.as_ref().and_then(|pkg| {
+            pkg.get(&package_key_string(key)).and_then(|package| {
+                package.suggests.as_ref()
+            })
+        })
+    }
+
+    pub fn package_provides(&self, key: PackageKey) -> Option<&Vec<String>> {
+        self.packages.as_ref().and_then(|pkg| {
+            pkg.get(&package_key_string(key)).and_then(|package| {
+                package.provides.as_ref()
+            })
+        })
+    }
+
     pub fn vcs_git(&self) -> Option<&str> {
         if let Some(ref s) = self.source {
             if let Some(ref vcs_git) = s.vcs_git {
@@ -189,9 +216,9 @@ pub fn parse_config(src: &Path) -> Result<Config> {
 pub fn package_field_for_feature<'a>(
     get_field: &'a Fn(PackageKey) -> Option<&'a Vec<String>>,
     feature: PackageKey,
-    f_provides: Vec<&str>)
+    f_provides: &[&str])
 -> Vec<String> {
-    Some(feature).into_iter().chain(f_provides.into_iter().map(PackageKey::feature)).map(move |f|
+    Some(feature).into_iter().chain(f_provides.into_iter().map(|s| PackageKey::feature(s))).map(move |f|
         vec_opt_iter(get_field(f))
     ).flatten().map(|s| s.to_string()).collect()
 }
