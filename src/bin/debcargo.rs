@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 use std::io::{BufRead, BufReader};
 
 use debcargo::errors::*;
-use debcargo::crates::CrateInfo;
+use debcargo::crates::{update_crates_io, CrateInfo};
 use debcargo::debian::{self, BaseInfo};
 use debcargo::config::{parse_config, Config};
 use debcargo::util;
@@ -163,6 +163,10 @@ fn do_extract(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
+fn do_update() -> Result<()> {
+    update_crates_io()
+}
+
 fn real_main() -> Result<()> {
     let m = App::new("debcargo")
         .author(crate_authors!())
@@ -195,11 +199,15 @@ fn real_main() -> Result<()> {
                                                include dependency operators'")
                               .arg_from_usage("--directory [directory] 'Output directory.'")
                      ])
+        .subcommands(vec![SubCommand::with_name("update")
+                              .about("Update the crates.io index, outside of a workspace.")
+                     ])
         .get_matches();
     match m.subcommand() {
         ("package", Some(sm)) => do_package(sm),
         ("deb-src-name", Some(sm)) => do_deb_src_name(sm),
         ("extract", Some(sm)) => do_extract(sm),
+        ("update", Some(_)) => do_update(),
         _ => unreachable!(),
     }
 }

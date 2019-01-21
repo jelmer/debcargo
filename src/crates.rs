@@ -1,7 +1,7 @@
 use cargo::{Config, core::manifest::ManifestMetadata, core::registry::PackageRegistry,
             core::{Dependency, EitherManifest, FeatureValue, Manifest, Package, PackageId,
-                   Registry, SourceId, Summary, Target, TargetKind},
-            util::{FileLock, toml::read_manifest}};
+                   Registry, Source, SourceId, Summary, Target, TargetKind},
+            sources::registry::RegistrySource, util::{FileLock, toml::read_manifest}};
 use failure::Error;
 use filetime::{set_file_times, FileTime};
 use glob::Pattern;
@@ -52,12 +52,17 @@ fn fetch_candidates(registry: &mut PackageRegistry, dep: &Dependency) -> Result<
     Ok(summaries)
 }
 
+pub fn update_crates_io() -> Result<()> {
+    let config = Config::default()?;
+    let source_id = SourceId::crates_io(&config)?;
+    let mut r = RegistrySource::remote(&source_id, &config);
+    r.update()
+}
+
 impl CrateInfo {
     pub fn new(crate_name: &str, version: Option<&str>) -> Result<CrateInfo> {
         let config = Config::default()?;
         let source_id = SourceId::crates_io(&config)?;
-        //this seems to be already done by the new code
-        //RegistrySource::remote(&source_id, &config).update();
 
         let version = version.map(|v| {
             if v.starts_with(|c: char| c.is_digit(10)) {
@@ -90,9 +95,8 @@ impl CrateInfo {
             let pkgid = pkgids.iter().max().ok_or_else(|| {
                 format_err!(
                     concat!(
-                        "Couldn't find any crate matching {} {}\n Try `cargo ",
-                        "update` to ",
-                        "update the crates.io index"
+                        "Couldn't find any crate matching {} {}\n ",
+                        "Try `debcargo update` to update the crates.io index."
                     ),
                     dependency.package_name(),
                     dependency.version_req()
