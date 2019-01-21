@@ -143,7 +143,7 @@ fn do_deb_src_name(matches: &ArgMatches) -> Result<()> {
     let crate_name = matches.value_of("crate").unwrap();
     let version = matches.value_of("version");
 
-    let crate_info = CrateInfo::new(crate_name, version)?;
+    let crate_info = CrateInfo::new_with_update(crate_name, version, false)?;
     let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!(), version.is_some());
 
     println!("{}", pkgbase.package_name());

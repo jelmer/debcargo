@@ -1,4 +1,5 @@
 use cargo::{Config, core::manifest::ManifestMetadata, core::registry::PackageRegistry,
+            core::shell::Verbosity,
             core::{Dependency, EitherManifest, FeatureValue, Manifest, Package, PackageId,
                    Registry, Source, SourceId, Summary, Target, TargetKind},
             sources::registry::RegistrySource, util::{FileLock, toml::read_manifest}};
@@ -61,8 +62,27 @@ pub fn update_crates_io() -> Result<()> {
 
 impl CrateInfo {
     pub fn new(crate_name: &str, version: Option<&str>) -> Result<CrateInfo> {
+        CrateInfo::new_with_update(crate_name, version, true)
+    }
+
+    pub fn new_with_update(
+        crate_name: &str,
+        version: Option<&str>,
+        update: bool,
+    ) -> Result<CrateInfo> {
         let config = Config::default()?;
-        let source_id = SourceId::crates_io(&config)?;
+        let source_id = {
+            let source_id = SourceId::crates_io(&config)?;
+            if update {
+                source_id
+            } else {
+                // suppress the "Updating crates.io index" message
+                config.shell().set_verbosity(Verbosity::Quiet);
+                // the below is a bit of a hack and depends on some cargo internals
+                // but unless we do this, fetch_candidates() will update the index
+                source_id.with_precise(Some("locked".to_string()))
+            }
+        };
 
         let version = version.map(|v| {
             if v.starts_with(|c: char| c.is_digit(10)) {
