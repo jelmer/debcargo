@@ -35,6 +35,7 @@ pub struct BaseInfo {
     upstream_name: String,
     base_package_name: String,
     name_suffix: Option<String>,
+    uscan_version_pattern: Option<String>,
     package_name: String,
     debian_version: String,
     debcargo_version: String,
@@ -48,11 +49,12 @@ impl BaseInfo {
         let upstream = name.to_string();
         let name_dashed = upstream.replace('_', "-");
         let base_package_name = name_dashed.to_lowercase();
-        let (name_suffix, package_name) = if semver_suffix {
+        let (name_suffix, uscan_version_pattern, package_name) = if semver_suffix {
             (Some(crate_info.semver_suffix()),
+             Some(crate_info.semver_uscan_pattern()),
              format!("{}{}", base_package_name, crate_info.semver_suffix()))
         } else {
-            (None, base_package_name.clone())
+            (None, None, base_package_name.clone())
         };
         let debian_version = deb_version(crate_info.version());
         let debian_source = match name_suffix {
@@ -66,6 +68,7 @@ impl BaseInfo {
             upstream_name: upstream,
             base_package_name: base_package_name,
             name_suffix: name_suffix,
+            uscan_version_pattern: uscan_version_pattern,
             package_name: package_name,
             debian_version: debian_version,
             debcargo_version: debcargo_version.to_string(),
@@ -298,6 +301,10 @@ pub fn prepare_debian_folder(
 
         // debian/watch
         let mut watch = file("watch")?;
+        let uscan_version_pattern = pkgbase
+            .uscan_version_pattern
+            .as_ref()
+            .map_or_else(|| "@ANY_VERSION@".to_string(), |ref s| s.to_string());
         writeln!(
             watch,
             "{}\n{}\n{}\n{}\n",
@@ -305,8 +312,9 @@ pub fn prepare_debian_folder(
             format!(r"opts=filenamemangle=s/.*\/(.*)\/download/{name}-$1\.tar\.gz/g,\", name = upstream_name),
             r"uversionmangle=s/(\d)[_\.\-\+]?((RC|rc|pre|dev|beta|alpha)\d*)$/$1~$2/ \",
             format!("https://qa.debian.org/cgi-bin/fakeupstream.cgi?upstream=crates.io/{name} \
-                     .*/crates/{name}/@ANY_VERSION@/download",
-                    name = upstream_name)
+                     .*/crates/{name}/{version_pattern}/download",
+                    name = upstream_name,
+                    version_pattern = uscan_version_pattern)
         )?;
 
         // debian/source/format

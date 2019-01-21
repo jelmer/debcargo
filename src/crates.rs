@@ -380,6 +380,17 @@ impl CrateInfo {
         }
     }
 
+    pub fn semver_uscan_pattern(&self) -> String {
+        // See `man uscan` description of @ANY_VERSION@ on how these
+        // regex patterns were built.
+        match *self.package_id().version() {
+            Version { major: 0, minor, .. } =>
+                format!("[-_]?(0\\.{}\\.\\d[\\-+\\.:\\~\\da-zA-Z]*)", minor),
+            Version { major, .. } =>
+                format!("[-_]?({}\\.\\d[\\-+\\.:\\~\\da-zA-Z]*)", major),
+        }
+    }
+
     pub fn get_summary_description(&self) -> (Option<String>, Option<String>) {
         let (summary, description) = if let Some(ref description) = self.metadata().description {
             // Convention these days seems to be to do manual text
