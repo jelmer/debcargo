@@ -314,7 +314,7 @@ impl Package {
         description: Option<&str>,
         boilerplate: &str,
     ) -> Self {
-        let (name, provides) = match name_suffix {
+        let (name, mut provides) = match name_suffix {
             None => (basename.to_string(), vec![]),
             Some(suf) => (format!("{}{}", basename, suf),
                           vec![format!("{} (= ${{binary:Version}})", basename)]),
@@ -329,6 +329,7 @@ impl Package {
             Some(s) => s.to_string(),
         };
 
+        provides.push("${cargo:Provides}".to_string());
         Package {
             name: name,
             arch: "any".to_string(),
@@ -337,9 +338,14 @@ impl Package {
             depends: vec![
                 "${misc:Depends}".to_string(),
                 "${shlibs:Depends}".to_string(),
+                "${cargo:Depends}".to_string(),
             ],
-            recommends: vec![],
-            suggests: vec![],
+            recommends: vec![
+                "${cargo:Recommends}".to_string(),
+            ],
+            suggests: vec![
+                "${cargo:Suggests}".to_string(),
+            ],
             provides: provides,
             summary: short_desc,
             description: long_desc,
