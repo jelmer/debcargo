@@ -127,17 +127,17 @@ impl Config {
         None
     }
 
-    pub fn package_section(&self, pkgname: &str) -> Option<&str> {
+    pub fn package_section(&self, key: PackageKey) -> Option<&str> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(pkgname).and_then(|package| {
+            pkg.get(&package_key_string(key)).and_then(|package| {
                 package.section.as_ref().map(|s| s.as_str())
             })
         })
     }
 
-    pub fn package_summary(&self, pkgname: &str) -> Option<(&str, &str)> {
+    pub fn package_summary(&self, key: PackageKey) -> Option<(&str, &str)> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(pkgname).map(|package| {
+            pkg.get(&package_key_string(key)).map(|package| {
                 let s = match package.summary {
                     Some(ref s) => s,
                     None => "",
@@ -151,22 +151,12 @@ impl Config {
         })
     }
 
-    pub fn package_depends(&self, pkgname: &str) -> Option<&Vec<String>> {
+    pub fn package_depends(&self, key: PackageKey) -> Option<&Vec<String>> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(pkgname).and_then(|package| {
+            pkg.get(&package_key_string(key)).and_then(|package| {
                 package.depends.as_ref()
             })
         })
-    }
-
-    pub fn package_depends_for_feature<'a>(
-        &'a self,
-        feature: &'a str,
-        f_depends: Vec<&'a str>)
-    -> impl Iterator<Item = &str> + 'a {
-        Some(feature).into_iter().chain(f_depends.into_iter()).map(move |f|
-            vec_opt_iter(self.package_depends(&package_key_for_feature(f)))
-        ).flatten().map(|s| s.as_str())
     }
 
     pub fn vcs_git(&self) -> Option<&str> {
@@ -196,13 +186,39 @@ pub fn parse_config(src: &Path) -> Result<Config> {
     Ok(toml::from_str(&content)?)
 }
 
-pub fn package_key_for_feature(feature: &str) -> String {
-    if feature == "" {
-        PACKAGE_KEY_FOR_LIB.to_string()
-    } else {
-        format!("{}+{}", PACKAGE_KEY_FOR_LIB, feature)
+pub fn package_field_for_feature<'a>(
+    get_field: &'a Fn(PackageKey) -> Option<&'a Vec<String>>,
+    feature: PackageKey,
+    f_provides: Vec<&str>)
+-> Vec<String> {
+    Some(feature).into_iter().chain(f_provides.into_iter().map(PackageKey::feature)).map(move |f|
+        vec_opt_iter(get_field(f))
+    ).flatten().map(|s| s.to_string()).collect()
+}
+
+#[derive(Clone, Copy)]
+pub enum PackageKey<'a> {
+    Bin,
+    BareLib,
+    FeatureLib(&'a str),
+}
+
+impl <'a> PackageKey<'a> {
+    pub fn feature(f: &'a str) -> PackageKey<'a> {
+        use self::PackageKey::*;
+        if f == "" {
+            BareLib
+        } else {
+            FeatureLib(f)
+        }
     }
 }
 
-pub const PACKAGE_KEY_FOR_BIN : &'static str = "bin";
-pub const PACKAGE_KEY_FOR_LIB : &'static str = "lib";
+fn package_key_string(key: PackageKey) -> String {
+    use self::PackageKey::*;
+    match key {
+        Bin => "bin".to_string(),
+        BareLib => "lib".to_string(),
+        FeatureLib(feature) => format!("lib+{}", feature),
+    }
+}

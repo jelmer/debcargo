@@ -6,7 +6,7 @@ use itertools::Itertools;
 use semver::Version;
 use textwrap::fill;
 
-use config::Config;
+use config::{Config, PackageKey, package_field_for_feature};
 use errors::*;
 use util::vec_opt_iter;
 
@@ -380,7 +380,7 @@ impl Package {
         Ok(())
     }
 
-    pub fn apply_overrides<I: IntoIterator<Item = T>, T: ToString>(&mut self, config: &Config, key: &str, deps: I) {
+    pub fn apply_overrides(&mut self, config: &Config, key: PackageKey, f_provides: Vec<&str>) {
         if let Some(section) = config.package_section(key) {
             self.section = Some(section.to_string());
         }
@@ -395,7 +395,7 @@ impl Package {
             }
         }
 
-        self.depends.extend(deps.into_iter().map(|s| s.to_string()));
+        self.depends.extend(package_field_for_feature(&|x| config.package_depends(x), key, f_provides));
     }
 }
 

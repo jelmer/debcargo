@@ -17,7 +17,7 @@ use tar::{Archive, Builder};
 
 use crates::CrateInfo;
 use errors::*;
-use config::{Config, package_key_for_feature, PACKAGE_KEY_FOR_BIN};
+use config::{Config, PackageKey, package_field_for_feature};
 use util::{self, copy_tree, vec_opt_iter};
 
 use self::control::deb_version;
@@ -344,14 +344,15 @@ pub fn prepare_debian_folder(
             let (default_features, default_deps) = crate_info.feature_all_deps(&features_with_deps, "default");
             //debcargo_info!("default_features: {:?}", default_features);
             //debcargo_info!("default_deps: {:?}", deb_deps(config, &default_deps)?);
-            let extra_override_deps = config.package_depends_for_feature("default", default_features);
+            let extra_override_deps =
+                package_field_for_feature(&|x| config.package_depends(x), PackageKey::feature("default"), default_features);
             let build_deps_extra = [
                 "cargo:native",
                 "rustc:native",
                 "libstd-rust-dev",
                 ].iter().map(|s| s.to_string())
                 .chain(deb_deps(config, &default_deps)?)
-                .chain(extra_override_deps.map(|s| s.to_string()));
+                .chain(extra_override_deps);
             if !bins.is_empty() {
                 build_deps.chain(build_deps_extra).collect()
             } else {
@@ -417,8 +418,7 @@ pub fn prepare_debian_folder(
                         if feature == "" { suggests.clone() } else { vec![] })?;
 
                 // If any overrides present for this package it will be taken care.
-                package.apply_overrides(config, &package_key_for_feature(feature),
-                    config.package_depends_for_feature(feature, f_provides));
+                package.apply_overrides(config, PackageKey::feature(feature), f_provides);
                 write!(control, "\n{}", package)?;
             }
             assert!(provides.is_empty());
@@ -447,8 +447,7 @@ pub fn prepare_debian_folder(
             );
 
             // Binary package overrides.
-            bin_pkg.apply_overrides(config, PACKAGE_KEY_FOR_BIN,
-                vec_opt_iter(config.package_depends(PACKAGE_KEY_FOR_BIN)));
+            bin_pkg.apply_overrides(config, PackageKey::Bin, vec![]);
             write!(control, "\n{}", bin_pkg)?;
         }
 
