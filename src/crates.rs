@@ -1,5 +1,4 @@
 use cargo::{Config, core::manifest::ManifestMetadata, core::registry::PackageRegistry,
-            core::shell::Verbosity,
             core::{Dependency, EitherManifest, FeatureValue, Manifest, Package, PackageId,
                    Registry, Source, SourceId, Summary, Target, TargetKind},
             sources::registry::RegistrySource, util::{FileLock, toml::read_manifest}};
@@ -76,10 +75,9 @@ impl CrateInfo {
             if update {
                 source_id
             } else {
-                // suppress the "Updating crates.io index" message
-                config.shell().set_verbosity(Verbosity::Quiet);
-                // the below is a bit of a hack and depends on some cargo internals
+                // The below is a bit of a hack and depends on some cargo internals
                 // but unless we do this, fetch_candidates() will update the index
+                // The behaviour is brittle; we really should write a test for it.
                 source_id.with_precise(Some("locked".to_string()))
             }
         };
