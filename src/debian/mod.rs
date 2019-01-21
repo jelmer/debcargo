@@ -505,7 +505,7 @@ pub fn prepare_debian_folder(
 
             let source_deb_version = format!("{}-{}", pkgbase.debian_version(), &deb_version_suffix);
             if !uploaders.contains(&author.as_str()) {
-                debcargo_warn!("You are not in Uploaders; adding \"Team upload\" to d/changelog");
+                debcargo_warn!("You ({}) are not in Uploaders; adding \"Team upload\" to d/changelog", author);
                 if !changelog_items.contains(&changelog::COMMENT_TEAM_UPLOAD.to_string()) {
                     changelog_items.insert(0, changelog::COMMENT_TEAM_UPLOAD.to_string());
                 }
