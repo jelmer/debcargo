@@ -51,14 +51,14 @@ fn traverse_depth<'a>(map: &BTreeMap<&'a str, Vec<&'a str>>, key: &'a str) -> Ve
 
 fn fetch_candidates(registry: &mut PackageRegistry, dep: &Dependency) -> Result<Vec<Summary>> {
     let mut summaries = registry.query_vec(dep, false)?;
-    summaries.sort_by(|a, b| b.package_id().partial_cmp(a.package_id()).unwrap());
+    summaries.sort_by(|a, b| b.package_id().partial_cmp(&a.package_id()).unwrap());
     Ok(summaries)
 }
 
 pub fn update_crates_io() -> Result<()> {
     let config = Config::default()?;
     let source_id = SourceId::crates_io(&config)?;
-    let mut r = RegistrySource::remote(&source_id, &config);
+    let mut r = RegistrySource::remote(source_id, &config);
     r.update()
 }
 
@@ -96,7 +96,7 @@ impl CrateInfo {
         let dependency = Dependency::parse_no_deprecated(
             crate_name,
             version.as_ref().map(String::as_str),
-            &source_id,
+            source_id,
         )?;
 
         let registry_name = format!(
@@ -124,7 +124,7 @@ impl CrateInfo {
                 )
             })?;
             let pkgset = registry.get(pkgids.as_slice())?;
-            let package = pkgset.get_one(pkgid)?;
+            let package = pkgset.get_one(*pkgid)?;
             let manifest = package.manifest();
             let filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
             let crate_file = config.registry_cache_path().join(&registry_name).open_ro(
@@ -159,7 +159,7 @@ impl CrateInfo {
     }
 
     pub fn replace_manifest(&mut self, path: &PathBuf) -> Result<&Self> {
-        if let (EitherManifest::Real(v), _) = read_manifest(path, &self.source_id, &self.config)? {
+        if let (EitherManifest::Real(v), _) = read_manifest(path, self.source_id, &self.config)? {
             self.manifest = v;
         }
         Ok(self)
@@ -169,7 +169,7 @@ impl CrateInfo {
         self.manifest.summary().checksum()
     }
 
-    pub fn package_id(&self) -> &PackageId {
+    pub fn package_id(&self) -> PackageId {
         self.manifest.summary().package_id()
     }
 
