@@ -403,6 +403,8 @@ impl Package {
             package_field_for_feature(&|x| config.package_suggests(x), key, &f_provides));
         self.provides.extend(
             package_field_for_feature(&|x| config.package_provides(x), key, &f_provides));
+
+        self.extra_lines.extend(vec_opt_iter(config.package_extra_lines(key)).map(|s| s.to_string()));
     }
 }
 

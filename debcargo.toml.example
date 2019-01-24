@@ -154,3 +154,7 @@ uploaders = [ "foo bar <foo@debian.org>" ]
 #recommends = ["PLACEHOLDER", "PLACEHOLDER"]
 #suggests = ["PLACEHOLDER", "PLACEHOLDER"]
 #provides = ["PLACEHOLDER", "PLACEHOLDER"]
+
+# Extra lines to include in the stanza, freeform. Use this to include things
+# that debcargo doesn't handle, such as Breaks, Conflicts, Replaces.
+#extra_lines = ["PLACEHOLDER", "PLACEHOLDER"]

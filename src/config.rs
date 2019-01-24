@@ -44,6 +44,7 @@ pub struct PackageOverride {
     recommends: Option<Vec<String>>,
     suggests: Option<Vec<String>>,
     provides: Option<Vec<String>>,
+    extra_lines: Option<Vec<String>>,
 }
 
 impl Default for Config {
@@ -188,6 +189,14 @@ impl Config {
         self.packages.as_ref().and_then(|pkg| {
             pkg.get(&package_key_string(key)).and_then(|package| {
                 package.provides.as_ref()
+            })
+        })
+    }
+
+    pub fn package_extra_lines(&self, key: PackageKey) -> Option<&Vec<String>> {
+        self.packages.as_ref().and_then(|pkg| {
+            pkg.get(&package_key_string(key)).and_then(|package| {
+                package.extra_lines.as_ref()
             })
         })
     }
