@@ -1,0 +1,13 @@
+uploaders = ["Sylvestre Ledru <sylvestre@debian.org>", "Ximin Luo <infinity0@debian.org>" ]
+
+summary = "Tool to create Debian package from Rust crate"
+description = """
+This package provides debcargo a tool to create Debian source package from Rust
+crate. The package created by this tool is as per the packaging policy set by
+Debian Rust team.
+"""
+
+[source]
+section = "rust"
+build_depends = ["libssl-dev"]
+homepage = "https://salsa.debian.org/rust-team/debcargo-conf"
