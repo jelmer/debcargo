@@ -5,7 +5,7 @@ section = "rust"
 build_depends = ["libssl-dev"]
 homepage = "https://salsa.debian.org/rust-team/debcargo-conf"
 
-[packages."debcargo"]
+[packages.bin]
 summary = "Tool to create Debian package from Rust crate"
 description = """
 This package provides debcargo a tool to create Debian source package from Rust

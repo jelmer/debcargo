@@ -4,7 +4,7 @@ uploaders = ["Sylvestre Ledru <sylvestre@debian.org>", "Ximin Luo <infinity0@deb
 policy = "4.0.0"
 homepage = "https://clap.rs"
 
-[packages."librust-clap-2-dev"]
+[packages.lib]
 summary = "Simple, efficient and full featured Command line argument parser - source"
 description = """
 clap is used to parse and validate string of command line arguments provided by

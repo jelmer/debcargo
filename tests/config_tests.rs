@@ -1,7 +1,7 @@
 extern crate debcargo;
 
 use std::path::Path;
-use debcargo::config::parse_config;
+use debcargo::config::{parse_config, PackageKey};
 
 #[test]
 fn source_package_override() {
@@ -39,7 +39,7 @@ fn source_package_override() {
     assert_eq!(section.unwrap(), "rust");
 
     assert!(config.is_packages_present());
-    let sd = config.package_summary("debcargo");
+    let sd = config.package_summary(PackageKey::Bin);
     assert!(sd.is_some());
 
     if let Some((s, d)) = sd {
