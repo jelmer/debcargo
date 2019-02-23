@@ -18,6 +18,7 @@ pub struct Config {
     pub whitelist: Option<Vec<String>>,
     pub allow_prerelease_deps: bool,
     pub summary: String,
+    pub description: String,
     pub uploaders: Option<Vec<String>>,
 
     pub source: Option<SourceOverride>,
@@ -58,6 +59,7 @@ impl Default for Config {
             whitelist: None,
             allow_prerelease_deps: false,
             summary: "".to_string(),
+            description: "".to_string(),
             uploaders: None,
             source: None,
             packages: None,

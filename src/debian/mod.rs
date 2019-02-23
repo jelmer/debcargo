@@ -393,7 +393,11 @@ pub fn prepare_debian_folder(
             }
             summary.as_ref().map(String::as_str)
         };
-        let description = description.as_ref().map(String::as_str);
+        let description = if config.description.is_empty() {
+            description.as_ref().map(String::as_str)
+        } else {
+            Some(config.description.as_str())
+        };
 
         if lib {
             let mut provides = crate_info.calculate_provides(&mut features_with_deps);
