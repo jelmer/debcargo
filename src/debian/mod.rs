@@ -331,11 +331,22 @@ pub fn prepare_debian_folder(
         write!(
             rules,
             "{}",
-            concat!(
-                "#!/usr/bin/make -f\n",
-                "%:\n",
-                "\tdh $@ --buildsystem cargo\n"
-            )
+            if crate_info.has_dev_dependencies() || config.never_run_tests {
+                concat!(
+                    "#!/usr/bin/make -f\n",
+                    "%:\n",
+                    "\tdh $@ --buildsystem cargo\n"
+                )
+            } else {
+                concat!(
+                    "#!/usr/bin/make -f\n",
+                    "%:\n",
+                    "\tdh $@ --buildsystem cargo\n",
+                    "\n",
+                    "override_dh_auto_test:\n",
+                    "\tdh_auto_test -- test --all\n"
+                )
+            }
         )?;
 
         // debian/control

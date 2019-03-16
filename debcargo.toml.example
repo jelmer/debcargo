@@ -50,6 +50,12 @@
 # you should check that they can actually build when this is enabled.
 #allow_prerelease_deps = false
 
+# When there are no dev-dependencies then we will run "cargo test" by default.
+# But sometimes this may not work, if the crate is part of a larger workspace
+# and its tests require files from the workspace directory. In these cases, you
+# can use this key to disable the test to prevent it from failing.
+#never_run_tests = false
+
 # This is the stem of the short description for each binary package. By default
 # `debcargo` will try to auto-extract a description from `Cargo.toml` but
 # sometimes this may lead to a meaningless, weird short description.

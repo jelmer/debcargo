@@ -193,6 +193,18 @@ impl CrateInfo {
         self.manifest.dependencies()
     }
 
+    pub fn has_dev_dependencies(&self) -> bool {
+        use cargo::core::dependency::Kind;
+
+        for dep in self.dependencies() {
+            if dep.kind() == Kind::Development {
+                return true;
+            }
+        }
+
+        false
+    }
+
     pub fn all_dependencies_and_features(&self) ->
         BTreeMap<&str,                  // name of feature / optional dependency,
                                         // or "" for the base package w/ no default features, guaranteed to be in the map
