@@ -12,7 +12,7 @@ use tempfile;
 use regex::Regex;
 
 use std;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::io::{self, Read, Write};
@@ -58,7 +58,8 @@ fn fetch_candidates(registry: &mut PackageRegistry, dep: &Dependency) -> Result<
 pub fn update_crates_io() -> Result<()> {
     let config = Config::default()?;
     let source_id = SourceId::crates_io(&config)?;
-    let mut r = RegistrySource::remote(source_id, &config);
+    let yanked_whitelist = HashSet::new();
+    let mut r = RegistrySource::remote(source_id, &yanked_whitelist, &config);
     r.update()
 }
 
