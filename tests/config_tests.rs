@@ -1,7 +1,7 @@
 extern crate debcargo;
 
 use std::path::Path;
-use debcargo::config::parse_config;
+use debcargo::config::{parse_config, PackageKey};
 
 #[test]
 fn source_package_override() {
@@ -26,8 +26,8 @@ fn source_package_override() {
     assert!(config.section().is_none());
     assert!(config.build_depends().is_none());
 
-    let second_file = Path::new("tests/debcargo_override.toml");
-    let config = parse_config(&second_file);
+    let filepath = Path::new("tests/debcargo_override.toml");
+    let config = parse_config(&filepath);
     assert!(config.is_ok());
 
     let config = config.unwrap();
@@ -39,7 +39,7 @@ fn source_package_override() {
     assert_eq!(section.unwrap(), "rust");
 
     assert!(config.is_packages_present());
-    let sd = config.package_summary("debcargo");
+    let sd = config.package_summary(PackageKey::Bin);
     assert!(sd.is_some());
 
     if let Some((s, d)) = sd {
@@ -55,4 +55,31 @@ Debian Rust team.
 "
         );
     }
+}
+
+#[test]
+fn sd_top_level() {
+    let filepath = Path::new("tests/debcargo_override_top_level.toml");
+    let config = parse_config(&filepath);
+    assert!(config.is_ok());
+
+    let config = config.unwrap();
+
+    assert!(config.is_source_present());
+
+    let section = config.section();
+    assert!(section.is_some());
+    assert_eq!(section.unwrap(), "rust");
+
+    assert_eq!(config.summary, "Tool to create Debian package from Rust crate");
+    assert_eq!(
+        config.description,
+        "\
+This package provides debcargo a tool to create Debian source package from \
+                    Rust
+crate. The package created by this tool is as per the packaging policy \
+                    set by
+Debian Rust team.
+"
+    );
 }

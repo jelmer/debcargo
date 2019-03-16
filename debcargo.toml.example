@@ -58,6 +58,12 @@
 # string (or the autoextracted default) plus a suffix describing the feature.
 #summary = "PLACEHOLDER"
 
+# Long description for each binary package. If omitted, a generic boilerplate
+# will be used, which is good enough for most cases.
+#description = """
+#PLACEHOLDER
+#"""
+
 # Uploaders
 uploaders = [ "foo bar <foo@debian.org>" ]
 
