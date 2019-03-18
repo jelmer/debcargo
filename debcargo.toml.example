@@ -50,12 +50,6 @@
 # you should check that they can actually build when this is enabled.
 #allow_prerelease_deps = false
 
-# When there are no dev-dependencies then we will run "cargo test" by default.
-# But sometimes this may not work, if the crate is part of a larger workspace
-# and its tests require files from the workspace directory. In these cases, you
-# can use this key to disable the test to prevent it from failing.
-#never_run_tests = false
-
 # This is the stem of the short description for each binary package. By default
 # `debcargo` will try to auto-extract a description from `Cargo.toml` but
 # sometimes this may lead to a meaningless, weird short description.
@@ -160,6 +154,22 @@ uploaders = [ "foo bar <foo@debian.org>" ]
 # want the -dev versions of the library packages, since our crate packages are
 # development packages and not runtime packages.
 #depends = ["PLACEHOLDER", "PLACEHOLDER"]
+
+# We generate an autopkgtest (post-install test) for every feature, and also
+# run `cargo test` for the default feature set during build-time if there are
+# no additional dev-dependencies.
+#
+# However sometimes this may not work, e.g. if the crate is part of a larger
+# workspace and its tests require files from the workspace directory. Or if
+# the crate author is simply negligent and didn't ensure the test passes for
+# all features. In these cases, you can use this setting to mark the test as
+# "flaky" to ignore failures. Special cases for packages.KEY:
+#
+# packages."lib+@"      - disables the test for the --all-features autopkgtest
+#
+# The effect is transitive so e.g. if you specify this for feature A, and
+# feature B depends on feature A, then feature B also implicitly has this set.
+#test_is_broken = false
 
 # More additional fields. This is mostly useful for binary packages that might
 # relate to other external programs, e.g. debcargo Recommends cargo.

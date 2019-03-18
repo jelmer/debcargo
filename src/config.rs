@@ -17,7 +17,6 @@ pub struct Config {
     pub excludes: Option<Vec<String>>,
     pub whitelist: Option<Vec<String>>,
     pub allow_prerelease_deps: bool,
-    pub never_run_tests: bool,
     pub summary: String,
     pub description: String,
     pub uploaders: Option<Vec<String>>,
@@ -47,6 +46,7 @@ pub struct PackageOverride {
     suggests: Option<Vec<String>>,
     provides: Option<Vec<String>>,
     extra_lines: Option<Vec<String>>,
+    test_is_broken: Option<bool>,
 }
 
 impl Default for Config {
@@ -59,7 +59,6 @@ impl Default for Config {
             excludes: None,
             whitelist: None,
             allow_prerelease_deps: false,
-            never_run_tests: false,
             summary: "".to_string(),
             description: "".to_string(),
             uploaders: None,
@@ -201,6 +200,14 @@ impl Config {
         self.packages.as_ref().and_then(|pkg| {
             pkg.get(&package_key_string(key)).and_then(|package| {
                 package.extra_lines.as_ref()
+            })
+        })
+    }
+
+    pub fn package_test_is_broken(&self, key: PackageKey) -> Option<bool> {
+        self.packages.as_ref().and_then(|pkg| {
+            pkg.get(&package_key_string(key)).and_then(|package| {
+                package.test_is_broken
             })
         })
     }

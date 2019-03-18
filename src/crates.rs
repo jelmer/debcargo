@@ -213,7 +213,7 @@ impl CrateInfo {
     {
         use cargo::core::dependency::Kind;
 
-        let mut deps_by_name : BTreeMap<&str, Vec<&Dependency>> = BTreeMap::new();
+        let mut deps_by_name: BTreeMap<&str, Vec<&Dependency>> = BTreeMap::new();
         for dep in self.dependencies() {
             // we treat build-dependencies also as dependencies in Debian
             if dep.kind() != Kind::Development {

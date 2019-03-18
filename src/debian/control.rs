@@ -47,6 +47,7 @@ pub struct PkgTest {
     version: Version,
     extra_test_args: Vec<String>,
     depends: Vec<String>,
+    extra_restricts: Vec<String>,
 }
 
 impl fmt::Display for Source {
@@ -124,7 +125,15 @@ impl fmt::Display for PkgTest {
                 &self.name
             )?;
         }
-        writeln!(f, "Restrictions: allow-stderr, skip-not-installable")?;
+        if self.extra_restricts.is_empty() {
+            writeln!(f, "Restrictions: allow-stderr, skip-not-installable")?;
+        } else {
+            writeln!(
+                f,
+                "Restrictions: allow-stderr, skip-not-installable, {}",
+                self.extra_restricts.join(", ")
+            )?;
+        }
         Ok(())
     }
 }
@@ -447,6 +456,7 @@ impl PkgTest {
         version: &Version,
         extra_test_args: Vec<&str>,
         depends: &Vec<String>,
+        extra_restricts: Vec<&str>,
     ) -> Result<PkgTest> {
         Ok(PkgTest {
             name: name.to_string(),
@@ -454,6 +464,7 @@ impl PkgTest {
             version: version.clone(),
             extra_test_args: extra_test_args.iter().map(|x| x.to_string()).collect(),
             depends: depends.clone(),
+            extra_restricts: extra_restricts.iter().map(|x| x.to_string()).collect(),
         })
     }
 }

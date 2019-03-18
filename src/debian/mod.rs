@@ -1,4 +1,5 @@
 use std::fs;
+use std::collections::BTreeMap;
 use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
 use std::path::Path;
 use std::os::unix::fs::PermissionsExt;
@@ -107,6 +108,17 @@ impl BaseInfo {
         self.orig_tarball_path.as_str()
     }
 
+}
+
+fn traverse_depth_2<'a, T>(map: &BTreeMap<&'a str, (Vec<&'a str>, T)>, key: &'a str) -> Vec<&'a str> {
+    let mut x = Vec::new();
+    if let Some((pp, _)) = (*map).get(key) {
+        x.extend(pp);
+        for p in pp {
+            x.extend(traverse_depth_2(map, p));
+        }
+    }
+    x
 }
 
 pub fn prepare_orig_tarball(
@@ -330,29 +342,58 @@ pub fn prepare_debian_folder(
         let mut source_format = file("source/format")?;
         writeln!(source_format, "3.0 (quilt)")?;
 
+        let (all_features_test_broken, broken_tests) = {
+            let is_broken = |f: &str| {
+                config.package_test_is_broken(PackageKey::feature(f)).unwrap_or(false)
+            };
+            let mut broken_tests: BTreeMap<&str, bool> = BTreeMap::new();
+            let mut any_test_broken = false;
+            for (feature, _) in features_with_deps.iter() {
+                let broken = is_broken(feature);
+                if broken { any_test_broken = true; }
+                let all_deps = traverse_depth_2(&features_with_deps, feature);
+                broken_tests.insert(
+                    feature, broken || all_deps.iter().any(|f| is_broken(f)));
+            }
+            (is_broken("@") || any_test_broken, broken_tests)
+        };
+        let test_is_broken_for = |f: &str| *broken_tests.get(f).unwrap();
+
         // debian/rules
         let mut rules = file("rules")?;
         rules.set_permissions(fs::Permissions::from_mode(0o777))?;
-        write!(
-            rules,
-            "{}",
-            if !dev_depends.is_empty() || config.never_run_tests {
+        if !dev_depends.is_empty() {
+            write!(
+                rules,
+                "{}",
                 concat!(
                     "#!/usr/bin/make -f\n",
                     "%:\n",
                     "\tdh $@ --buildsystem cargo\n"
                 )
-            } else {
+            )?;
+        } else {
+            write!(
+                rules,
+                "{}{}",
                 concat!(
                     "#!/usr/bin/make -f\n",
                     "%:\n",
                     "\tdh $@ --buildsystem cargo\n",
                     "\n",
                     "override_dh_auto_test:\n",
+                ),
+                // TODO: this logic is slightly brittle if another feature
+                // "provides" the default feature. In this case, you need to
+                // set test_is_broken explicitly on package."lib+default" and
+                // not package."lib+theotherfeature".
+                if test_is_broken_for("default") {
+                    "\tdh_auto_test -- test --all || true\n"
+                } else {
                     "\tdh_auto_test -- test --all\n"
-                )
-            }
-        )?;
+                },
+            )?;
+        }
 
         // debian/tests/control
         let mut testctl = io::BufWriter::new(file("tests/control")?);
@@ -364,7 +405,8 @@ pub fn prepare_debian_folder(
                 &crate_name,
                 &crate_version,
                 vec!["--all-features"],
-                &dev_depends
+                &dev_depends,
+                if all_features_test_broken { vec!["flaky"] } else { vec![] },
             )?
         )?;
 
@@ -454,6 +496,8 @@ pub fn prepare_debian_folder(
                         if feature == "" { recommends.clone() } else { vec![] },
                         if feature == "" { suggests.clone() } else { vec![] })?;
 
+                let test_is_broken = test_is_broken_for(feature) || f_provides.iter().any(|f| test_is_broken_for(f));
+
                 // If any overrides present for this package it will be taken care.
                 package.apply_overrides(config, PackageKey::feature(feature), f_provides);
                 write!(control, "\n{}", package)?;
@@ -468,6 +512,7 @@ pub fn prepare_debian_folder(
                         vec!["--features", feature]
                     },
                     &dev_depends,
+                    if test_is_broken { vec!["flaky"] } else { vec![] },
                 )?;
                 write!(testctl, "\n{}", pkgtest)?;
             }
