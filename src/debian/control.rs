@@ -116,11 +116,11 @@ impl fmt::Display for PkgTest {
             self.extra_test_args.join(" ")
         )?;
         if self.depends.is_empty() {
-            writeln!(f, "Depends: dh-cargo, {}", &self.name)?;
+            writeln!(f, "Depends: dh-cargo (>= 18), {}", &self.name)?;
         } else {
             writeln!(
                 f,
-                "Depends: dh-cargo, {}, {}",
+                "Depends: dh-cargo (>= 18), {}, {}",
                 self.depends.join(", "),
                 &self.name
             )?;
