@@ -194,16 +194,15 @@ impl CrateInfo {
         self.manifest.dependencies()
     }
 
-    pub fn has_dev_dependencies(&self) -> bool {
+    pub fn dev_dependencies(&self) -> Vec<Dependency> {
         use cargo::core::dependency::Kind;
-
+        let mut deps = vec![];
         for dep in self.dependencies() {
             if dep.kind() == Kind::Development {
-                return true;
+                deps.push(dep.clone())
             }
         }
-
-        false
+        deps
     }
 
     pub fn all_dependencies_and_features(&self) ->

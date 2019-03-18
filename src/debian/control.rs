@@ -41,6 +41,14 @@ pub struct Package {
     extra_lines: Vec<String>,
 }
 
+pub struct PkgTest {
+    name: String,
+    crate_name: String,
+    version: Version,
+    extra_test_args: Vec<String>,
+    depends: Vec<String>,
+}
+
 impl fmt::Display for Source {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Source: {}", self.name)?;
@@ -94,6 +102,30 @@ impl fmt::Display for Package {
         }
 
         self.write_description(f)
+    }
+}
+
+impl fmt::Display for PkgTest {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(
+            f,
+            "Test-Command: /usr/share/cargo/bin/cargo-auto-test {} {} --all-targets {}",
+            self.crate_name,
+            self.version,
+            self.extra_test_args.join(" ")
+        )?;
+        if self.depends.is_empty() {
+            writeln!(f, "Depends: dh-cargo, {}", &self.name)?;
+        } else {
+            writeln!(
+                f,
+                "Depends: dh-cargo, {}, {}",
+                self.depends.join(", "),
+                &self.name
+            )?;
+        }
+        writeln!(f, "Restrictions: allow-stderr, skip-not-installable")?;
+        Ok(())
     }
 }
 
@@ -405,6 +437,24 @@ impl Package {
             package_field_for_feature(&|x| config.package_provides(x), key, &f_provides));
 
         self.extra_lines.extend(vec_opt_iter(config.package_extra_lines(key)).map(|s| s.to_string()));
+    }
+}
+
+impl PkgTest {
+    pub fn new(
+        name: &str,
+        crate_name: &str,
+        version: &Version,
+        extra_test_args: Vec<&str>,
+        depends: &Vec<String>,
+    ) -> Result<PkgTest> {
+        Ok(PkgTest {
+            name: name.to_string(),
+            crate_name: crate_name.to_string(),
+            version: version.clone(),
+            extra_test_args: extra_test_args.iter().map(|x| x.to_string()).collect(),
+            depends: depends.clone(),
+        })
     }
 }
 
