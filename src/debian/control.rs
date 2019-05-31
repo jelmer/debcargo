@@ -409,7 +409,7 @@ impl Package {
             if x.is_empty() { None } else { Some(x) }
         }).join("\n\n");
         for line in description.trim().lines() {
-            let line = line.trim_right();
+            let line = line.trim_end();
             if line.is_empty() {
                 writeln!(out, " .")?;
             } else if line.starts_with("- ") {

@@ -425,7 +425,7 @@ impl CrateInfo {
             let p2 = description.find(". ");
             match p1.into_iter().chain(p2.into_iter()).min() {
                 Some(p) => {
-                    let s = description[..p].trim_right_matches('.').to_string();
+                    let s = description[..p].trim_end_matches('.').to_string();
                     let d = description[p + 1..].trim();
                     if d.is_empty() {
                         (Some(s), None)
@@ -433,7 +433,7 @@ impl CrateInfo {
                         (Some(s), Some(d.to_string()))
                     }
                 }
-                None => (Some(description.trim_right_matches('.').to_string()), None),
+                None => (Some(description.trim_end_matches('.').to_string()), None),
             }
         } else {
             (None, None)

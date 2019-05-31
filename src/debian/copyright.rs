@@ -24,7 +24,7 @@ macro_rules! format_para {
     ($fmt: expr, $text:expr) => {
         {
             for line in $text.lines() {
-                let line = line.trim_right();
+                let line = line.trim_end();
                 if line.is_empty() {
                     writeln!($fmt, " .")?;
                 } else {
@@ -218,8 +218,8 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
                         let start = m.start();
                         let end = m.end();
                         let notice = line[start..end]
-                            .trim_right()
-                            .trim_right_matches(". See the COPYRIGHT")
+                            .trim_end()
+                            .trim_end_matches(". See the COPYRIGHT")
                             .to_string();
                         if !copyright_notices.contains_key(&copyright_file) {
                             copyright_notices.insert(copyright_file.clone(), vec![]);
@@ -269,7 +269,7 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
 
     let lses: Vec<&str> = sep.split(license).filter(|s| s.len() != 0).collect();
     for ls in lses {
-        let lname = ls.trim().to_lowercase().trim_right_matches('+').to_string();
+        let lname = ls.trim().to_lowercase().trim_end_matches('+').to_string();
         let text = match known_licenses.get(lname.as_str()) {
             Some(s) => s.to_string(),
             None => "FIXME (overlay): Unrecognized crate license, please find the \
