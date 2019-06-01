@@ -298,30 +298,60 @@ impl CrateInfo {
         (all_features, all_deps)
     }
 
-    // Note: this mutates features_with_deps so you need to run e.g.
-    // feature_all_deps before calling this.
+    // Calculate Provides: in an attempt to reduce the number of binaries.
+    //
+    // Note: this mutates features_with_deps so you MUST run e.g.
+    // feature_all_deps *before* calling this.
+    //
+    // The algorithm is very simple and incomplete. e.g. it does not, yet
+    // simplify things like:
+    //   f1 depends on f2, f3
+    //   f2 depends on f4
+    //   f3 depends on f4
+    // into
+    //   f4 provides f1, f2, f3
     pub fn calculate_provides<'a>(&self,
             features_with_deps: &mut BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>)
             -> BTreeMap<&'a str, Vec<&'a str>> {
+
+        // If any features have duplicate dependencies, deduplicate them by
+        // making all of the subsequent ones depend on the first one.
+        let mut features_rev_deps = BTreeMap::new();
+        for (&f, dep) in features_with_deps.iter() {
+            if !features_rev_deps.contains_key(dep) {
+                features_rev_deps.insert(dep.clone(), vec![]);
+            }
+            features_rev_deps.get_mut(dep).unwrap().push(f);
+        }
+        for (_, ff) in features_rev_deps.into_iter() {
+            let f0 = ff[0];
+            for f in &ff[1..] {
+                features_with_deps.insert(f, (vec!["", f0], vec![]));
+            }
+        }
+
+        // Calculate provides by following 0- or 1-length dependency lists.
         let mut provides = BTreeMap::new();
         let mut provided = Vec::new();
-        // the below is very simple and incomplete. e.g. it does not,
-        // but could be improved to, simplify things like:
-        // f1 depends on f2, f3
-        // f2 depends on f4
-        // f3 depends on f4
-        for (&f, &(ref ff, ref dd)) in features_with_deps.iter() {
+        for (&f, (ref ff, ref dd)) in features_with_deps.iter() {
+            //debcargo_info!("provides considering: {:?}", &f);
             if !dd.is_empty() {
-                continue;
+                continue
             }
             assert!(!ff.is_empty() || f == "");
             let k = if ff.len() == 1 {
-                *ff.get(0).unwrap() // it's just ""
+                // if A depends only on no-default-features (""), then
+                // no-default-features provides A.
+                assert!(ff[0] == "");
+                ff[0]
             } else if ff.len() == 2 {
-                *ff.get(1).unwrap()
+                // if A depends on a single feature B, then B provides A.
+                assert!(ff[0] == "");
+                ff[1]
             } else {
-                continue;
+                continue
             };
+            //debcargo_info!("provides still considering: {:?}", &f);
             if !provides.contains_key(k) {
                 provides.insert(k, vec![]);
             }
@@ -329,6 +359,8 @@ impl CrateInfo {
             provided.push(f);
         }
 
+        //debcargo_info!("provides-internal: {:?}", &provides);
+        //debcargo_info!("provided-internal: {:?}", &provided);
         for p in provided {
             features_with_deps.remove(p);
         }

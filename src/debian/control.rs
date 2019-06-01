@@ -272,28 +272,41 @@ impl Package {
         let summary_default = format!("Rust crate \"{}\"", upstream_name);
         let summary = summary.unwrap_or(&summary_default);
         let short_desc = match feature {
-            Some(f) => format!("{} - feature \"{}\"", summary, f),
+            Some(f) => match f_provides.len() {
+                0 => format!("{} - feature \"{}\"", summary, f),
+                _ => format!("{} - feature \"{}\" and {} more", summary, f, f_provides.len()),
+            },
             None => format!("{} - Rust source code", summary),
         };
 
         let long_desc = description.unwrap_or("");
         let boilerplate = match feature {
             None => format!(
-                concat!(
-                    "This package contains the source for the ",
-                    "Rust {} crate, packaged by debcargo for use ",
-                    "with cargo and dh-cargo."
-                ),
+                "This package contains the source for the \
+                Rust {} crate, packaged by debcargo for use \
+                with cargo and dh-cargo.",
                 upstream_name
             ),
             Some(f) => format!(
-                concat!(
-                    "This metapackage enables feature {} for the ",
-                    "Rust {} crate, by pulling in any additional ",
-                    "dependencies needed by that feature."
-                ),
+                "This metapackage enables feature \"{}\" for the \
+                Rust {} crate, by pulling in any additional \
+                dependencies needed by that feature.{}",
                 f,
-                upstream_name
+                upstream_name,
+                match f_provides.len() {
+                    0 => "".to_string(),
+                    1 => format!(
+                        "\n\nAdditionally, this package also provides the \
+                        \"{}\" feature.",
+                        f_provides[0],
+                    ),
+                    _ => format!(
+                        "\n\nAdditionally, this package also provides the \
+                        \"{}\", and \"{}\" features.",
+                        f_provides[..f_provides.len()-1].join("\", \""),
+                        f_provides[f_provides.len()-1],
+                    ),
+                },
             ),
         };
 
