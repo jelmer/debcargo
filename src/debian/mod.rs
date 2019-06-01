@@ -135,6 +135,7 @@ pub fn prepare_orig_tarball(
     create.write(true).create_new(true);
 
     if src_modified {
+        debcargo_info!("crate tarball was modified; repacking for debian");
         let mut f = crate_file.file();
         f.seek(io::SeekFrom::Start(0))?;
         let mut archive = Archive::new(GzDecoder::new(f));
@@ -158,11 +159,6 @@ pub fn prepare_orig_tarball(
                 };
                 new_archive_append("Cargo.toml")?;
                 new_archive_append("Cargo.toml.orig")?;
-                writeln!(
-                    io::stderr(),
-                    "Rewrote {:?} to canonical form.",
-                    &entry.path()?
-                )?;
             } else {
                 match crate_info.filter_path(&entry.path()?) {
                     Err(e) => debcargo_bail!(e),
