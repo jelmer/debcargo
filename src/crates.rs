@@ -217,7 +217,7 @@ impl CrateInfo {
         for dep in self.dependencies() {
             // we treat build-dependencies also as dependencies in Debian
             if dep.kind() != Kind::Development {
-                let s = dep.package_name().as_str();
+                let s = dep.name_in_toml().as_str();
                 deps_by_name.entry(s).or_default().push(dep);
             }
         }
@@ -263,7 +263,7 @@ impl CrateInfo {
         for deps in deps_by_name.values() {
             for &dep in deps {
                 if dep.is_optional() {
-                    features_with_deps.insert(&dep.package_name().as_str(), (vec![""], vec![dep.clone()]));
+                    features_with_deps.insert(&dep.name_in_toml().as_str(), (vec![""], vec![dep.clone()]));
                 } else {
                     deps_required.push(dep.clone())
                 }
