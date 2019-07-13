@@ -391,21 +391,6 @@ pub fn prepare_debian_folder(
             )?;
         }
 
-        // debian/tests/control
-        let mut testctl = io::BufWriter::new(file("tests/control")?);
-        write!(
-            testctl,
-            "{}",
-            PkgTest::new(
-                "@",
-                &crate_name,
-                &crate_version,
-                vec!["--all-features"],
-                &dev_depends,
-                if all_features_test_broken { vec!["flaky"] } else { vec![] },
-            )?
-        )?;
-
         // debian/control
         let build_deps = {
             let build_deps = [
@@ -468,6 +453,21 @@ pub fn prepare_debian_folder(
         };
 
         if lib {
+            // debian/tests/control
+            let mut testctl = io::BufWriter::new(file("tests/control")?);
+            write!(
+                testctl,
+                "{}",
+                PkgTest::new(
+                    "@",
+                    &crate_name,
+                    &crate_version,
+                    vec!["--all-features"],
+                    &dev_depends,
+                    if all_features_test_broken { vec!["flaky"] } else { vec![] },
+                    )?
+            )?;
+
             let mut provides = crate_info.calculate_provides(&mut features_with_deps);
             //debcargo_info!("provides: {:?}", provides);
             let mut recommends = vec![];
