@@ -559,7 +559,7 @@ pub fn prepare_debian_folder(
                 package.apply_overrides(config, PackageKey::feature(feature), f_provides);
                 write!(control, "\n{}", package)?;
 
-                let mut pkgtest = PkgTest::new(
+                let pkgtest = PkgTest::new(
                     package.name(),
                     &crate_name,
                     &crate_version,

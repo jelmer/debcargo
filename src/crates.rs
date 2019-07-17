@@ -64,6 +64,7 @@ fn fetch_candidates(registry: &mut PackageRegistry, dep: &Dependency) -> Result<
 
 pub fn update_crates_io() -> Result<()> {
     let config = Config::default()?;
+    let _lock = config.acquire_package_cache_lock()?;
     let source_id = SourceId::crates_io(&config)?;
     let yanked_whitelist = HashSet::new();
     let mut r = RegistrySource::remote(source_id, &yanked_whitelist, &config);
@@ -114,9 +115,11 @@ impl CrateInfo {
         );
 
         let (package, manifest, crate_file) = {
+            let lock = config.acquire_package_cache_lock()?;
             let mut registry = PackageRegistry::new(&config)?;
             registry.lock_patches();
             let summaries = fetch_candidates(&mut registry, &dependency)?;
+            drop(lock);
             let pkgids = summaries
                 .into_iter()
                 .map(|s| s.package_id().clone())
@@ -599,7 +602,7 @@ impl CrateInfo {
 
         // Ensure that Cargo.toml is in standard form, e.g. does not contain
         // path dependencies, so can be built standalone (see #4030).
-        let registry_toml = self.package().to_registry_toml(&Config::default()?)?;
+        let registry_toml = self.package().to_registry_toml(&self.config)?;
         let mut actual_toml = String::new();
         let toml_path = path.join("Cargo.toml");
         fs::File::open(&toml_path)?.read_to_string(&mut actual_toml)?;
