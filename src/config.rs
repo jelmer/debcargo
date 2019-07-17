@@ -1,10 +1,10 @@
 use toml;
 
-use std::io::Read;
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::fs::File;
 use errors::*;
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use util::vec_opt_iter;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -77,7 +77,8 @@ impl Config {
     }
 
     pub fn overlay_dir(&self, config_path: Option<&Path>) -> Option<PathBuf> {
-        self.overlay.as_ref()
+        self.overlay
+            .as_ref()
             .map(|p| config_path.unwrap().parent().unwrap().join(p))
     }
 
@@ -116,9 +117,7 @@ impl Config {
     }
 
     pub fn build_depends(&self) -> Option<&Vec<String>> {
-        self.source.as_ref().and_then(|s| {
-            s.build_depends.as_ref()
-        })
+        self.source.as_ref().and_then(|s| s.build_depends.as_ref())
     }
 
     pub fn uploaders(&self) -> Option<&Vec<String>> {
@@ -126,9 +125,9 @@ impl Config {
     }
 
     pub fn build_depends_excludes(&self) -> Option<&Vec<String>> {
-        self.source.as_ref().and_then(|s| {
-            s.build_depends_excludes.as_ref()
-        })
+        self.source
+            .as_ref()
+            .and_then(|s| s.build_depends_excludes.as_ref())
     }
 
     pub fn section(&self) -> Option<&str> {
@@ -142,9 +141,8 @@ impl Config {
 
     pub fn package_section(&self, key: PackageKey) -> Option<&str> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key)).and_then(|package| {
-                package.section.as_ref().map(|s| s.as_str())
-            })
+            pkg.get(&package_key_string(key))
+                .and_then(|package| package.section.as_ref().map(|s| s.as_str()))
         })
     }
 
@@ -166,49 +164,43 @@ impl Config {
 
     pub fn package_depends(&self, key: PackageKey) -> Option<&Vec<String>> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key)).and_then(|package| {
-                package.depends.as_ref()
-            })
+            pkg.get(&package_key_string(key))
+                .and_then(|package| package.depends.as_ref())
         })
     }
 
     pub fn package_recommends(&self, key: PackageKey) -> Option<&Vec<String>> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key)).and_then(|package| {
-                package.recommends.as_ref()
-            })
+            pkg.get(&package_key_string(key))
+                .and_then(|package| package.recommends.as_ref())
         })
     }
 
     pub fn package_suggests(&self, key: PackageKey) -> Option<&Vec<String>> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key)).and_then(|package| {
-                package.suggests.as_ref()
-            })
+            pkg.get(&package_key_string(key))
+                .and_then(|package| package.suggests.as_ref())
         })
     }
 
     pub fn package_provides(&self, key: PackageKey) -> Option<&Vec<String>> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key)).and_then(|package| {
-                package.provides.as_ref()
-            })
+            pkg.get(&package_key_string(key))
+                .and_then(|package| package.provides.as_ref())
         })
     }
 
     pub fn package_extra_lines(&self, key: PackageKey) -> Option<&Vec<String>> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key)).and_then(|package| {
-                package.extra_lines.as_ref()
-            })
+            pkg.get(&package_key_string(key))
+                .and_then(|package| package.extra_lines.as_ref())
         })
     }
 
     pub fn package_test_is_broken(&self, key: PackageKey) -> Option<bool> {
         self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key)).and_then(|package| {
-                package.test_is_broken
-            })
+            pkg.get(&package_key_string(key))
+                .and_then(|package| package.test_is_broken)
         })
     }
 
@@ -242,11 +234,15 @@ pub fn parse_config(src: &Path) -> Result<Config> {
 pub fn package_field_for_feature<'a>(
     get_field: &'a Fn(PackageKey) -> Option<&'a Vec<String>>,
     feature: PackageKey,
-    f_provides: &[&str])
--> Vec<String> {
-    Some(feature).into_iter().chain(f_provides.into_iter().map(|s| PackageKey::feature(s))).map(move |f|
-        vec_opt_iter(get_field(f))
-    ).flatten().map(|s| s.to_string()).collect()
+    f_provides: &[&str],
+) -> Vec<String> {
+    Some(feature)
+        .into_iter()
+        .chain(f_provides.into_iter().map(|s| PackageKey::feature(s)))
+        .map(move |f| vec_opt_iter(get_field(f)))
+        .flatten()
+        .map(|s| s.to_string())
+        .collect()
 }
 
 #[derive(Clone, Copy)]
@@ -256,7 +252,7 @@ pub enum PackageKey<'a> {
     FeatureLib(&'a str),
 }
 
-impl <'a> PackageKey<'a> {
+impl<'a> PackageKey<'a> {
     pub fn feature(f: &'a str) -> PackageKey<'a> {
         use self::PackageKey::*;
         if f == "" {

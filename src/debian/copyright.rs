@@ -1,39 +1,38 @@
-use walkdir;
-use regex;
-use chrono::{DateTime, Datelike, NaiveDateTime, Utc};
 use cargo::core::{manifest, package};
+use chrono::{DateTime, Datelike, NaiveDateTime, Utc};
+use git2::Repository;
+use regex;
 use tempfile;
 use textwrap::fill;
-use git2::Repository;
+use walkdir;
 
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
+use std::env;
 use std::fmt;
 use std::fs;
-use std::env;
-use std::cmp::Ordering;
-use std::path::Path;
-use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read};
+use std::path::Path;
 
-use errors::*;
 use debian::control::RUST_MAINT;
+use errors::*;
 
-const DEB_COPYRIGHT_FORMAT: &'static str = "\
-    https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/";
+const DEB_COPYRIGHT_FORMAT: &'static str =
+    "\
+     https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/";
 
 macro_rules! format_para {
-    ($fmt: expr, $text:expr) => {
-        {
-            for line in $text.lines() {
-                let line = line.trim_end();
-                if line.is_empty() {
-                    writeln!($fmt, " .")?;
-                } else {
-                    writeln!($fmt, " {}", line)?;
-                }
+    ($fmt: expr, $text:expr) => {{
+        for line in $text.lines() {
+            let line = line.trim_end();
+            if line.is_empty() {
+                writeln!($fmt, " .")?;
+            } else {
+                writeln!($fmt, " {}", line)?;
             }
-            write!($fmt, "")
         }
-    }
+        write!($fmt, "")
+    }};
 }
 
 struct UpstreamInfo {
@@ -180,12 +179,15 @@ macro_rules! default_files {
     ($file:expr, $notice:expr) => {{
         let comment = concat!(
             "FIXME (overlay): These notices are extracted from files. Please ",
-            "review them before uploading to the archive.");
-        Files::new($file,
-                   $notice,
-                   "UNKNOWN-LICENSE; FIXME (overlay)",
-                   &fill(comment, 79))
-    }}
+            "review them before uploading to the archive."
+        );
+        Files::new(
+            $file,
+            $notice,
+            "UNKNOWN-LICENSE; FIXME (overlay)",
+            &fill(comment, 79),
+        )
+    }};
 }
 
 fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
@@ -205,7 +207,7 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     // current_dir then we end up having absolute path from user home directory,
     // which again messes debian/copyright.
     // Use of . creates paths in format ./src/ which is acceptable.
-    for entry in walkdir::WalkDir::new(".").sort_by(|a,b| a.file_name().cmp(b.file_name())) {
+    for entry in walkdir::WalkDir::new(".").sort_by(|a, b| a.file_name().cmp(b.file_name())) {
         let entry = try!(entry);
         if entry.file_type().is_file() {
             let copyright_file = entry.path().to_str().unwrap().to_string();
@@ -224,7 +226,10 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
                         if !copyright_notices.contains_key(&copyright_file) {
                             copyright_notices.insert(copyright_file.clone(), vec![]);
                         }
-                        copyright_notices.get_mut(&copyright_file).unwrap().push(notice);
+                        copyright_notices
+                            .get_mut(&copyright_file)
+                            .unwrap()
+                            .push(notice);
                     }
                 } else {
                     break;
@@ -265,7 +270,9 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
         ("mpl-2.0", include_str!("licenses/MPL-2.0")),
         ("unlicense", include_str!("licenses/Unlicense")),
         ("zlib", include_str!("licenses/Zlib")),
-    ].into_iter().collect::<BTreeMap<_, _>>();
+    ]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
 
     let lses: Vec<&str> = sep.split(license).filter(|s| s.len() != 0).collect();
     for ls in lses {
@@ -273,8 +280,9 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
         let text = match known_licenses.get(lname.as_str()) {
             Some(s) => s.to_string(),
             None => "FIXME (overlay): Unrecognized crate license, please find the \
-                full license text in the rest of the crate source code and \
-                copy-paste it here".to_string()
+                     full license text in the rest of the crate source code and \
+                     copy-paste it here"
+                .to_string(),
         };
         licenses.insert(ls.trim().to_string(), text);
     }
@@ -290,7 +298,9 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
 }
 
 fn copyright_fromgit(repo_url: &str) -> Result<String> {
-    let tempdir = tempfile::Builder::new().prefix("debcargo").tempdir_in(".")?;
+    let tempdir = tempfile::Builder::new()
+        .prefix("debcargo")
+        .tempdir_in(".")?;
     let repo = Repository::clone(repo_url, tempdir.path())?;
 
     let mut revwalker = repo.revwalk()?;
@@ -306,12 +316,14 @@ fn copyright_fromgit(repo_url: &str) -> Result<String> {
     let first_year = DateTime::<Utc>::from_utc(
         NaiveDateTime::from_timestamp(first_commit.time().seconds(), 0),
         Utc,
-    ).year();
+    )
+    .year();
 
     let latest_year = DateTime::<Utc>::from_utc(
         NaiveDateTime::from_timestamp(latest_commit.time().seconds(), 0),
         Utc,
-    ).year();
+    )
+    .year();
 
     let notice = match first_year.cmp(&latest_year) {
         Ordering::Equal => format!("{}", first_year),
@@ -346,10 +358,14 @@ pub fn debian_copyright(
         fs::File::open(license_file)?.read_to_end(&mut text)?;
         licenses.reserve(1);
         let stext = String::from_utf8(text)?;
-        licenses.push(License::new("UNKNOWN-LICENSE; FIXME (overlay)".to_string(), stext));
+        licenses.push(License::new(
+            "UNKNOWN-LICENSE; FIXME (overlay)".to_string(),
+            stext,
+        ));
     } else if let Some(ref license) = meta.license {
         licenses = get_licenses(license).unwrap();
-        crate_license = license.trim()
+        crate_license = license
+            .trim()
             .replace("/", " or ")
             .replace(" OR ", " or ")
             .replace(" AND ", " and ");
@@ -365,8 +381,7 @@ pub fn debian_copyright(
     } else {
         format!("{}-{}", y0, y1)
     };
-    let mut deb_notice = vec![
-        format!("{} {}", years, RUST_MAINT)];
+    let mut deb_notice = vec![format!("{} {}", years, RUST_MAINT)];
     deb_notice.extend(uploaders.iter().map(|s| format!("{} {}", years, s)));
     files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
 
@@ -389,12 +404,11 @@ pub fn debian_copyright(
     };
     let notice = match meta.authors.len() {
         1 => vec![format!("{} {}", years, &meta.authors[0])],
-        _ => {
-            meta.authors
-                .iter()
-                .map(|s| format!("{} {}", years, s))
-                .collect()
-        }
+        _ => meta
+            .authors
+            .iter()
+            .map(|s| format!("{} {}", years, s))
+            .collect(),
     };
     let comment = concat!(
         "FIXME (overlay): Since upstream copyright years are not available ",

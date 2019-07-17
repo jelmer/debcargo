@@ -1,10 +1,10 @@
 use std::fs;
 use std::io::Error;
 use std::iter::Iterator;
-use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::symlink;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use walkdir;
 

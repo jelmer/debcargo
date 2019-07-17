@@ -1,22 +1,29 @@
-use cargo::{Config, core::manifest::ManifestMetadata, core::registry::PackageRegistry,
-            core::{Dependency, EitherManifest, FeatureValue, Manifest, Package, PackageId,
-                   Registry, Source, SourceId, Summary, Target, TargetKind},
-            sources::registry::RegistrySource, util::{FileLock, toml::read_manifest}};
+use cargo::{
+    core::manifest::ManifestMetadata,
+    core::registry::PackageRegistry,
+    core::{
+        Dependency, EitherManifest, FeatureValue, Manifest, Package, PackageId, Registry, Source,
+        SourceId, Summary, Target, TargetKind,
+    },
+    sources::registry::RegistrySource,
+    util::{toml::read_manifest, FileLock},
+    Config,
+};
 use failure::Error;
 use filetime::{set_file_times, FileTime};
-use glob::Pattern;
-use semver::Version;
 use flate2::read::GzDecoder;
+use glob::Pattern;
+use regex::Regex;
+use semver::Version;
 use tar::Archive;
 use tempfile;
-use regex::Regex;
 
 use std;
 use std::collections::{BTreeMap, HashSet};
-use std::hash::{Hash, Hasher};
-use std::path::{Path, PathBuf};
-use std::io::{self, Read, Write};
 use std::fs;
+use std::hash::{Hash, Hasher};
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
 
 use errors::*;
 use util::vec_opt_iter;
@@ -128,11 +135,10 @@ impl CrateInfo {
             let package = pkgset.get_one(*pkgid)?;
             let manifest = package.manifest();
             let filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
-            let crate_file = config.registry_cache_path().join(&registry_name).open_ro(
-                &filename,
-                &config,
-                &filename,
-            )?;
+            let crate_file = config
+                .registry_cache_path()
+                .join(&registry_name)
+                .open_ro(&filename, &config, &filename)?;
             (package.clone(), manifest.clone(), crate_file)
         };
 
@@ -205,11 +211,16 @@ impl CrateInfo {
         deps
     }
 
-    pub fn all_dependencies_and_features(&self) ->
-        BTreeMap<&str,                  // name of feature / optional dependency,
-                                        // or "" for the base package w/ no default features, guaranteed to be in the map
-                (Vec<&str>,             // dependencies: other features (of the current package)
-                 Vec<Dependency>)>      // dependencies: other packages
+    pub fn all_dependencies_and_features(
+        &self,
+    ) -> BTreeMap<
+        &str, // name of feature / optional dependency,
+        // or "" for the base package w/ no default features, guaranteed to be in the map
+        (
+            Vec<&str>, // dependencies: other features (of the current package)
+            Vec<Dependency>,
+        ),
+    > // dependencies: other packages
     {
         use cargo::core::dependency::Kind;
 
@@ -229,20 +240,19 @@ impl CrateInfo {
         for (feature, deps) in self.manifest.summary().features() {
             let mut feature_deps = vec![""];
             // always need "", because in dh-cargo we symlink /usr/share/doc/{$feature => $main} pkg
-            let mut other_deps : Vec<Dependency> = Vec::new();
+            let mut other_deps: Vec<Dependency> = Vec::new();
             for dep in deps {
                 use self::FeatureValue::*;
                 match dep {
                     // another feature is a dependency
-                    Feature(dep_feature) =>
-                        feature_deps.push(dep_feature),
+                    Feature(dep_feature) => feature_deps.push(dep_feature),
                     // another package is a dependency
                     Crate(dep_name) => {
                         // unwrap is ok, valid Cargo.toml files must have this
                         for &dep in deps_by_name.get(dep_name.as_str()).unwrap() {
                             other_deps.push(dep.clone());
                         }
-                    },
+                    }
                     // another package is a dependency
                     CrateFeature(dep_name, dep_feature) => {
                         // unwrap is ok, valid Cargo.toml files must have this
@@ -259,11 +269,12 @@ impl CrateInfo {
         }
 
         // calculate dependencies of this crate's "optional dependencies", since they are also features
-        let mut deps_required : Vec<Dependency> = Vec::new();
+        let mut deps_required: Vec<Dependency> = Vec::new();
         for deps in deps_by_name.values() {
             for &dep in deps {
                 if dep.is_optional() {
-                    features_with_deps.insert(&dep.name_in_toml().as_str(), (vec![""], vec![dep.clone()]));
+                    features_with_deps
+                        .insert(&dep.name_in_toml().as_str(), (vec![""], vec![dep.clone()]));
                 } else {
                     deps_required.push(dep.clone())
                 }
@@ -281,10 +292,11 @@ impl CrateInfo {
         features_with_deps
     }
 
-    pub fn feature_all_deps<'a>(&self,
-            features_with_deps: &'a BTreeMap<&str, (Vec<&str>, Vec<Dependency>)>,
-            feature: &str)
-            -> (Vec<&'a str>, Vec<Dependency>) {
+    pub fn feature_all_deps<'a>(
+        &self,
+        features_with_deps: &'a BTreeMap<&str, (Vec<&str>, Vec<Dependency>)>,
+        feature: &str,
+    ) -> (Vec<&'a str>, Vec<Dependency>) {
         let mut all_features = Vec::new();
         let mut all_deps = Vec::new();
         let &(ref ff, ref dd) = features_with_deps.get(feature).unwrap();
@@ -294,7 +306,7 @@ impl CrateInfo {
             let (ff1, dd1) = self.feature_all_deps(&features_with_deps, f);
             all_features.extend(ff1);
             all_deps.extend(dd1);
-        };
+        }
         (all_features, all_deps)
     }
 
@@ -310,10 +322,10 @@ impl CrateInfo {
     //   f3 depends on f4
     // into
     //   f4 provides f1, f2, f3
-    pub fn calculate_provides<'a>(&self,
-            features_with_deps: &mut BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>)
-            -> BTreeMap<&'a str, Vec<&'a str>> {
-
+    pub fn calculate_provides<'a>(
+        &self,
+        features_with_deps: &mut BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
+    ) -> BTreeMap<&'a str, Vec<&'a str>> {
         // If any features have duplicate dependencies, deduplicate them by
         // making all of the subsequent ones depend on the first one.
         let mut features_rev_deps = BTreeMap::new();
@@ -336,7 +348,7 @@ impl CrateInfo {
         for (&f, (ref ff, ref dd)) in features_with_deps.iter() {
             //debcargo_info!("provides considering: {:?}", &f);
             if !dd.is_empty() {
-                continue
+                continue;
             }
             assert!(!ff.is_empty() || f == "");
             let k = if ff.len() == 1 {
@@ -349,7 +361,7 @@ impl CrateInfo {
                 assert!(ff[0] == "");
                 ff[1]
             } else {
-                continue
+                continue;
             };
             //debcargo_info!("provides still considering: {:?}", &f);
             if !provides.contains_key(k) {
@@ -365,11 +377,14 @@ impl CrateInfo {
             features_with_deps.remove(p);
         }
 
-        features_with_deps.keys().map(|k| {
-            let mut pp = traverse_depth(&provides, k);
-            pp.sort();
-            (*k, pp)
-        }).collect::<BTreeMap<_, _>>()
+        features_with_deps
+            .keys()
+            .map(|k| {
+                let mut pp = traverse_depth(&provides, k);
+                pp.sort();
+                (*k, pp)
+            })
+            .collect::<BTreeMap<_, _>>()
     }
 
     pub fn is_lib(&self) -> bool {
@@ -418,10 +433,10 @@ impl CrateInfo {
         // See `man uscan` description of @ANY_VERSION@ on how these
         // regex patterns were built.
         match *self.package_id().version() {
-            Version { major: 0, minor, .. } =>
-                format!("[-_]?(0\\.{}\\.\\d[\\-+\\.:\\~\\da-zA-Z]*)", minor),
-            Version { major, .. } =>
-                format!("[-_]?({}\\.\\d[\\-+\\.:\\~\\da-zA-Z]*)", major),
+            Version {
+                major: 0, minor, ..
+            } => format!("[-_]?(0\\.{}\\.\\d[\\-+\\.:\\~\\da-zA-Z]*)", minor),
+            Version { major, .. } => format!("[-_]?({}\\.\\d[\\-+\\.:\\~\\da-zA-Z]*)", major),
         }
     }
 
@@ -433,14 +448,20 @@ impl CrateInfo {
                 .replace("\n\n", "\r")
                 .replace("\n", " ")
                 .replace("\r", "\n")
-                .trim().to_string();
+                .trim()
+                .to_string();
             // Trim off common prefixes
-            let re = Regex::new(&format!(r"^(?i)({}|This(\s+\w+)?)(\s*,|\s+is|\s+provides)\s+",
-                self.package_id().name())).unwrap();
+            let re = Regex::new(&format!(
+                r"^(?i)({}|This(\s+\w+)?)(\s*,|\s+is|\s+provides)\s+",
+                self.package_id().name()
+            ))
+            .unwrap();
             description = re.replace(&description, "").to_string();
             let re = Regex::new(r"^(?i)(a|an|the)\s+").unwrap();
             description = re.replace(&description, "").to_string();
-            let re = Regex::new(r"^(?i)(rust\s+)?(implementation|library|tool|crate)\s+(of|to|for)\s+").unwrap();
+            let re =
+                Regex::new(r"^(?i)(rust\s+)?(implementation|library|tool|crate)\s+(of|to|for)\s+")
+                    .unwrap();
             description = re.replace(&description, "").to_string();
 
             // https://stackoverflow.com/questions/38406793/why-is-capitalizing-the-first-letter-of-a-string-so-convoluted-in-rust
@@ -474,25 +495,31 @@ impl CrateInfo {
         (summary, description)
     }
 
-    pub fn set_includes_excludes(&mut self, excludes: Option<&Vec<String>>, includes: Option<&Vec<String>>) {
-        self.excludes = vec_opt_iter(excludes).map(|x| {
-            Pattern::new(&("*/".to_owned() + x)).unwrap()
-        }).collect::<Vec<_>>();
-        self.includes = vec_opt_iter(includes).map(|x| {
-            Pattern::new(&("*/".to_owned() + x)).unwrap()
-        }).collect::<Vec<_>>();
+    pub fn set_includes_excludes(
+        &mut self,
+        excludes: Option<&Vec<String>>,
+        includes: Option<&Vec<String>>,
+    ) {
+        self.excludes = vec_opt_iter(excludes)
+            .map(|x| Pattern::new(&("*/".to_owned() + x)).unwrap())
+            .collect::<Vec<_>>();
+        self.includes = vec_opt_iter(includes)
+            .map(|x| Pattern::new(&("*/".to_owned() + x)).unwrap())
+            .collect::<Vec<_>>();
     }
 
     pub fn filter_path(&self, path: &Path) -> ::std::result::Result<bool, String> {
         if self.excludes.iter().any(|p| p.matches_path(path)) {
-            return Ok(true)
+            return Ok(true);
         }
         let suspicious = match path.extension() {
-            Some(ext) => if ext == "c" || ext == "a" {
-                true
-            } else {
-                false
-            },
+            Some(ext) => {
+                if ext == "c" || ext == "a" {
+                    true
+                } else {
+                    false
+                }
+            }
             _ => false,
         };
         if suspicious {
@@ -500,7 +527,10 @@ impl CrateInfo {
                 debcargo_info!("Suspicious file, on whitelist so ignored: {:?}", path);
                 Ok(false)
             } else {
-                Err(format!("Suspicious file, should probably be excluded: {:?}", path))
+                Err(format!(
+                    "Suspicious file, should probably be excluded: {:?}",
+                    path
+                ))
             }
         } else {
             Ok(false)
@@ -509,7 +539,9 @@ impl CrateInfo {
 
     pub fn extract_crate(&self, path: &Path) -> Result<bool> {
         let mut archive = Archive::new(GzDecoder::new(self.crate_file.file()));
-        let tempdir = tempfile::Builder::new().prefix("debcargo").tempdir_in(".")?;
+        let tempdir = tempfile::Builder::new()
+            .prefix("debcargo")
+            .tempdir_in(".")?;
         let mut source_modified = false;
         let mut last_mtime = 0;
         let mut err = vec![];
@@ -518,9 +550,11 @@ impl CrateInfo {
             let mut entry = entry?;
             match self.filter_path(&(entry.path()?)) {
                 Err(e) => err.push(e),
-                Ok(r) => if r {
-                    source_modified = true;
-                    continue;
+                Ok(r) => {
+                    if r {
+                        source_modified = true;
+                        continue;
+                    }
                 }
             }
 
@@ -538,7 +572,9 @@ impl CrateInfo {
             for e in err {
                 debcargo_warn!("{}", e);
             }
-            debcargo_bail!("Suspicious files detected, aborting. Ask on #debian-rust if you are stuck.")
+            debcargo_bail!(
+                "Suspicious files detected, aborting. Ask on #debian-rust if you are stuck."
+            )
         }
 
         let entries = tempdir.path().read_dir()?.collect::<io::Result<Vec<_>>>()?;

@@ -20,7 +20,10 @@ pub struct ChangelogEntry {
 
 pub fn local_now() -> DateTime<FixedOffset> {
     let now = Local::now();
-    let offset = now.timezone().offset_from_local_datetime(&now.naive_local()).unwrap();
+    let offset = now
+        .timezone()
+        .offset_from_local_datetime(&now.naive_local())
+        .unwrap();
     now.with_timezone(&offset)
 }
 
@@ -36,17 +39,12 @@ impl fmt::Display for ChangelogEntry {
             writeln!(f, "{}", entry)?;
         }
 
-        writeln!(
-            f,
-            "\n -- {}  {}",
-            self.maintainer,
-            self.date.to_rfc2822()
-        )
+        writeln!(f, "\n -- {}  {}", self.maintainer, self.date.to_rfc2822())
     }
 }
 
 fn line_is_blank(s: &str) -> bool {
-   s.chars().all(char::is_whitespace)
+    s.chars().all(char::is_whitespace)
 }
 
 impl str::FromStr for ChangelogEntry {
@@ -57,15 +55,23 @@ impl str::FromStr for ChangelogEntry {
         // regexes adapted from /usr/share/perl5/Dpkg/Changelog/Entry/Debian.pm
 
         let firstline = lines[0];
-        let re1 = Regex::new(r"(?i)^(\w[-+0-9a-z.]*) \(([^\(\) \t]+)\)((?:\s+[-+0-9a-z.]+)+);(.*?)\s*$").unwrap();
+        let re1 =
+            Regex::new(r"(?i)^(\w[-+0-9a-z.]*) \(([^\(\) \t]+)\)((?:\s+[-+0-9a-z.]+)+);(.*?)\s*$")
+                .unwrap();
         let matches1 = re1.captures(firstline).unwrap();
         let mut i = 1;
-        while line_is_blank(lines[i]) { i += 1; }
+        while line_is_blank(lines[i]) {
+            i += 1;
+        }
         lines = lines.split_off(i);
 
-        while line_is_blank(lines.last().unwrap()) { lines.pop(); }
+        while line_is_blank(lines.last().unwrap()) {
+            lines.pop();
+        }
         let lastline = lines.pop().unwrap();
-        while line_is_blank(lines.last().unwrap()) { lines.pop(); }
+        while line_is_blank(lines.last().unwrap()) {
+            lines.pop();
+        }
         let re2 = Regex::new(r"^ \-\- ((?:.*) <(?:.*)>)  ?(\w.*\S)\s*$").unwrap();
         let matches2 = re2.captures(lastline).unwrap();
 
@@ -76,7 +82,8 @@ impl str::FromStr for ChangelogEntry {
             matches1[4].to_string(),
             matches2[1].to_string(),
             DateTime::parse_from_rfc2822(&matches2[2])?,
-            lines.iter().map(|s| s.to_string()).collect()))
+            lines.iter().map(|s| s.to_string()).collect(),
+        ))
     }
 }
 
@@ -125,7 +132,11 @@ impl ChangelogEntry {
         if matches[2].is_empty() {
             format!("{}.1", &matches[1])
         } else {
-            format!("{}{}", &matches[1], (matches[2].parse::<u64>().unwrap() + 1))
+            format!(
+                "{}{}",
+                &matches[1],
+                (matches[2].parse::<u64>().unwrap() + 1)
+            )
         }
     }
 }
@@ -160,7 +171,7 @@ impl<'a> Iterator for ChangelogIterator<'a> {
             if *c != ('\n' as u8) {
                 continue;
             }
-            if i < (slice.len()-1) && (slice[i + 1] as char).is_whitespace() {
+            if i < (slice.len() - 1) && (slice[i + 1] as char).is_whitespace() {
                 continue;
             }
             self.index += i + 1;

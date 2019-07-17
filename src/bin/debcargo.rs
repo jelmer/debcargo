@@ -18,13 +18,13 @@ use ansi_term::Colour::Red;
 use clap::{App, AppSettings, ArgMatches, SubCommand};
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
 use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
 
-use debcargo::errors::*;
+use debcargo::config::{parse_config, Config};
 use debcargo::crates::{update_crates_io, CrateInfo};
 use debcargo::debian::{self, BaseInfo};
-use debcargo::config::{parse_config, Config};
+use debcargo::errors::*;
 use debcargo::util;
 
 fn lookup_fixmes(srcdir: &Path) -> Result<Vec<PathBuf>> {
@@ -61,10 +61,9 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let (config_path, config) = match matches.value_of("config") {
         Some(p) => {
             let path = Path::new(p);
-            let config = parse_config(path)
-                .context("failed to parse debcargo.toml")?;
+            let config = parse_config(path).context("failed to parse debcargo.toml")?;
             (Some(path), config)
-        },
+        }
         None => (None, Config::default()),
     };
     let changelog_ready = matches.is_present("changelog-ready");
@@ -72,18 +71,21 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
     let mut crate_info = CrateInfo::new(crate_name, version)?;
-    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!(), config.semver_suffix);
+    let pkgbase = BaseInfo::new(
+        crate_name,
+        &crate_info,
+        crate_version!(),
+        config.semver_suffix,
+    );
 
     let pkg_srcdir = Path::new(directory.unwrap_or(pkgbase.package_source_dir()));
-    let orig_tar_gz = pkg_srcdir.parent().unwrap().join(pkgbase.orig_tarball_path());
+    let orig_tar_gz = pkg_srcdir
+        .parent()
+        .unwrap()
+        .join(pkgbase.orig_tarball_path());
     crate_info.set_includes_excludes(config.orig_tar_excludes(), config.orig_tar_whitelist());
     let source_modified = crate_info.extract_crate(pkg_srcdir)?;
-    debian::prepare_orig_tarball(
-        &crate_info,
-        &orig_tar_gz,
-        source_modified,
-        pkg_srcdir,
-    )?;
+    debian::prepare_orig_tarball(&crate_info, &orig_tar_gz, source_modified, pkg_srcdir)?;
     debian::prepare_debian_folder(
         &pkgbase,
         &mut crate_info,
@@ -117,7 +119,9 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
             match config_path {
                 None => debcargo_warn!("\t •  Write a config file and use it with --config"),
                 Some(c) => {
-                    debcargo_warn!(format!("\t •  Add or edit overrides in your config file:"));
+                    debcargo_warn!(format!(
+                        "\t •  Add or edit overrides in your config file:"
+                    ));
                     debcargo_warn!(format!("\t    {}", rel_p(&c, &curdir)));
                 }
             };

@@ -1,7 +1,7 @@
 extern crate debcargo;
 
-use std::path::Path;
 use debcargo::config::{parse_config, PackageKey};
+use std::path::Path;
 
 #[test]
 fn source_package_override() {
@@ -71,7 +71,10 @@ fn sd_top_level() {
     assert!(section.is_some());
     assert_eq!(section.unwrap(), "rust");
 
-    assert_eq!(config.summary, "Tool to create Debian package from Rust crate");
+    assert_eq!(
+        config.summary,
+        "Tool to create Debian package from Rust crate"
+    );
     assert_eq!(
         config.description,
         "\

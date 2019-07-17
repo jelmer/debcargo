@@ -1,14 +1,14 @@
-use semver_parser;
-use semver_parser::range::*;
-use semver_parser::range::Op::*;
 use cargo::core::Dependency;
 use itertools::Itertools;
+use semver_parser;
+use semver_parser::range::Op::*;
+use semver_parser::range::*;
 
 use std::cmp;
 use std::fmt;
 
-use errors::*;
 use config::Config;
+use errors::*;
 
 #[derive(Eq, Clone)]
 enum V {
@@ -142,38 +142,48 @@ impl VRange {
                 let (ge_maj, ge_min, ge_pat) = ge.mmp();
                 if ge_maj < lt_maj {
                     ranges.push((M(ge_maj), Some((true, ge))));
-                    ranges.extend((ge_maj+1..lt_maj).map(|maj| (M(maj), None)));
+                    ranges.extend((ge_maj + 1..lt_maj).map(|maj| (M(maj), None)));
                     ranges.push((M(lt_maj), Some((false, lt))));
                 } else {
                     assert!(ge_maj == lt_maj);
                     if ge_min < lt_min {
                         ranges.push((MM(ge_maj, ge_min), Some((true, ge))));
-                        ranges.extend((ge_min+1..lt_min).map(|min| (MM(ge_maj, min), None)));
+                        ranges.extend((ge_min + 1..lt_min).map(|min| (MM(ge_maj, min), None)));
                         ranges.push((MM(lt_maj, lt_min), Some((false, lt))));
                     } else {
                         assert!(ge_min == lt_min);
                         ranges.push((MMP(ge_maj, ge_min, ge_pat), Some((true, ge))));
-                        ranges.extend((ge_pat+1..lt_pat).map(|pat| (MMP(ge_maj, ge_min, pat), None)));
+                        ranges.extend(
+                            (ge_pat + 1..lt_pat).map(|pat| (MMP(ge_maj, ge_min, pat), None)),
+                        );
                         ranges.push((MMP(lt_maj, lt_min, lt_pat), Some((false, lt))));
                     }
                 };
                 // reverse the order so higher versions go first
                 // this helps sbuild find build-deps, it does not resolve alternatives by default
-                Ok(ranges.iter().rev().filter_map(|(ver, cons)| match cons {
-                    None => Some(format!("{}-{}{}", base, ver, suffix)),
-                    Some((true, c)) => if c == &ver {
-                        // A-x >= x is redundant, drop the >=
-                        Some(format!("{}-{}{}", base, ver, suffix))
-                    } else {
-                        Some(format!("{}-{}{} (>= {}-~~)", base, ver, suffix, c))
-                    },
-                    Some((false, c)) => if c == &ver {
-                        // A-x << x is unsatisfiable, drop it
-                        None
-                    } else {
-                        Some(format!("{}-{}{} (<< {}-~~)", base, ver, suffix, c))
-                    },
-                }).join(" | "))
+                Ok(ranges
+                    .iter()
+                    .rev()
+                    .filter_map(|(ver, cons)| match cons {
+                        None => Some(format!("{}-{}{}", base, ver, suffix)),
+                        Some((true, c)) => {
+                            if c == &ver {
+                                // A-x >= x is redundant, drop the >=
+                                Some(format!("{}-{}{}", base, ver, suffix))
+                            } else {
+                                Some(format!("{}-{}{} (>= {}-~~)", base, ver, suffix, c))
+                            }
+                        }
+                        Some((false, c)) => {
+                            if c == &ver {
+                                // A-x << x is unsatisfiable, drop it
+                                None
+                            } else {
+                                Some(format!("{}-{}{} (<< {}-~~)", base, ver, suffix, c))
+                            }
+                        }
+                    })
+                    .join(" | "))
             }
         }
     }
@@ -192,9 +202,17 @@ fn coerce_unacceptable_predicate<'a>(
     // coerce it to the non-pre-release version.
     if !p.pre.is_empty() {
         if allow_prerelease_deps {
-            debcargo_warn!("Coercing removal of prerelease part of dependency: {} {:?}", dep.package_name(), p)
+            debcargo_warn!(
+                "Coercing removal of prerelease part of dependency: {} {:?}",
+                dep.package_name(),
+                p
+            )
         } else {
-            debcargo_bail!("Cannot represent prerelease part of dependency: {} {:?}", dep.package_name(), p)
+            debcargo_bail!(
+                "Cannot represent prerelease part of dependency: {} {:?}",
+                dep.package_name(),
+                p
+            )
         }
     }
 
@@ -225,8 +243,7 @@ fn generate_version_constraints(
     dep: &Dependency,
     p: &semver_parser::range::Predicate,
     op: &semver_parser::range::Op,
-) -> Result<()>
-{
+) -> Result<()> {
     let mmp = V::new(p)?;
     use debian::dependency::V::*;
     // see https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html
@@ -268,14 +285,13 @@ fn generate_version_constraints(
             vr.constrain_lt(mmp.inclast());
             vr.constrain_ge(mmp);
         }
-        (&Compatible, &MMP(0, minor, _)) |
-        (&Compatible, &MM(0, minor)) => {
+        (&Compatible, &MMP(0, minor, _)) | (&Compatible, &MM(0, minor)) => {
             vr.constrain_lt(MM(0, minor + 1));
             vr.constrain_ge(mmp);
         }
-        (&Compatible, &MMP(major, _, _)) |
-        (&Compatible, &MM(major, _)) |
-        (&Compatible, &M(major)) => {
+        (&Compatible, &MMP(major, _, _))
+        | (&Compatible, &MM(major, _))
+        | (&Compatible, &M(major)) => {
             vr.constrain_lt(M(major + 1));
             vr.constrain_ge(mmp);
         }
@@ -333,7 +349,10 @@ pub fn deb_deps(config: &Config, cdeps: &Vec<Dependency>) -> Result<Vec<String>>
 }
 
 pub fn deb_dep_add_nocheck(x: &str) -> String {
-    x.to_string().split("|").map(|x| {
-        x.trim_end().to_string() + " <!nocheck> "
-    }).join("|").trim_end().to_string()
+    x.to_string()
+        .split("|")
+        .map(|x| x.trim_end().to_string() + " <!nocheck> ")
+        .join("|")
+        .trim_end()
+        .to_string()
 }

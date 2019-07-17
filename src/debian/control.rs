@@ -1,16 +1,17 @@
-use std::fmt::{self, Write};
 use std::env::{self, VarError};
+use std::fmt::{self, Write};
 
 use failure::Error;
 use itertools::Itertools;
 use semver::Version;
 use textwrap::fill;
 
-use config::{Config, PackageKey, package_field_for_feature};
+use config::{package_field_for_feature, Config, PackageKey};
 use errors::*;
 use util::vec_opt_iter;
 
-pub const RUST_MAINT: &'static str = "Debian Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
+pub const RUST_MAINT: &'static str =
+    "Debian Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
 
 pub struct Source {
     name: String,
@@ -152,13 +153,21 @@ impl Source {
             None => format!("{}", basename),
             Some(suf) => format!("{}{}", basename, suf),
         };
-        let section = if lib { "rust" } else { "FIXME-(source.section)" };
+        let section = if lib {
+            "rust"
+        } else {
+            "FIXME-(source.section)"
+        };
         let priority = "optional".to_string();
         let maintainer = RUST_MAINT.to_string();
         let vcs_browser = format!(
-            "https://salsa.debian.org/rust-team/debcargo-conf/tree/master/src/{}", pkgbase);
+            "https://salsa.debian.org/rust-team/debcargo-conf/tree/master/src/{}",
+            pkgbase
+        );
         let vcs_git = format!(
-            "https://salsa.debian.org/rust-team/debcargo-conf.git [src/{}]", pkgbase);
+            "https://salsa.debian.org/rust-team/debcargo-conf.git [src/{}]",
+            pkgbase
+        );
 
         let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
             upstream_name.to_string()
@@ -193,8 +202,12 @@ impl Source {
             self.standards = policy.to_string();
         }
 
-        self.build_deps.extend(vec_opt_iter(config.build_depends()).map(String::to_string));
-        let bdeps_ex = config.build_depends_excludes().map(Vec::as_slice).unwrap_or(&[]);
+        self.build_deps
+            .extend(vec_opt_iter(config.build_depends()).map(String::to_string));
+        let bdeps_ex = config
+            .build_depends_excludes()
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
         self.build_deps.retain(|x| !bdeps_ex.contains(x));
 
         if let Some(homepage) = config.homepage() {
@@ -231,15 +244,22 @@ impl Package {
             Some(suf) => format!("{}{}", basename, suf),
         };
         let deb_feature2 = &|p: &str, f: &str| {
-            format!("{} (= ${{binary:Version}})", match f {
-                "" => deb_name(p),
-                _ => deb_feature_name(p, f),
-            })
+            format!(
+                "{} (= ${{binary:Version}})",
+                match f {
+                    "" => deb_name(p),
+                    _ => deb_feature_name(p, f),
+                }
+            )
         };
         let deb_feature = &|f: &str| deb_feature2(&pkgbase, &f);
 
-        let filter_provides = &|x: Vec<&str>| x.into_iter()
-                .filter(|f| !f_provides.contains(f)).map(deb_feature).collect();
+        let filter_provides = &|x: Vec<&str>| {
+            x.into_iter()
+                .filter(|f| !f_provides.contains(f))
+                .map(deb_feature)
+                .collect()
+        };
         let (recommends, suggests) = match feature {
             Some(_) => (vec![], vec![]),
             None => (filter_provides(f_recommends), filter_provides(f_suggests)),
@@ -259,7 +279,7 @@ impl Package {
             let p = format!("{}{}", basename, suffix);
             provides.push(deb_feature2(&p, feature.unwrap_or("")));
             provides.extend(f_provides.iter().map(|f| deb_feature2(&p, f)));
-        };
+        }
         let provides_self = deb_feature(feature.unwrap_or(""));
         // TODO: can use remove_item() when that is stabilised
         let i = provides.iter().position(|x| *x == *provides_self);
@@ -274,7 +294,12 @@ impl Package {
         let short_desc = match feature {
             Some(f) => match f_provides.len() {
                 0 => format!("{} - feature \"{}\"", summary, f),
-                _ => format!("{} - feature \"{}\" and {} more", summary, f, f_provides.len()),
+                _ => format!(
+                    "{} - feature \"{}\" and {} more",
+                    summary,
+                    f,
+                    f_provides.len()
+                ),
             },
             None => format!("{} - Rust source code", summary),
         };
@@ -283,28 +308,28 @@ impl Package {
         let boilerplate = match feature {
             None => format!(
                 "This package contains the source for the \
-                Rust {} crate, packaged by debcargo for use \
-                with cargo and dh-cargo.",
+                 Rust {} crate, packaged by debcargo for use \
+                 with cargo and dh-cargo.",
                 upstream_name
             ),
             Some(f) => format!(
                 "This metapackage enables feature \"{}\" for the \
-                Rust {} crate, by pulling in any additional \
-                dependencies needed by that feature.{}",
+                 Rust {} crate, by pulling in any additional \
+                 dependencies needed by that feature.{}",
                 f,
                 upstream_name,
                 match f_provides.len() {
                     0 => "".to_string(),
                     1 => format!(
                         "\n\nAdditionally, this package also provides the \
-                        \"{}\" feature.",
+                         \"{}\" feature.",
                         f_provides[0],
                     ),
                     _ => format!(
                         "\n\nAdditionally, this package also provides the \
-                        \"{}\", and \"{}\" features.",
-                        f_provides[..f_provides.len()-1].join("\", \""),
-                        f_provides[f_provides.len()-1],
+                         \"{}\", and \"{}\" features.",
+                        f_provides[..f_provides.len() - 1].join("\", \""),
+                        f_provides[f_provides.len() - 1],
                     ),
                 },
             ),
@@ -350,10 +375,14 @@ impl Package {
                     let mut v = version.clone();
                     v.increment_patch();
                     vec![
-                        format!("Replaces: {} (<< {}-~~)", deb_name(basename), deb_version(&v)),
+                        format!(
+                            "Replaces: {} (<< {}-~~)",
+                            deb_name(basename),
+                            deb_version(&v)
+                        ),
                         format!("Breaks: {} (<< {}-~~)", deb_name(basename), deb_version(&v)),
                     ]
-                },
+                }
                 (_, _) => vec![],
             },
         })
@@ -370,8 +399,10 @@ impl Package {
     ) -> Self {
         let (name, mut provides) = match name_suffix {
             None => (basename.to_string(), vec![]),
-            Some(suf) => (format!("{}{}", basename, suf),
-                          vec![format!("{} (= ${{binary:Version}})", basename)]),
+            Some(suf) => (
+                format!("{}{}", basename, suf),
+                vec![format!("{} (= ${{binary:Version}})", basename)],
+            ),
         };
         let short_desc = match summary {
             None => format!("Binaries built from the Rust {} crate", upstream_name),
@@ -394,12 +425,8 @@ impl Package {
                 "${shlibs:Depends}".to_string(),
                 "${cargo:Depends}".to_string(),
             ],
-            recommends: vec![
-                "${cargo:Recommends}".to_string(),
-            ],
-            suggests: vec![
-                "${cargo:Suggests}".to_string(),
-            ],
+            recommends: vec!["${cargo:Recommends}".to_string()],
+            suggests: vec!["${cargo:Suggests}".to_string()],
             provides: provides,
             summary: short_desc,
             description: long_desc,
@@ -417,10 +444,17 @@ impl Package {
 
     fn write_description(&self, out: &mut fmt::Formatter) -> fmt::Result {
         writeln!(out, "Description: {}", self.summary)?;
-        let description = [&self.description, &self.boilerplate].iter().filter_map(|x| {
-            let x = x.trim();
-            if x.is_empty() { None } else { Some(x) }
-        }).join("\n\n");
+        let description = [&self.description, &self.boilerplate]
+            .iter()
+            .filter_map(|x| {
+                let x = x.trim();
+                if x.is_empty() {
+                    None
+                } else {
+                    Some(x)
+                }
+            })
+            .join("\n\n");
         for line in description.trim().lines() {
             let line = line.trim_end();
             if line.is_empty() {
@@ -449,16 +483,29 @@ impl Package {
             }
         }
 
-        self.depends.extend(
-            package_field_for_feature(&|x| config.package_depends(x), key, &f_provides));
-        self.recommends.extend(
-            package_field_for_feature(&|x| config.package_recommends(x), key, &f_provides));
-        self.suggests.extend(
-            package_field_for_feature(&|x| config.package_suggests(x), key, &f_provides));
-        self.provides.extend(
-            package_field_for_feature(&|x| config.package_provides(x), key, &f_provides));
+        self.depends.extend(package_field_for_feature(
+            &|x| config.package_depends(x),
+            key,
+            &f_provides,
+        ));
+        self.recommends.extend(package_field_for_feature(
+            &|x| config.package_recommends(x),
+            key,
+            &f_provides,
+        ));
+        self.suggests.extend(package_field_for_feature(
+            &|x| config.package_suggests(x),
+            key,
+            &f_provides,
+        ));
+        self.provides.extend(package_field_for_feature(
+            &|x| config.package_provides(x),
+            key,
+            &f_provides,
+        ));
 
-        self.extra_lines.extend(vec_opt_iter(config.package_extra_lines(key)).map(|s| s.to_string()));
+        self.extra_lines
+            .extend(vec_opt_iter(config.package_extra_lines(key)).map(|s| s.to_string()));
     }
 }
 

@@ -5,8 +5,8 @@ extern crate chrono;
 extern crate failure;
 extern crate filetime;
 extern crate flate2;
-extern crate glob;
 extern crate git2;
+extern crate glob;
 extern crate itertools;
 extern crate regex;
 extern crate semver;
@@ -22,7 +22,7 @@ extern crate walkdir;
 
 #[macro_use]
 pub mod errors;
+pub mod config;
 pub mod crates;
 pub mod debian;
-pub mod config;
 pub mod util;
