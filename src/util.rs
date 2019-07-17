@@ -2,6 +2,7 @@ use std::fs;
 use std::io::Error;
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::symlink;
 
@@ -37,4 +38,10 @@ pub fn copy_tree(oldtree: &Path, newtree: &Path) -> Result<(), Error> {
 
 pub fn vec_opt_iter<'a, T>(option: Option<&'a Vec<T>>) -> impl Iterator<Item = &T> + 'a {
     option.into_iter().flat_map(|v| v.iter())
+}
+
+pub fn expect_success(cmd: &mut Command, err: &str) {
+    if !cmd.status().unwrap().success() {
+        panic!("{}", err);
+    }
 }

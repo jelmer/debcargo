@@ -17,7 +17,7 @@ use tar::{Archive, Builder};
 use crates::CrateInfo;
 use errors::*;
 use config::{Config, PackageKey, package_field_for_feature};
-use util::{self, copy_tree, vec_opt_iter};
+use util::{self, copy_tree, vec_opt_iter, expect_success};
 
 use self::control::deb_version;
 use self::control::{Package, PkgTest, Source};
@@ -206,17 +206,17 @@ pub fn prepare_debian_folder(
     if tempdir.path().join("patches").join("series").exists() {
         // apply patches to Cargo.toml in case they exist, and re-read it
         let pkg_srcdir = &fs::canonicalize(&pkg_srcdir)?;
-        Command::new("quilt")
+        expect_success(Command::new("quilt")
                 .current_dir(&pkg_srcdir)
                 .env("QUILT_PATCHES", tempdir.path().join("patches"))
-                .args(&["push", "--quiltrc=-", "-a"])
-                .status().expect("failed to apply patches");
+                .args(&["push", "--quiltrc=-", "-a"]),
+                "failed to apply patches");
         crate_info.replace_manifest(&pkg_srcdir.join("Cargo.toml"))?;
-        Command::new("quilt")
+        expect_success(Command::new("quilt")
                 .current_dir(&pkg_srcdir)
                 .env("QUILT_PATCHES", tempdir.path().join("patches"))
-                .args(&["pop", "--quiltrc=-", "-a"])
-                .status().expect("failed to unapply patches");
+                .args(&["pop", "--quiltrc=-", "-a"]),
+                "failed to unapply patches");
     }
 
     let lib = crate_info.is_lib();
