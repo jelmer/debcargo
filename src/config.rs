@@ -232,13 +232,13 @@ pub fn parse_config(src: &Path) -> Result<Config> {
 }
 
 pub fn package_field_for_feature<'a>(
-    get_field: &'a Fn(PackageKey) -> Option<&'a Vec<String>>,
+    get_field: &'a dyn Fn(PackageKey) -> Option<&'a Vec<String>>,
     feature: PackageKey,
     f_provides: &[&str],
 ) -> Vec<String> {
     Some(feature)
         .into_iter()
-        .chain(f_provides.into_iter().map(|s| PackageKey::feature(s)))
+        .chain(f_provides.iter().map(|s| PackageKey::feature(s)))
         .map(move |f| vec_opt_iter(get_field(f)))
         .flatten()
         .map(|s| s.to_string())

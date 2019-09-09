@@ -8,7 +8,7 @@ use std::process::Command;
 
 use walkdir;
 
-pub const HINT_SUFFIX: &'static str = ".debcargo.hint";
+pub const HINT_SUFFIX: &str = ".debcargo.hint";
 
 pub fn is_hint_file(file: &PathBuf) -> bool {
     let file = file.as_os_str().as_bytes();

@@ -78,7 +78,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         config.semver_suffix,
     );
 
-    let pkg_srcdir = Path::new(directory.unwrap_or(pkgbase.package_source_dir()));
+    let pkg_srcdir = Path::new(directory.unwrap_or_else(|| pkgbase.package_source_dir()));
     let orig_tar_gz = pkg_srcdir
         .parent()
         .unwrap()
@@ -119,17 +119,15 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
             match config_path {
                 None => debcargo_warn!("\t •  Write a config file and use it with --config"),
                 Some(c) => {
-                    debcargo_warn!(format!(
-                        "\t •  Add or edit overrides in your config file:"
-                    ));
-                    debcargo_warn!(format!("\t    {}", rel_p(&c, &curdir)));
+                    debcargo_warn!("\t •  Add or edit overrides in your config file:");
+                    debcargo_warn!("\t    {}", rel_p(&c, &curdir));
                 }
             };
             match config.overlay {
-                None => debcargo_warn!(format!("\t •  Create an overlay directory and add it to your config file with overlay = \"/path/to/overlay\"")),
+                None => debcargo_warn!("\t •  Create an overlay directory and add it to your config file with overlay = \"/path/to/overlay\""),
                 Some(_) => {
-                    debcargo_warn!(format!("\t •  Add or edit files in your overlay directory:"));
-                    debcargo_warn!(format!("\t    {}", rel_p(&config.overlay_dir(config_path).unwrap(), &curdir)));
+                    debcargo_warn!("\t •  Add or edit files in your overlay directory:");
+                    debcargo_warn!("\t    {}", rel_p(&config.overlay_dir(config_path).unwrap(), &curdir));
                 }
             }
         }
@@ -156,7 +154,7 @@ fn do_extract(matches: &ArgMatches) -> Result<()> {
 
     let crate_info = CrateInfo::new(crate_name, version)?;
     let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!(), false);
-    let pkg_srcdir = Path::new(directory.unwrap_or(pkgbase.package_source_dir()));
+    let pkg_srcdir = Path::new(directory.unwrap_or_else(|| pkgbase.package_source_dir()));
 
     crate_info.extract_crate(pkg_srcdir)?;
     Ok(())

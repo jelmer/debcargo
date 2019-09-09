@@ -17,7 +17,7 @@ use std::path::Path;
 use debian::control::RUST_MAINT;
 use errors::*;
 
-const DEB_COPYRIGHT_FORMAT: &'static str =
+const DEB_COPYRIGHT_FORMAT: &str =
     "\
      https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/";
 
@@ -64,7 +64,7 @@ pub struct DebCopyright {
 
 impl fmt::Display for DebCopyright {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Format: {}\n", self.format)?;
+        writeln!(f, "Format: {}", self.format)?;
         write!(f, "{}", self.upstream)?;
 
         for file in &self.files {
@@ -92,16 +92,16 @@ impl DebCopyright {
 
 impl fmt::Display for UpstreamInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Upstream-Name: {}\n", self.name)?;
+        writeln!(f, "Upstream-Name: {}", self.name)?;
         write!(f, "Upstream-Contact:")?;
         if self.contacts.len() > 1 {
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         for contact in &self.contacts {
-            write!(f, " {}\n", contact)?;
+            writeln!(f, " {}", contact)?;
         }
         if !self.source.is_empty() {
-            write!(f, "Source: {}\n", self.source)?;
+            writeln!(f, "Source: {}", self.source)?;
         }
 
         Ok(())
@@ -110,9 +110,9 @@ impl fmt::Display for UpstreamInfo {
 
 impl UpstreamInfo {
     fn new(name: String, authors: &[String], repo: &str) -> UpstreamInfo {
-        assert!(authors.len() > 0);
+        assert!(!authors.is_empty());
         UpstreamInfo {
-            name: name,
+            name,
             contacts: authors.to_vec(),
             source: repo.to_string(),
         }
@@ -121,17 +121,17 @@ impl UpstreamInfo {
 
 impl fmt::Display for Files {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Files: {}\n", self.files)?;
+        writeln!(f, "Files: {}", self.files)?;
         write!(f, "Copyright:")?;
         if self.copyright.len() > 1 {
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         for copyright in &self.copyright {
-            write!(f, " {}\n", copyright)?;
+            writeln!(f, " {}", copyright)?;
         }
-        write!(f, "License: {}\n", self.license)?;
+        writeln!(f, "License: {}", self.license)?;
         if !self.comment.is_empty() {
-            write!(f, "Comment:\n")?;
+            writeln!(f, "Comment:")?;
             format_para!(f, &self.comment)?;
         }
         Ok(())
@@ -140,7 +140,7 @@ impl fmt::Display for Files {
 
 impl Files {
     pub fn new<T: ToString>(name: &str, notice: &[T], license: &str, comment: &str) -> Files {
-        assert!(notice.len() > 0);
+        assert!(!notice.is_empty());
         Files {
             files: name.to_string(),
             copyright: notice.iter().map(|s| s.to_string()).collect(),
@@ -160,7 +160,7 @@ impl Files {
 
 impl fmt::Display for License {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "License: {}\n", self.name)?;
+        writeln!(f, "License: {}", self.name)?;
         format_para!(f, &self.text)?;
         Ok(())
     }
@@ -168,10 +168,7 @@ impl fmt::Display for License {
 
 impl License {
     fn new(name: String, text: String) -> License {
-        License {
-            name: name,
-            text: text,
-        }
+        License { name, text }
     }
 }
 
@@ -274,7 +271,7 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
     .into_iter()
     .collect::<BTreeMap<_, _>>();
 
-    let lses: Vec<&str> = sep.split(license).filter(|s| s.len() != 0).collect();
+    let lses: Vec<&str> = sep.split(license).filter(|s| !s.is_empty()).collect();
     for ls in lses {
         let lname = ls.trim().to_lowercase().trim_end_matches('+').to_string();
         let text = match known_licenses.get(lname.as_str()) {
@@ -337,7 +334,7 @@ pub fn debian_copyright(
     package: &package::Package,
     srcdir: &Path,
     manifest: &manifest::Manifest,
-    uploaders: &Vec<&str>,
+    uploaders: &[&str],
     year_range: (i32, i32),
     guess_harder: bool,
 ) -> Result<DebCopyright> {

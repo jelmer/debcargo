@@ -122,7 +122,7 @@ impl CrateInfo {
             drop(lock);
             let pkgids = summaries
                 .into_iter()
-                .map(|s| s.package_id().clone())
+                .map(|s| s.package_id())
                 .collect::<Vec<_>>();
             let pkgid = pkgids.iter().max().ok_or_else(|| {
                 format_err!(
@@ -146,11 +146,11 @@ impl CrateInfo {
         };
 
         Ok(CrateInfo {
-            package: package,
-            manifest: manifest,
-            crate_file: crate_file,
-            config: config,
-            source_id: source_id,
+            package,
+            manifest,
+            crate_file,
+            config,
+            source_id,
             excludes: vec![],
             includes: vec![],
         })
@@ -516,13 +516,7 @@ impl CrateInfo {
             return Ok(true);
         }
         let suspicious = match path.extension() {
-            Some(ext) => {
-                if ext == "c" || ext == "a" {
-                    true
-                } else {
-                    false
-                }
-            }
+            Some(ext) => ext == "c" || ext == "a",
             _ => false,
         };
         if suspicious {
