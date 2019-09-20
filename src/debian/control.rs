@@ -10,7 +10,7 @@ use config::{package_field_for_feature, Config, PackageKey};
 use errors::*;
 use util::vec_opt_iter;
 
-pub const RUST_MAINT: &'static str =
+pub const RUST_MAINT: &str =
     "Debian Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
 
 pub struct Source {
@@ -150,7 +150,7 @@ impl Source {
         build_deps: Vec<String>,
     ) -> Result<Source> {
         let pkgbase = match name_suffix {
-            None => format!("{}", basename),
+            None => basename.to_string(),
             Some(suf) => format!("{}{}", basename, suf),
         };
         let section = if lib {
@@ -177,13 +177,13 @@ impl Source {
         Ok(Source {
             name: format!("rust-{}", pkgbase),
             section: section.to_string(),
-            priority: priority,
-            maintainer: maintainer,
-            uploaders: uploaders,
+            priority,
+            maintainer,
+            uploaders,
             standards: "4.2.0".to_string(),
-            build_deps: build_deps,
-            vcs_git: vcs_git,
-            vcs_browser: vcs_browser,
+            build_deps,
+            vcs_git,
+            vcs_browser,
             homepage: home.to_string(),
             x_cargo: cargo_crate,
         })
@@ -240,7 +240,7 @@ impl Package {
         f_suggests: Vec<&str>,
     ) -> Result<Package> {
         let pkgbase = match name_suffix {
-            None => format!("{}", basename),
+            None => basename.to_string(),
             Some(suf) => format!("{}{}", basename, suf),
         };
         let deb_feature2 = &|p: &str, f: &str| {
@@ -363,10 +363,10 @@ impl Package {
             // are arch:all and have the arch:any -dev packages depend on it.
             multi_arch: "same".to_string(),
             section: None,
-            depends: depends,
-            recommends: recommends,
-            suggests: suggests,
-            provides: provides,
+            depends,
+            recommends,
+            suggests,
+            provides,
             summary: short_desc,
             description: fill(&long_desc, 79),
             boilerplate: fill(&boilerplate, 79),
@@ -416,7 +416,7 @@ impl Package {
 
         provides.push("${cargo:Provides}".to_string());
         Package {
-            name: name,
+            name,
             arch: "any".to_string(),
             multi_arch: "allowed".to_string(),
             section: section.map(|s| s.to_string()),
@@ -427,7 +427,7 @@ impl Package {
             ],
             recommends: vec!["${cargo:Recommends}".to_string()],
             suggests: vec!["${cargo:Suggests}".to_string()],
-            provides: provides,
+            provides,
             summary: short_desc,
             description: long_desc,
             boilerplate: boilerplate.to_string(),
@@ -515,7 +515,7 @@ impl PkgTest {
         crate_name: &str,
         version: &Version,
         extra_test_args: Vec<&str>,
-        depends: &Vec<String>,
+        depends: &[String],
         extra_restricts: Vec<&str>,
     ) -> Result<PkgTest> {
         Ok(PkgTest {
@@ -523,7 +523,7 @@ impl PkgTest {
             crate_name: crate_name.to_string(),
             version: version.clone(),
             extra_test_args: extra_test_args.iter().map(|x| x.to_string()).collect(),
-            depends: depends.clone(),
+            depends: depends.to_vec(),
             extra_restricts: extra_restricts.iter().map(|x| x.to_string()).collect(),
         })
     }
@@ -573,11 +573,11 @@ fn get_envs(keys: &[&str]) -> Result<Option<String>> {
 
 /// Determine a name and email address from environment variables.
 pub fn get_deb_author() -> Result<String> {
-    let name = get_envs(&["DEBFULLNAME", "NAME"])?.ok_or(format_err!(
-        "Unable to determine your name; please set $DEBFULLNAME or $NAME"
-    ))?;
-    let email = get_envs(&["DEBEMAIL", "EMAIL"])?.ok_or(format_err!(
-        "Unable to determine your email; please set $DEBEMAIL or $EMAIL"
-    ))?;
+    let name = get_envs(&["DEBFULLNAME", "NAME"])?.ok_or_else(|| {
+        format_err!("Unable to determine your name; please set $DEBFULLNAME or $NAME")
+    })?;
+    let email = get_envs(&["DEBEMAIL", "EMAIL"])?.ok_or_else(|| {
+        format_err!("Unable to determine your email; please set $DEBEMAIL or $EMAIL")
+    })?;
     Ok(format!("{} <{}>", name, email))
 }

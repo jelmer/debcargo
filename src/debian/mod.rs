@@ -71,14 +71,14 @@ impl BaseInfo {
 
         BaseInfo {
             upstream_name: upstream,
-            base_package_name: base_package_name,
-            name_suffix: name_suffix,
-            uscan_version_pattern: uscan_version_pattern,
-            package_name: package_name,
-            debian_version: debian_version,
+            base_package_name,
+            name_suffix,
+            uscan_version_pattern,
+            package_name,
+            debian_version,
             debcargo_version: debcargo_version.to_string(),
-            package_source_dir: package_source_dir,
-            orig_tarball_path: orig_tarball_path,
+            package_source_dir,
+            orig_tarball_path,
         }
     }
 
@@ -210,9 +210,9 @@ pub fn prepare_debian_folder(
         .prefix("debcargo")
         .tempdir_in(".")?;
     let overlay = config.overlay_dir(config_path);
-    overlay.as_ref().map(|p| {
+    if let Some(p) = overlay.as_ref() {
         copy_tree(p.as_path(), tempdir.path()).unwrap();
-    });
+    }
     if tempdir.path().join("control").exists() {
         debcargo_warn!(
             "Most of the time you shouldn't overlay debian/control, \
@@ -343,22 +343,23 @@ pub fn prepare_debian_folder(
             .uscan_version_pattern
             .as_ref()
             .map_or_else(|| "@ANY_VERSION@".to_string(), |ref s| s.to_string());
-        writeln!(
-            watch,
-            "{}\n{}\n{}\n{}\n",
-            r"version=4",
+        let uscan_lines = &[
+            "version=4".into(),
             format!(
                 r"opts=filenamemangle=s/.*\/(.*)\/download/{name}-$1\.tar\.gz/g,\",
                 name = upstream_name
             ),
-            r"uversionmangle=s/(\d)[_\.\-\+]?((RC|rc|pre|dev|beta|alpha)\d*)$/$1~$2/ \",
+            r"uversionmangle=s/(\d)[_\.\-\+]?((RC|rc|pre|dev|beta|alpha)\d*)$/$1~$2/ \".into(),
             format!(
                 "https://qa.debian.org/cgi-bin/fakeupstream.cgi?upstream=crates.io/{name} \
                  .*/crates/{name}/{version_pattern}/download",
                 name = upstream_name,
                 version_pattern = uscan_version_pattern
-            )
-        )?;
+            ),
+        ];
+        for line in uscan_lines {
+            writeln!(watch, "{}", line)?;
+        }
 
         // debian/source/format
         fs::create_dir_all(tempdir.path().join("source"))?;
@@ -518,7 +519,7 @@ pub fn prepare_debian_folder(
             //debcargo_info!("provides: {:?}", provides);
             let mut recommends = vec![];
             let mut suggests = vec![];
-            for (&feature, &ref features) in provides.iter() {
+            for (&feature, features) in provides.iter() {
                 if feature == "" {
                     continue;
                 } else if feature == "default" || features.contains(&"default") {
@@ -712,7 +713,7 @@ pub fn prepare_debian_folder(
     }
 
     if overlay_write_back {
-        overlay.as_ref().map(|p| {
+        if let Some(p) = overlay.as_ref() {
             if !changelog_ready {
                 // Special-case d/changelog:
                 // Always write it back, this is safe because of our prepending logic
@@ -724,7 +725,7 @@ pub fn prepare_debian_folder(
                 fs::copy(newpath, oldpath).expect("could not write back");
                 debcargo_info!("Wrote back file to overlay: {}", hint);
             }
-        });
+        }
     }
 
     fs::rename(tempdir.path(), pkg_srcdir.join("debian"))?;

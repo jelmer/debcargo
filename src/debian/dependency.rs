@@ -337,7 +337,7 @@ pub fn deb_dep(config: &Config, dep: &Dependency) -> Result<Vec<String>> // resu
     Ok(deps)
 }
 
-pub fn deb_deps(config: &Config, cdeps: &Vec<Dependency>) -> Result<Vec<String>> // result is a AND-clause
+pub fn deb_deps(config: &Config, cdeps: &[Dependency]) -> Result<Vec<String>> // result is a AND-clause
 {
     let mut deps = Vec::new();
     for dep in cdeps {
@@ -350,7 +350,7 @@ pub fn deb_deps(config: &Config, cdeps: &Vec<Dependency>) -> Result<Vec<String>>
 
 pub fn deb_dep_add_nocheck(x: &str) -> String {
     x.to_string()
-        .split("|")
+        .split('|')
         .map(|x| x.trim_end().to_string() + " <!nocheck> ")
         .join("|")
         .trim_end()
