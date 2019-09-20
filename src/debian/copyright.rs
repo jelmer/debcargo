@@ -252,7 +252,7 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
 
 fn get_licenses(license: &str) -> Result<Vec<License>> {
     let mut licenses = BTreeMap::new();
-    let sep = regex::Regex::new(r"(?i:(or|/|and))")?;
+    let sep = regex::Regex::new(r"(?i:(\s(or|and)\s|/))")?;
     let known_licenses = vec![
         ("agpl-3.0", include_str!("licenses/AGPL-3.0")),
         ("apache-2.0", include_str!("licenses/Apache-2.0")),
@@ -276,7 +276,12 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
 
     let lses: Vec<&str> = sep.split(license).filter(|s| s.len() != 0).collect();
     for ls in lses {
-        let lname = ls.trim().to_lowercase().trim_end_matches('+').to_string();
+        let lname = ls
+            .trim()
+            .to_lowercase()
+            .trim_end_matches('+')
+            .trim_end_matches("-or-later")
+            .to_string();
         let text = match known_licenses.get(lname.as_str()) {
             Some(s) => s.to_string(),
             None => "FIXME (overlay): Unrecognized crate license, please find the \
@@ -423,3 +428,6 @@ pub fn debian_copyright(
 
     Ok(DebCopyright::new(upstream, &files, &licenses))
 }
+
+#[cfg(test)]
+mod tests;
