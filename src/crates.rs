@@ -9,7 +9,7 @@ use cargo::{
     util::{toml::read_manifest, FileLock},
     Config,
 };
-use failure::Error;
+use failure::{format_err, Error};
 use filetime::{set_file_times, FileTime};
 use flate2::read::GzDecoder;
 use glob::Pattern;
@@ -25,8 +25,8 @@ use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
-use errors::*;
-use util::vec_opt_iter;
+use crate::errors::*;
+use crate::util::vec_opt_iter;
 
 pub struct CrateInfo {
     package: Package,

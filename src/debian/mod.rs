@@ -7,6 +7,7 @@ use std::process::Command;
 use std::str::FromStr;
 
 use chrono::{self, Datelike};
+use failure::format_err;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
@@ -14,10 +15,10 @@ use regex::Regex;
 use tar::{Archive, Builder};
 use tempfile;
 
-use config::{package_field_for_feature, Config, PackageKey};
-use crates::CrateInfo;
-use errors::*;
-use util::{self, copy_tree, expect_success, vec_opt_iter};
+use crate::config::{package_field_for_feature, Config, PackageKey};
+use crate::crates::CrateInfo;
+use crate::errors::*;
+use crate::util::{self, copy_tree, expect_success, vec_opt_iter};
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
 use self::control::deb_version;

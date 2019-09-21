@@ -14,8 +14,8 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 
-use debian::control::RUST_MAINT;
-use errors::*;
+use crate::debian::control::RUST_MAINT;
+use crate::errors::*;
 
 const DEB_COPYRIGHT_FORMAT: &str =
     "\
@@ -190,9 +190,8 @@ macro_rules! default_files {
 fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     let mut copyright_notices = BTreeMap::new();
 
-    let copyright_notice_re = try!(regex::Regex::new(
-        r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b(\d{4}\b.*)$"
-    ));
+    let copyright_notice_re =
+        regex::Regex::new(r"(?:[Cc]opyright|©)(?:\s|[©:,()Cc<])*\b(\d{4}\b.*)$")?;
 
     // Get current working directory and move inside the extracted source of
     // crate. This is necessary so as to capture correct path for files in
@@ -205,10 +204,10 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     // which again messes debian/copyright.
     // Use of . creates paths in format ./src/ which is acceptable.
     for entry in walkdir::WalkDir::new(".").sort_by(|a, b| a.file_name().cmp(b.file_name())) {
-        let entry = try!(entry);
+        let entry = entry?;
         if entry.file_type().is_file() {
             let copyright_file = entry.path().to_str().unwrap().to_string();
-            let file = try!(fs::File::open(entry.path()));
+            let file = fs::File::open(entry.path())?;
             let reader = BufReader::new(file);
             for line in reader.lines() {
                 if let Ok(line) = line {

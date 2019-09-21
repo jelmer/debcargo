@@ -1,31 +1,18 @@
-extern crate ansi_term;
-extern crate cargo;
-extern crate chrono;
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate debcargo;
-extern crate flate2;
-extern crate glob;
-extern crate itertools;
-extern crate semver;
-extern crate semver_parser;
-extern crate tar;
-extern crate tempfile;
-extern crate walkdir;
-
-use ansi_term::Colour::Red;
-use clap::{App, AppSettings, ArgMatches, SubCommand};
 use std::env;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
+use ansi_term::Colour::Red;
+use clap::{crate_authors, crate_version, App, AppSettings, ArgMatches, SubCommand};
+use failure::ResultExt;
+
 use debcargo::config::{parse_config, Config};
 use debcargo::crates::{update_crates_io, CrateInfo};
 use debcargo::debian::{self, BaseInfo};
-use debcargo::errors::*;
+use debcargo::errors::Result;
 use debcargo::util;
+use debcargo::{debcargo_info, debcargo_warn};
 
 fn lookup_fixmes(srcdir: &Path) -> Result<Vec<PathBuf>> {
     let mut fixme_files = Vec::new();

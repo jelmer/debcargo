@@ -7,8 +7,9 @@ use semver_parser::range::*;
 use std::cmp;
 use std::fmt;
 
-use config::Config;
-use errors::*;
+use crate::config::Config;
+use crate::debian;
+use crate::errors::*;
 
 #[derive(Eq, Clone)]
 enum V {

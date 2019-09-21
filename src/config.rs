@@ -1,11 +1,13 @@
+use serde::Deserialize;
 use toml;
 
-use errors::*;
+use crate::errors::*;
+use crate::util::vec_opt_iter;
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use util::vec_opt_iter;
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(default)]
