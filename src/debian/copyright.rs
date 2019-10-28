@@ -263,6 +263,7 @@ fn get_licenses(license: &str) -> Result<Vec<License>> {
         ("lgpl-2.1", include_str!("licenses/LGPL-2.1")),
         ("lgpl-3.0", include_str!("licenses/LGPL-3.0")),
         ("mit", include_str!("licenses/MIT")),
+        ("mitnfa", include_str!("licenses/MITNFA")),
         ("mpl-1.1", include_str!("licenses/MPL-1.1")),
         ("mpl-2.0", include_str!("licenses/MPL-2.0")),
         ("unlicense", include_str!("licenses/Unlicense")),
