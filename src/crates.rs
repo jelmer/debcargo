@@ -1,4 +1,5 @@
 use cargo::{
+    core::InternedString,
     core::manifest::ManifestMetadata,
     core::registry::PackageRegistry,
     core::{
@@ -261,7 +262,7 @@ impl CrateInfo {
                         // unwrap is ok, valid Cargo.toml files must have this
                         for &dep in deps_by_name.get(dep_name.as_str()).unwrap() {
                             let mut dep = dep.clone();
-                            dep.set_features(vec![dep_feature.to_string()]);
+                            dep.set_features(vec![InternedString::new(dep_feature)]);
                             dep.set_default_features(false);
                             other_deps.push(dep);
                         }
