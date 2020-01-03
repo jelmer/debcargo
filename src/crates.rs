@@ -1,7 +1,7 @@
 use cargo::{
-    core::InternedString,
     core::manifest::ManifestMetadata,
     core::registry::PackageRegistry,
+    core::InternedString,
     core::{
         Dependency, EitherManifest, FeatureValue, Manifest, Package, PackageId, Registry, Source,
         SourceId, Summary, Target, TargetKind,
