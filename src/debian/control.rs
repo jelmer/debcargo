@@ -117,14 +117,19 @@ impl fmt::Display for PkgTest {
             self.extra_test_args.join(" ")
         )?;
         writeln!(f, "Features: test-name={}", &self.name)?;
+        // TODO: drop the below workaround when rust-lang/cargo#5133 is fixed.
+        // The downside of our present work-around is that more dependencies
+        // must be installed, which makes it harder to actually run the tests
+        let cargo_bug_fixed = false;
+        let default_deps = if cargo_bug_fixed { &self.name } else { "@" };
         if self.depends.is_empty() {
-            writeln!(f, "Depends: dh-cargo (>= 18), {}", &self.name)?;
+            writeln!(f, "Depends: dh-cargo (>= 18), {}", default_deps)?;
         } else {
             writeln!(
                 f,
                 "Depends: dh-cargo (>= 18), {}, {}",
                 self.depends.join(", "),
-                &self.name
+                default_deps
             )?;
         }
         if self.extra_restricts.is_empty() {
