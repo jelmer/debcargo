@@ -378,15 +378,10 @@ impl Package {
             boilerplate: fill(&boilerplate, 79),
             extra_lines: match (name_suffix, feature) {
                 (Some(_), None) => {
-                    let mut v = version.clone();
-                    v.increment_patch();
+                    let fullpkg = format!("{}-{}", basename, version);
                     vec![
-                        format!(
-                            "Replaces: {} (<< {}-~~)",
-                            deb_name(basename),
-                            deb_version(&v)
-                        ),
-                        format!("Breaks: {} (<< {}-~~)", deb_name(basename), deb_version(&v)),
+                        format!("Replaces: {}", deb_name(&fullpkg)),
+                        format!("Breaks: {}", deb_name(&fullpkg)),
                     ]
                 }
                 (_, _) => vec![],
