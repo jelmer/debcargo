@@ -1,14 +1,14 @@
 use std::env::{self, VarError};
 use std::fmt::{self, Write};
 
-use failure::Error;
+use failure::{format_err, Error};
 use itertools::Itertools;
 use semver::Version;
 use textwrap::fill;
 
-use config::{package_field_for_feature, Config, PackageKey};
-use errors::*;
-use util::vec_opt_iter;
+use crate::config::{package_field_for_feature, Config, PackageKey};
+use crate::errors::*;
+use crate::util::vec_opt_iter;
 
 pub const RUST_MAINT: &str =
     "Debian Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";

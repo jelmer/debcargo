@@ -8,7 +8,10 @@ fn check_get_licenses() {
         ("AGPL-3.0-or-later", &[("AGPL-3.0-or-later", true)]),
         ("Apache-2.0/MIT", &[("Apache-2.0", true), ("MIT", true)]),
         ("Apache-2.0 or MIT", &[("Apache-2.0", true), ("MIT", true)]),
-        ("FooBar-1.0 AND MIT", &[("FooBar-1.0", false), ("MIT", true)]),
+        (
+            "FooBar-1.0 AND MIT",
+            &[("FooBar-1.0", false), ("MIT", true)],
+        ),
     ];
     for (name, expected) in test_data {
         let licenses = get_licenses(name).expect("getting licenses failed");
