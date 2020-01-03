@@ -116,6 +116,7 @@ impl fmt::Display for PkgTest {
             self.version,
             self.extra_test_args.join(" ")
         )?;
+        writeln!(f, "Features: test-name={}", &self.name)?;
         if self.depends.is_empty() {
             writeln!(f, "Depends: dh-cargo (>= 18), {}", &self.name)?;
         } else {
