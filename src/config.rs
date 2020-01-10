@@ -19,6 +19,7 @@ pub struct Config {
     pub excludes: Option<Vec<String>>,
     pub whitelist: Option<Vec<String>>,
     pub allow_prerelease_deps: bool,
+    pub crate_src_path: Option<PathBuf>,
     pub summary: String,
     pub description: String,
     pub uploaders: Option<Vec<String>>,
@@ -61,6 +62,7 @@ impl Default for Config {
             excludes: None,
             whitelist: None,
             allow_prerelease_deps: false,
+            crate_src_path: None,
             summary: "".to_string(),
             description: "".to_string(),
             uploaders: None,
@@ -80,6 +82,12 @@ impl Config {
 
     pub fn overlay_dir(&self, config_path: Option<&Path>) -> Option<PathBuf> {
         self.overlay
+            .as_ref()
+            .map(|p| config_path.unwrap().parent().unwrap().join(p))
+    }
+
+    pub fn crate_src_path(&self, config_path: Option<&Path>) -> Option<PathBuf> {
+        self.crate_src_path
             .as_ref()
             .map(|p| config_path.unwrap().parent().unwrap().join(p))
     }

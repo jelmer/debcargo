@@ -35,6 +35,10 @@
 #
 #overlay = "."
 
+# Local directory where crate can be found, instead of downloading from crates.io. Resolved relative to the directory that contains this config file.
+#
+#crate_src_path = "../.."
+
 # Paths from the crate tarball, to exclude from the orig tarball.
 # See https://docs.rs/glob/latest/glob/struct.Pattern.html for syntax
 #excludes = ["libgit2/**"]
