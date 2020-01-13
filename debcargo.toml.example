@@ -64,6 +64,14 @@
 #PLACEHOLDER
 #"""
 
+# Maintainer
+#
+# Defaults to pkg-rust-team, should only be overriden with care. If overridden,
+# vcs_* in [source] should also be overridden, otherwise they point the Rust
+# Team's salsa project.
+#
+#maintainer= "PLACEHOLDER"
+
 # Uploaders. This affects the Uploaders: field in debian/control as well as the
 # additional maintainers listed in debian/copyright. The naming is historical;
 # in Debian today for team-maintained packages, this is generally taken to mean

@@ -21,6 +21,7 @@ pub struct Config {
     pub allow_prerelease_deps: bool,
     pub summary: String,
     pub description: String,
+    pub maintainer: Option<String>,
     pub uploaders: Option<Vec<String>>,
 
     pub source: Option<SourceOverride>,
@@ -63,6 +64,7 @@ impl Default for Config {
             allow_prerelease_deps: false,
             summary: "".to_string(),
             description: "".to_string(),
+            maintainer: None,
             uploaders: None,
             source: None,
             packages: None,
@@ -122,9 +124,17 @@ impl Config {
         self.source.as_ref().and_then(|s| s.build_depends.as_ref())
     }
 
+    pub fn maintainer(&self) -> Option<&str> {
+        if let Some(ref m) = self.maintainer {
+            return Some(m);
+        }
+        None
+    }
+
     pub fn uploaders(&self) -> Option<&Vec<String>> {
         self.uploaders.as_ref()
     }
+
 
     pub fn build_depends_excludes(&self) -> Option<&Vec<String>> {
         self.source

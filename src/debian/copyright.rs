@@ -14,7 +14,6 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 
-use crate::debian::control::RUST_MAINT;
 use crate::errors::*;
 
 const DEB_COPYRIGHT_FORMAT: &str =
@@ -339,6 +338,7 @@ pub fn debian_copyright(
     package: &package::Package,
     srcdir: &Path,
     manifest: &manifest::Manifest,
+    maintainer: &str,
     uploaders: &[&str],
     year_range: (i32, i32),
     guess_harder: bool,
@@ -383,7 +383,7 @@ pub fn debian_copyright(
     } else {
         format!("{}-{}", y0, y1)
     };
-    let mut deb_notice = vec![format!("{} {}", years, RUST_MAINT)];
+    let mut deb_notice = vec![format!("{} {}", years, maintainer)];
     deb_notice.extend(uploaders.iter().map(|s| format!("{} {}", years, s)));
     files.push(Files::new("debian/*", &deb_notice, &crate_license, ""));
 

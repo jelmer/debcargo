@@ -220,6 +220,10 @@ impl Source {
             self.homepage = homepage.to_string();
         }
 
+        if let Some(maintainer) = config.maintainer() {
+            self.maintainer = maintainer.to_string();
+        }
+
         if let Some(vcs_git) = config.vcs_git() {
             self.vcs_git = vcs_git.to_string();
         }
