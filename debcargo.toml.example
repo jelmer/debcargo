@@ -64,7 +64,12 @@
 #PLACEHOLDER
 #"""
 
-# Uploaders
+# Uploaders. This affects the Uploaders: field in debian/control as well as the
+# additional maintainers listed in debian/copyright. The naming is historical;
+# in Debian today for team-maintained packages, this is generally taken to mean
+# "the main individuals" responsible for the package - anyone on the team is
+# "morally allowed" to perform the upload as long as they specify "Team upload"
+# in debian/changelog; this is done automatically by debcargo.
 uploaders = [ "foo bar <foo@debian.org>" ]
 
 [source]
