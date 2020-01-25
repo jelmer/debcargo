@@ -23,6 +23,7 @@ use crate::util::{self, copy_tree, expect_success, vec_opt_iter};
 use self::changelog::{ChangelogEntry, ChangelogIterator};
 use self::control::deb_version;
 use self::control::{Package, PkgTest, Source};
+use self::control::RUST_MAINT;
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
 
@@ -316,6 +317,10 @@ pub fn prepare_debian_folder(
         let uploaders: Vec<&str> = vec_opt_iter(config.uploaders())
             .map(String::as_str)
             .collect();
+        let maintainer = match config.maintainer() {
+            Some(m) => m,
+            None => RUST_MAINT,
+        };
         let mut copyright = io::BufWriter::new(file("copyright")?);
         let year_range = if changelog_ready {
             // if changelog is ready, unconditionally read the year range from it
@@ -332,6 +337,7 @@ pub fn prepare_debian_folder(
             crate_info.package(),
             pkg_srcdir,
             crate_info.manifest(),
+            maintainer,
             &uploaders,
             year_range,
             copyright_guess_harder,
