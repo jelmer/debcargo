@@ -1,7 +1,7 @@
 use std::env::{self, VarError};
 use std::fmt::{self, Write};
 
-use failure::{format_err, Error};
+use anyhow::{format_err, Error};
 use itertools::Itertools;
 use semver::Version;
 use textwrap::fill;

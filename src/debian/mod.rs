@@ -6,8 +6,8 @@ use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
 
+use anyhow::format_err;
 use chrono::{self, Datelike};
-use failure::format_err;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
@@ -22,8 +22,8 @@ use crate::util::{self, copy_tree, expect_success, vec_opt_iter};
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
 use self::control::deb_version;
-use self::control::{Package, PkgTest, Source};
 use self::control::RUST_MAINT;
+use self::control::{Package, PkgTest, Source};
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
 

@@ -135,7 +135,6 @@ impl Config {
         self.uploaders.as_ref()
     }
 
-
     pub fn build_depends_excludes(&self) -> Option<&Vec<String>> {
         self.source
             .as_ref()

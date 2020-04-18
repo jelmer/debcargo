@@ -1,3 +1,4 @@
+use anyhow::{format_err, Error};
 use cargo::{
     core::manifest::ManifestMetadata,
     core::registry::PackageRegistry,
@@ -10,7 +11,6 @@ use cargo::{
     util::{toml::read_manifest, FileLock},
     Config,
 };
-use failure::{format_err, Error};
 use filetime::{set_file_times, FileTime};
 use flate2::read::GzDecoder;
 use glob::Pattern;
@@ -205,10 +205,10 @@ impl CrateInfo {
     }
 
     pub fn dev_dependencies(&self) -> Vec<Dependency> {
-        use cargo::core::dependency::Kind;
+        use cargo::core::dependency::DepKind;
         let mut deps = vec![];
         for dep in self.dependencies() {
-            if dep.kind() == Kind::Development {
+            if dep.kind() == DepKind::Development {
                 deps.push(dep.clone())
             }
         }
@@ -226,12 +226,12 @@ impl CrateInfo {
         ),
     > // dependencies: other packages
     {
-        use cargo::core::dependency::Kind;
+        use cargo::core::dependency::DepKind;
 
         let mut deps_by_name: BTreeMap<&str, Vec<&Dependency>> = BTreeMap::new();
         for dep in self.dependencies() {
             // we treat build-dependencies also as dependencies in Debian
-            if dep.kind() != Kind::Development {
+            if dep.kind() != DepKind::Development {
                 let s = dep.name_in_toml().as_str();
                 deps_by_name.entry(s).or_default().push(dep);
             }

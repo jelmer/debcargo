@@ -1,5 +1,5 @@
+use anyhow;
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
-use failure;
 use regex::Regex;
 
 use std::fmt;
@@ -48,7 +48,7 @@ fn line_is_blank(s: &str) -> bool {
 }
 
 impl str::FromStr for ChangelogEntry {
-    type Err = failure::Error;
+    type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut lines = s.lines().collect::<Vec<_>>();
         // see https://manpages.debian.org/testing/dpkg-dev/deb-changelog.5.en.html

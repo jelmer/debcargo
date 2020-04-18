@@ -1,7 +1,7 @@
-use failure;
+use anyhow;
 
-pub type Result<T> = ::std::result::Result<T, failure::Error>;
-pub use failure::{format_err, ResultExt};
+pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
+pub use anyhow::format_err;
 
 #[macro_export]
 macro_rules! debcargo_info {
