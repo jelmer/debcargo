@@ -83,23 +83,11 @@ impl Config {
     }
 
     pub fn overlay_dir(&self, config_path: Option<&Path>) -> Option<PathBuf> {
-        self.overlay
-            .as_ref()
-            .map(|p| config_path.unwrap().parent().unwrap().join(p))
+        Some(config_path?.parent()?.join(self.overlay.as_ref()?))
     }
 
     pub fn crate_src_path(&self, config_path: Option<&Path>) -> Option<PathBuf> {
-        self.crate_src_path
-            .as_ref()
-            .map(|p| config_path.unwrap().parent().unwrap().join(p))
-    }
-
-    pub fn is_source_present(&self) -> bool {
-        self.source.is_some()
-    }
-
-    pub fn is_packages_present(&self) -> bool {
-        self.packages.is_some()
+        Some(config_path?.parent()?.join(self.crate_src_path.as_ref()?))
     }
 
     pub fn orig_tar_excludes(&self) -> Option<&Vec<String>> {
@@ -110,37 +98,38 @@ impl Config {
         self.whitelist.as_ref()
     }
 
-    pub fn policy_version(&self) -> Option<&str> {
-        if let Some(ref s) = self.source {
-            if let Some(ref policy) = s.policy {
-                return Some(policy);
-            }
-        }
-        None
-    }
-
-    pub fn homepage(&self) -> Option<&str> {
-        if let Some(ref s) = self.source {
-            if let Some(ref homepage) = s.homepage {
-                return Some(homepage);
-            }
-        }
-        None
-    }
-
-    pub fn build_depends(&self) -> Option<&Vec<String>> {
-        self.source.as_ref().and_then(|s| s.build_depends.as_ref())
-    }
-
     pub fn maintainer(&self) -> Option<&str> {
-        if let Some(ref m) = self.maintainer {
-            return Some(m);
-        }
-        None
+        Some(self.maintainer.as_ref()?)
     }
 
     pub fn uploaders(&self) -> Option<&Vec<String>> {
         self.uploaders.as_ref()
+    }
+
+    // Source shortcuts
+
+    pub fn section(&self) -> Option<&str> {
+        Some(self.source.as_ref()?.section.as_ref()?)
+    }
+
+    pub fn policy_version(&self) -> Option<&str> {
+        Some(self.source.as_ref()?.policy.as_ref()?)
+    }
+
+    pub fn homepage(&self) -> Option<&str> {
+        Some(self.source.as_ref()?.homepage.as_ref()?)
+    }
+
+    pub fn vcs_git(&self) -> Option<&str> {
+        Some(self.source.as_ref()?.vcs_git.as_ref()?)
+    }
+
+    pub fn vcs_browser(&self) -> Option<&str> {
+        Some(self.source.as_ref()?.vcs_browser.as_ref()?)
+    }
+
+    pub fn build_depends(&self) -> Option<&Vec<String>> {
+        self.source.as_ref().and_then(|s| s.build_depends.as_ref())
     }
 
     pub fn build_depends_excludes(&self) -> Option<&Vec<String>> {
@@ -149,13 +138,11 @@ impl Config {
             .and_then(|s| s.build_depends_excludes.as_ref())
     }
 
-    pub fn section(&self) -> Option<&str> {
-        if let Some(ref s) = self.source {
-            if let Some(ref section) = s.section {
-                return Some(section);
-            }
-        }
-        None
+    // Packages shortcuts
+    fn with_package<T, F: FnOnce(&PackageOverride) -> Option<T>>(&self, key: PackageKey, f: F) -> Option<T> {
+        self.packages.as_ref().and_then(|pkg| {
+            pkg.get(&package_key_string(key)).and_then(f)
+        })
     }
 
     pub fn package_section(&self, key: PackageKey) -> Option<&str> {
@@ -221,24 +208,6 @@ impl Config {
             pkg.get(&package_key_string(key))
                 .and_then(|package| package.test_is_broken)
         })
-    }
-
-    pub fn vcs_git(&self) -> Option<&str> {
-        if let Some(ref s) = self.source {
-            if let Some(ref vcs_git) = s.vcs_git {
-                return Some(vcs_git);
-            }
-        }
-        None
-    }
-
-    pub fn vcs_browser(&self) -> Option<&str> {
-        if let Some(ref s) = self.source {
-            if let Some(ref vcs_browser) = s.vcs_browser {
-                return Some(vcs_browser);
-            }
-        }
-        None
     }
 }
 

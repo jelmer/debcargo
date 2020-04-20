@@ -12,8 +12,8 @@ fn source_package_override() {
 
     let config = config.unwrap();
 
-    assert!(config.is_source_present());
-    assert!(config.is_packages_present());
+    assert!(config.source.is_some());
+    assert!(config.packages.is_some());
 
     let policy = config.policy_version();
     assert!(policy.is_some());
@@ -32,13 +32,13 @@ fn source_package_override() {
 
     let config = config.unwrap();
 
-    assert!(config.is_source_present());
+    assert!(config.source.is_some());
 
     let section = config.section();
     assert!(section.is_some());
     assert_eq!(section.unwrap(), "rust");
 
-    assert!(config.is_packages_present());
+    assert!(config.packages.is_some());
     let sd = config.package_summary(PackageKey::Bin);
     assert!(sd.is_some());
 
@@ -65,7 +65,7 @@ fn sd_top_level() {
 
     let config = config.unwrap();
 
-    assert!(config.is_source_present());
+    assert!(config.source.is_some());
 
     let section = config.section();
     assert!(section.is_some());

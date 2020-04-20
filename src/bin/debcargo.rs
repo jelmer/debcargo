@@ -115,11 +115,11 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                     debcargo_warn!("\t    {}", rel_p(&c, &curdir));
                 }
             };
-            match config.overlay {
+            match config.overlay_dir(config_path) {
                 None => debcargo_warn!("\t •  Create an overlay directory and add it to your config file with overlay = \"/path/to/overlay\""),
-                Some(_) => {
+                Some(p) => {
                     debcargo_warn!("\t •  Add or edit files in your overlay directory:");
-                    debcargo_warn!("\t    {}", rel_p(&config.overlay_dir(config_path).unwrap(), &curdir));
+                    debcargo_warn!("\t    {}", rel_p(&p, &curdir));
                 }
             }
         }
