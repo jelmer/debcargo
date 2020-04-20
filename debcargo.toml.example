@@ -35,7 +35,11 @@
 #
 #overlay = "."
 
-# Local directory where crate can be found, instead of downloading from crates.io. Resolved relative to the directory that contains this config file.
+# Local directory where crate can be found, instead of crates.io. Resolved
+# relative to the directory that contains this config file. Note: this is
+# currently experimental and only works for crates whose dependencies are all
+# published on crates.io. For example, not rustup. This limitation will
+# hopefully be fixed in the future.
 #
 #crate_src_path = "../.."
 
