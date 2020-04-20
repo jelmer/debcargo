@@ -129,85 +129,66 @@ impl Config {
     }
 
     pub fn build_depends(&self) -> Option<&Vec<String>> {
-        self.source.as_ref().and_then(|s| s.build_depends.as_ref())
+        self.source.as_ref()?.build_depends.as_ref()
     }
 
     pub fn build_depends_excludes(&self) -> Option<&Vec<String>> {
-        self.source
-            .as_ref()
-            .and_then(|s| s.build_depends_excludes.as_ref())
+        self.source.as_ref()?.build_depends_excludes.as_ref()
     }
 
     // Packages shortcuts
-    fn with_package<T, F: FnOnce(&PackageOverride) -> Option<T>>(&self, key: PackageKey, f: F) -> Option<T> {
-        self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key)).and_then(f)
-        })
+
+    fn with_package<'a, T, F: FnOnce(&'a PackageOverride) -> Option<T>>(
+        &'a self,
+        key: PackageKey,
+        f: F,
+    ) -> Option<T> {
+        self.packages
+            .as_ref()?
+            .get(&package_key_string(key))
+            .and_then(f)
     }
 
     pub fn package_section(&self, key: PackageKey) -> Option<&str> {
-        self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key))
-                .and_then(|package| package.section.as_ref().map(|s| s.as_str()))
-        })
+        self.with_package(key, |pkg| pkg.section.as_ref().map(|s| s.as_str()))
     }
 
     pub fn package_summary(&self, key: PackageKey) -> Option<(&str, &str)> {
-        self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key)).map(|package| {
-                let s = match package.summary {
-                    Some(ref s) => s,
-                    None => "",
-                };
-                let d = match package.description {
-                    Some(ref d) => d,
-                    None => "",
-                };
-                (s, d)
-            })
+        self.with_package(key, |pkg| {
+            let s = match pkg.summary {
+                Some(ref s) => s,
+                None => "",
+            };
+            let d = match pkg.description {
+                Some(ref d) => d,
+                None => "",
+            };
+            Some((s, d))
         })
     }
 
     pub fn package_depends(&self, key: PackageKey) -> Option<&Vec<String>> {
-        self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key))
-                .and_then(|package| package.depends.as_ref())
-        })
+        self.with_package(key, |pkg| pkg.depends.as_ref())
     }
 
     pub fn package_recommends(&self, key: PackageKey) -> Option<&Vec<String>> {
-        self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key))
-                .and_then(|package| package.recommends.as_ref())
-        })
+        self.with_package(key, |pkg| pkg.recommends.as_ref())
     }
 
     pub fn package_suggests(&self, key: PackageKey) -> Option<&Vec<String>> {
-        self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key))
-                .and_then(|package| package.suggests.as_ref())
-        })
+        self.with_package(key, |pkg| pkg.suggests.as_ref())
     }
 
     pub fn package_provides(&self, key: PackageKey) -> Option<&Vec<String>> {
-        self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key))
-                .and_then(|package| package.provides.as_ref())
-        })
+        self.with_package(key, |pkg| pkg.provides.as_ref())
     }
 
     pub fn package_extra_lines(&self, key: PackageKey) -> Option<&Vec<String>> {
-        self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key))
-                .and_then(|package| package.extra_lines.as_ref())
-        })
+        self.with_package(key, |pkg| pkg.extra_lines.as_ref())
     }
 
     pub fn package_test_is_broken(&self, key: PackageKey) -> Option<bool> {
-        self.packages.as_ref().and_then(|pkg| {
-            pkg.get(&package_key_string(key))
-                .and_then(|package| package.test_is_broken)
-        })
+        self.with_package(key, |pkg| pkg.test_is_broken)
     }
 }
 
