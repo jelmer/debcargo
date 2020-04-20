@@ -93,13 +93,13 @@ impl CrateInfo {
             source.update()?;
 
             let package_id = match version {
-                Some(version) => PackageId::new(crate_name, version, source_id)?,
-                None => {
+                None | Some("") => {
                     let dep = Dependency::parse_no_deprecated(crate_name, None, source_id)?;
                     let mut package_id: Option<PackageId> = None;
                     source.query(&dep, &mut |p| package_id = Some(p.package_id()))?;
                     package_id.unwrap()
                 },
+                Some(version) => PackageId::new(crate_name, version, source_id)?,
             };
 
             let maybe_package = source.download(package_id)?;
