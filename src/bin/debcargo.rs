@@ -57,7 +57,12 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     let overlay_write_back = !matches.is_present("no-overlay-write-back");
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
-    let mut crate_info = CrateInfo::new(crate_name, version)?;
+    let crate_path = config.crate_src_path(config_path);
+
+    let mut crate_info = match crate_path {
+        Some(p) => CrateInfo::new_with_local_crate(crate_name, version, &p)?,
+        None => CrateInfo::new(crate_name, version)?,
+    };
     let pkgbase = BaseInfo::new(
         crate_name,
         &crate_info,

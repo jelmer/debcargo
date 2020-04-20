@@ -5,8 +5,11 @@ use cargo::{
     core::InternedString,
     core::{
         Dependency, EitherManifest, FeatureValue, Manifest, Package, PackageId, Registry, Source,
-        SourceId, Summary, Target, TargetKind,
+        SourceId, Summary, Target, TargetKind, Workspace,
     },
+    core::source::MaybePackage,
+    ops,
+    ops::PackageOpts,
     sources::registry::RegistrySource,
     util::{toml::read_manifest, FileLock},
     Config,
@@ -75,6 +78,85 @@ pub fn update_crates_io() -> Result<()> {
 impl CrateInfo {
     pub fn new(crate_name: &str, version: Option<&str>) -> Result<CrateInfo> {
         CrateInfo::new_with_update(crate_name, version, true)
+    }
+
+    pub fn new_with_local_crate(crate_name: &str, version: Option<&str>, crate_path: &Path) -> Result<CrateInfo> {
+        let config = Config::default()?;
+        let crate_path = crate_path.canonicalize()?;
+        let source_id = SourceId::for_path(&crate_path)?;
+
+
+        let (package, crate_file) = {
+            let yanked_whitelist = HashSet::new();
+
+            let mut source = source_id.load(&config, &yanked_whitelist)?;
+            source.update()?;
+
+            let package_id = match version {
+                Some(version) => PackageId::new(crate_name, version, source_id)?,
+                None => {
+                    let dep = Dependency::parse_no_deprecated(crate_name, None, source_id)?;
+                    let mut package_id: Option<PackageId> = None;
+                    source.query(&dep, &mut |p| package_id = Some(p.package_id()))?;
+                    package_id.unwrap()
+                },
+            };
+
+            let maybe_package = source.download(package_id)?;
+            let package = match maybe_package {
+                MaybePackage::Ready(p) => Ok(p),
+                _ => Err(format_err!("Failed to 'download' local crate {} from {}",
+                        crate_name,
+                        crate_path.display()
+                    )),
+            }?;
+
+            let crate_file = {
+                let workspace = Workspace::ephemeral(
+                    package.clone(),
+                    &config,
+                    None,
+                    true)?;
+
+                let opts = PackageOpts {
+                    config: &config,
+                    verify: false,
+                    list: false,
+                    check_metadata: true,
+                    allow_dirty: true,
+                    all_features: true,
+                    no_default_features: false,
+                    jobs: None,
+                    target: None,
+                    features: Vec::new(),
+                };
+
+                // as of cargo 0.41 this returns a FileLock with a temp path, instead of the one
+                // it got renamed to
+                if ops::package(&workspace, &opts)?.is_none() {
+                    return Err(format_err!("Failed to assemble crate file for local crate {} at {}\n",
+                        crate_name,
+                        crate_path.display()
+                    ));
+                }
+                let filename = format!("{}-{}.crate", crate_name, package_id.version().to_string());
+                workspace.target_dir().join("package").open_rw(&filename, &config, "crate file")?
+            };
+
+            (package.clone(), crate_file)
+        };
+
+        let manifest = package.manifest().clone();
+
+        Ok(CrateInfo {
+            package,
+            manifest,
+            crate_file,
+            config,
+            source_id,
+            excludes: vec![],
+            includes: vec![],
+        })
     }
 
     pub fn new_with_update(
