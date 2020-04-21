@@ -9,6 +9,9 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+pub const RUST_MAINT: &str =
+    "Debian Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
+
 #[derive(Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct Config {
@@ -66,7 +69,7 @@ impl Default for Config {
             crate_src_path: None,
             summary: "".to_string(),
             description: "".to_string(),
-            maintainer: None,
+            maintainer: Some(RUST_MAINT.to_string()),
             uploaders: None,
             source: None,
             packages: None,

@@ -10,9 +10,6 @@ use crate::config::{package_field_for_feature, Config, PackageKey};
 use crate::errors::*;
 use crate::util::vec_opt_iter;
 
-pub const RUST_MAINT: &str =
-    "Debian Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>";
-
 pub struct Source {
     name: String,
     section: String,
@@ -152,6 +149,7 @@ impl Source {
         upstream_name: &str,
         home: &str,
         lib: bool,
+        maintainer: String,
         uploaders: Vec<String>,
         build_deps: Vec<String>,
     ) -> Result<Source> {
@@ -165,7 +163,6 @@ impl Source {
             "FIXME-(source.section)"
         };
         let priority = "optional".to_string();
-        let maintainer = RUST_MAINT.to_string();
         let vcs_browser = format!(
             "https://salsa.debian.org/rust-team/debcargo-conf/tree/master/src/{}",
             pkgbase

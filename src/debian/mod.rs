@@ -22,7 +22,6 @@ use crate::util::{self, copy_tree, expect_success, vec_opt_iter};
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
 use self::control::deb_version;
-use self::control::RUST_MAINT;
 use self::control::{Package, PkgTest, Source};
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
@@ -252,64 +251,40 @@ pub fn prepare_debian_folder(
         );
     }
 
-    let lib = crate_info.is_lib();
-    let mut bins = crate_info.get_binary_targets();
-    let meta = crate_info.metadata();
-
-    if lib && !bins.is_empty() && !config.build_bin_package() {
-        bins.clear();
-    }
-    let default_bin_name = crate_info.package().name().to_string().replace('_', "-");
-    let bin_name = if config.bin_name.eq(&Config::default().bin_name) {
-        if !bins.is_empty() {
-            debcargo_info!(
-                "Generate binary crate with default name '{}', set bin_name to override or bin = false to disable.",
-                &default_bin_name
-            );
-        }
-        &default_bin_name
-    } else {
-        &config.bin_name
-    };
-
-    let mut features_with_deps = crate_info.all_dependencies_and_features();
-    let dev_depends = deb_deps(config, &crate_info.dev_dependencies())?;
-    /*debcargo_info!("features_with_deps: {:?}", features_with_deps
-    .iter()
-    .map(|(&f, &(ref ff, ref dd))| {
-        (f, (ff, deb_deps(config, dd).unwrap()))
-    }).collect::<Vec<_>>());*/
-
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
 
     let crate_name = crate_info.package_id().name();
     let crate_version = crate_info.package_id().version();
     let base_pkgname = deb_info.base_package_name();
-    let name_suffix = deb_info.name_suffix();
     let upstream_name = deb_info.upstream_name();
 
-    let mut new_hints = vec![];
-    {
-        let mut file = |name: &str| {
-            let path = tempdir.path();
-            let f = path.join(name);
-            fs::create_dir_all(f.parent().unwrap())?;
-            create.open(&f).or_else(|e| match e.kind() {
-                ErrorKind::AlreadyExists => {
-                    let hintname = name.to_owned() + util::HINT_SUFFIX;
-                    let hint = path.join(&hintname);
-                    if hint.exists() {
-                        fs::remove_file(&hint)?;
-                    }
-                    new_hints.push(hintname);
-                    create.open(&hint)
-                }
-                _ => Err(e),
-            })
-        };
+    let maintainer = config.maintainer().unwrap();
+    let uploaders: Vec<&str> = vec_opt_iter(config.uploaders())
+        .map(String::as_str)
+        .collect();
 
-        // debian/cargo-checksum.json
+    let mut new_hints = vec![];
+    let mut file = |name: &str| {
+        let path = tempdir.path();
+        let f = path.join(name);
+        fs::create_dir_all(f.parent().unwrap())?;
+        create.open(&f).or_else(|e| match e.kind() {
+            ErrorKind::AlreadyExists => {
+                let hintname = name.to_owned() + util::HINT_SUFFIX;
+                let hint = path.join(&hintname);
+                if hint.exists() {
+                    fs::remove_file(&hint)?;
+                }
+                new_hints.push(hintname);
+                create.open(&hint)
+            }
+            _ => Err(e),
+        })
+    };
+
+    // debian/cargo-checksum.json
+    {
         let checksum = crate_info
             .checksum()
             .unwrap_or("Could not get crate checksum");
@@ -319,19 +294,16 @@ pub fn prepare_debian_folder(
             r#"{{"package":"{}","files":{{}}}}"#,
             checksum
         )?;
+    }
 
-        // debian/compat
+    // debian/compat
+    {
         let mut compat = file("compat")?;
         writeln!(compat, "11")?;
+    }
 
-        // debian/copyright
-        let uploaders: Vec<&str> = vec_opt_iter(config.uploaders())
-            .map(String::as_str)
-            .collect();
-        let maintainer = match config.maintainer() {
-            Some(m) => m,
-            None => RUST_MAINT,
-        };
+    // debian/copyright
+    {
         let mut copyright = io::BufWriter::new(file("copyright")?);
         let year_range = if changelog_ready {
             // if changelog is ready, unconditionally read the year range from it
@@ -354,8 +326,10 @@ pub fn prepare_debian_folder(
             copyright_guess_harder,
         )?;
         write!(copyright, "{}", dep5_copyright)?;
+    }
 
-        // debian/watch
+    // debian/watch
+    {
         let mut watch = file("watch")?;
         match config.crate_src_path(config_path) {
             Some(_) => write!(watch, "FIXME add uscan directive for local crate")?,
@@ -383,33 +357,21 @@ pub fn prepare_debian_folder(
                 )?;
             }
         };
+    }
 
-        // debian/source/format
+    // debian/source/format
+    {
         fs::create_dir_all(tempdir.path().join("source"))?;
         let mut source_format = file("source/format")?;
         writeln!(source_format, "3.0 (quilt)")?;
+    }
 
-        let (all_features_test_broken, broken_tests) = {
-            let is_broken = |f: &str| {
-                config
-                    .package_test_is_broken(PackageKey::feature(f))
-                    .unwrap_or(false)
-            };
-            let mut broken_tests: BTreeMap<&str, bool> = BTreeMap::new();
-            let mut any_test_broken = false;
-            for (feature, _) in features_with_deps.iter() {
-                let broken = is_broken(feature);
-                if broken {
-                    any_test_broken = true;
-                }
-                let all_deps = traverse_depth_2(&features_with_deps, feature);
-                broken_tests.insert(feature, broken || all_deps.iter().any(|f| is_broken(f)));
-            }
-            (is_broken("@") || any_test_broken, broken_tests)
-        };
-        let test_is_broken_for = |f: &str| *broken_tests.get(f).unwrap();
+    // debian/control & debian/tests/control
+    let (dev_depends, default_test_broken) =
+        prepare_debian_control(deb_info, crate_info, config, &mut file)?;
 
-        // debian/rules
+    // debian/rules
+    {
         let mut rules = file("rules")?;
         rules.set_permissions(fs::Permissions::from_mode(0o777))?;
         if !dev_depends.is_empty() {
@@ -437,306 +399,115 @@ pub fn prepare_debian_folder(
                 // "provides" the default feature. In this case, you need to
                 // set test_is_broken explicitly on package."lib+default" and
                 // not package."lib+theotherfeature".
-                if test_is_broken_for("default") {
+                if default_test_broken {
                     "\tdh_auto_test -- test --all || true\n"
                 } else {
                     "\tdh_auto_test -- test --all\n"
                 },
             )?;
         }
+    }
 
-        // debian/control
-        let build_deps = {
-            let build_deps = ["debhelper (>= 11)", "dh-cargo (>= 18)"]
-                .iter()
-                .map(|x| x.to_string());
-            let (default_features, default_deps) =
-                crate_info.feature_all_deps(&features_with_deps, "default");
-            //debcargo_info!("default_features: {:?}", default_features);
-            //debcargo_info!("default_deps: {:?}", deb_deps(config, &default_deps)?);
-            let extra_override_deps = package_field_for_feature(
-                &|x| config.package_depends(x),
-                PackageKey::feature("default"),
-                &default_features,
-            );
-            let build_deps_extra = ["cargo:native", "rustc:native", "libstd-rust-dev"]
-                .iter()
-                .map(|s| s.to_string())
-                .chain(deb_deps(config, &default_deps)?)
-                .chain(extra_override_deps);
-            if !bins.is_empty() {
-                build_deps.chain(build_deps_extra).collect()
-            } else {
-                assert!(lib);
-                build_deps
-                    .chain(build_deps_extra.map(|d| deb_dep_add_nocheck(&d)))
-                    .collect()
-            }
+    // debian/changelog
+    if !changelog_ready {
+        let author = control::get_deb_author()?;
+        let crate_src = match config.crate_src_path(config_path) {
+            Some(_) => "local source",
+            None => "crates.io",
         };
-        let mut source = Source::new(
-            base_pkgname,
-            name_suffix,
-            upstream_name,
-            if let Some(ref home) = meta.homepage {
-                home
-            } else {
-                ""
-            },
-            lib,
-            uploaders.iter().map(|s| s.to_string()).collect(),
-            build_deps,
-        )?;
+        let autogenerated_item = format!(
+            "  * Package {} {} from {} using debcargo {}",
+            &crate_name,
+            &crate_version,
+            &crate_src,
+            deb_info.debcargo_version()
+        );
+        let autogenerated_re = Regex::new(&format!(
+            r"^  \* Package (.*) (.*) from {} using debcargo (.*)$",
+            &crate_src
+        ))
+        .unwrap();
 
-        // If source overrides are present update related parts.
-        source.apply_overrides(config);
-
-        let mut control = io::BufWriter::new(file("control")?);
-        write!(control, "{}", source)?;
-
-        // Summary and description generated from Cargo.toml
-        let (summary, description) = crate_info.get_summary_description();
-        let summary = if !config.summary.is_empty() {
-            Some(config.summary.as_str())
-        } else {
-            if let Some(summary) = summary.as_ref() {
-                if summary.len() > 80 {
-                    writeln!(
-                        control,
-                        "\n{}",
-                        concat!(
-                            "# FIXME (packages.\"(name)\".section) debcargo ",
-                            "auto-generated summaries are very long, consider overriding"
-                        )
-                    )?;
-                }
-            }
-            summary.as_ref().map(String::as_str)
-        };
-        let description = if config.description.is_empty() {
-            description.as_ref().map(String::as_str)
-        } else {
-            Some(config.description.as_str())
-        };
-
-        if lib {
-            // debian/tests/control
-            let mut testctl = io::BufWriter::new(file("tests/control")?);
-            write!(
-                testctl,
-                "{}",
-                PkgTest::new(
-                    "@",
-                    &crate_name,
-                    &crate_version,
-                    vec!["--all-features"],
-                    &dev_depends,
-                    if all_features_test_broken {
-                        vec!["flaky"]
-                    } else {
-                        vec![]
-                    },
-                )?
-            )?;
-
-            let mut provides = crate_info.calculate_provides(&mut features_with_deps);
-            //debcargo_info!("provides: {:?}", provides);
-            let mut recommends = vec![];
-            let mut suggests = vec![];
-            for (&feature, features) in provides.iter() {
-                if feature == "" {
-                    continue;
-                } else if feature == "default" || features.contains(&"default") {
-                    recommends.push(feature);
-                } else {
-                    suggests.push(feature);
-                }
-            }
-            for (feature, (f_deps, o_deps)) in features_with_deps.into_iter() {
-                let f_provides = provides.remove(feature).unwrap();
-                let mut package = Package::new(
-                    base_pkgname,
-                    name_suffix,
-                    &crate_info.version(),
-                    upstream_name,
-                    summary,
-                    description,
-                    if feature == "" { None } else { Some(feature) },
-                    f_deps,
-                    deb_deps(config, &o_deps)?,
-                    f_provides.clone(),
-                    if feature == "" {
-                        recommends.clone()
-                    } else {
-                        vec![]
-                    },
-                    if feature == "" {
-                        suggests.clone()
-                    } else {
-                        vec![]
-                    },
-                )?;
-
-                let test_is_broken =
-                    test_is_broken_for(feature) || f_provides.iter().any(|f| test_is_broken_for(f));
-
-                // If any overrides present for this package it will be taken care.
-                package.apply_overrides(config, PackageKey::feature(feature), f_provides);
-                write!(control, "\n{}", package)?;
-
-                let pkgtest = PkgTest::new(
-                    package.name(),
-                    &crate_name,
-                    &crate_version,
-                    if feature == "" {
-                        vec!["--no-default-features"]
-                    } else {
-                        vec!["--features", feature]
-                    },
-                    &dev_depends,
-                    if test_is_broken {
-                        vec!["flaky"]
-                    } else {
-                        vec![]
-                    },
-                )?;
-                write!(testctl, "\n{}", pkgtest)?;
-            }
-            assert!(provides.is_empty());
-            // features_with_deps consumed by into_iter, no longer usable
-        }
-
-        if !bins.is_empty() {
-            let boilerplate = Some(format!(
-                "This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
-                upstream_name,
-                bins.join("\n - ")
-            ));
-
-            let mut bin_pkg = Package::new_bin(
-                bin_name,
-                name_suffix,
-                upstream_name,
-                // if not-a-lib then Source section is already FIXME
-                if !lib {
-                    None
-                } else {
-                    Some("FIXME-(packages.\"(name)\".section)")
-                },
-                summary,
-                description,
-                match boilerplate {
-                    Some(ref s) => s,
-                    None => "",
-                },
-            );
-
-            // Binary package overrides.
-            bin_pkg.apply_overrides(config, PackageKey::Bin, vec![]);
-            write!(control, "\n{}", bin_pkg)?;
-        }
-
-        // debian/changelog
-        if !changelog_ready {
-            let author = control::get_deb_author()?;
-            let crate_src = match config.crate_src_path(config_path) {
-                Some(_) => "local source",
-                None => "crates.io",
-            };
-            let autogenerated_item = format!(
-                "  * Package {} {} from {} using debcargo {}",
-                &crate_name,
-                &crate_version,
-                &crate_src,
-                deb_info.debcargo_version()
-            );
-            let autogenerated_re = Regex::new(&format!(
-                r"^  \* Package (.*) (.*) from {} using debcargo (.*)$",
-                &crate_src
-            ))
-            .unwrap();
-
-            // Special-case d/changelog:
-            let (mut changelog, changelog_data) = changelog_or_new(tempdir.path())?;
-            let (changelog_old, mut changelog_items, deb_version_suffix) = {
-                let ver_bump = &|e: &Option<&str>| -> Result<Option<String>> {
-                    Ok(match e {
-                        Some(x) => {
-                            let e = ChangelogEntry::from_str(x)?;
-                            if e.version_parts().0 == deb_info.debian_version() {
-                                Some(e.deb_version_suffix_bump())
-                            } else {
-                                None
-                            }
-                        }
-                        None => None,
-                    })
-                };
-                let mut chit = ChangelogIterator::from(&changelog_data);
-                let e1 = chit.next();
-                match e1 {
-                    // If the first entry has changelog::DEFAULT_DIST then write over it smartly
-                    Some(x) if x.contains(changelog::DEFAULT_DIST) => {
-                        let mut e = ChangelogEntry::from_str(x)?;
-                        if author == e.maintainer {
-                            if let Some(pos) =
-                                e.items.iter().position(|x| autogenerated_re.is_match(x))
-                            {
-                                e.items[pos] = autogenerated_item;
-                            } else {
-                                e.items.push(autogenerated_item);
-                            }
+        // Special-case d/changelog:
+        let (mut changelog, changelog_data) = changelog_or_new(tempdir.path())?;
+        let (changelog_old, mut changelog_items, deb_version_suffix) = {
+            let ver_bump = &|e: &Option<&str>| -> Result<Option<String>> {
+                Ok(match e {
+                    Some(x) => {
+                        let e = ChangelogEntry::from_str(x)?;
+                        if e.version_parts().0 == deb_info.debian_version() {
+                            Some(e.deb_version_suffix_bump())
                         } else {
-                            // If unreleased changelog is by someone else, preserve their entries
-                            e.items.insert(0, autogenerated_item);
-                            e.items.insert(1, "".to_string());
-                            let ename = e.maintainer_name();
-                            e.items.insert(2, format!("  [ {} ]", ename));
+                            None
                         }
-                        (&changelog_data[x.len()..], e.items, ver_bump(&chit.next())?)
                     }
-                    // Otherwise prepend a new entry to the existing entries
-                    _ => (
-                        changelog_data.as_str(),
-                        vec![autogenerated_item],
-                        ver_bump(&e1)?,
-                    ),
-                }
+                    None => None,
+                })
             };
-
-            let source_deb_version = format!(
-                "{}-{}",
-                deb_info.debian_version(),
-                &deb_version_suffix.unwrap_or("1".to_string())
-            );
-            if !uploaders.contains(&author.as_str()) {
-                debcargo_warn!(
-                    "You ({}) are not in Uploaders; adding \"Team upload\" to d/changelog",
-                    author
-                );
-                if !changelog_items.contains(&changelog::COMMENT_TEAM_UPLOAD.to_string()) {
-                    changelog_items.insert(0, changelog::COMMENT_TEAM_UPLOAD.to_string());
+            let mut chit = ChangelogIterator::from(&changelog_data);
+            let e1 = chit.next();
+            match e1 {
+                // If the first entry has changelog::DEFAULT_DIST then write over it smartly
+                Some(x) if x.contains(changelog::DEFAULT_DIST) => {
+                    let mut e = ChangelogEntry::from_str(x)?;
+                    if author == e.maintainer {
+                        if let Some(pos) = e.items.iter().position(|x| autogenerated_re.is_match(x))
+                        {
+                            e.items[pos] = autogenerated_item;
+                        } else {
+                            e.items.push(autogenerated_item);
+                        }
+                    } else {
+                        // If unreleased changelog is by someone else, preserve their entries
+                        e.items.insert(0, autogenerated_item);
+                        e.items.insert(1, "".to_string());
+                        let ename = e.maintainer_name();
+                        e.items.insert(2, format!("  [ {} ]", ename));
+                    }
+                    (&changelog_data[x.len()..], e.items, ver_bump(&chit.next())?)
                 }
+                // Otherwise prepend a new entry to the existing entries
+                _ => (
+                    changelog_data.as_str(),
+                    vec![autogenerated_item],
+                    ver_bump(&e1)?,
+                ),
             }
-            let changelog_new_entry = ChangelogEntry::new(
-                source.srcname().to_string(),
-                source_deb_version,
-                changelog::DEFAULT_DIST.to_string(),
-                "urgency=medium".to_string(),
-                author,
-                changelog::local_now(),
-                changelog_items,
-            );
+        };
 
-            changelog.seek(io::SeekFrom::Start(0))?;
-            if changelog_old.is_empty() {
-                write!(changelog, "{}", changelog_new_entry)?;
-            } else {
-                write!(changelog, "{}\n{}", changelog_new_entry, changelog_old)?;
+        let source_deb_version = format!(
+            "{}-{}",
+            deb_info.debian_version(),
+            &deb_version_suffix.unwrap_or("1".to_string())
+        );
+        if !uploaders.contains(&author.as_str()) {
+            debcargo_warn!(
+                "You ({}) are not in Uploaders; adding \"Team upload\" to d/changelog",
+                author
+            );
+            if !changelog_items.contains(&changelog::COMMENT_TEAM_UPLOAD.to_string()) {
+                changelog_items.insert(0, changelog::COMMENT_TEAM_UPLOAD.to_string());
             }
-            // the new file might be shorter, truncate it to the current cursor position
-            let pos = changelog.seek(io::SeekFrom::Current(0))?;
-            changelog.set_len(pos)?;
         }
+        let changelog_new_entry = ChangelogEntry::new(
+            base_pkgname.to_string(),
+            source_deb_version,
+            changelog::DEFAULT_DIST.to_string(),
+            "urgency=medium".to_string(),
+            author,
+            changelog::local_now(),
+            changelog_items,
+        );
+
+        changelog.seek(io::SeekFrom::Start(0))?;
+        if changelog_old.is_empty() {
+            write!(changelog, "{}", changelog_new_entry)?;
+        } else {
+            write!(changelog, "{}\n{}", changelog_new_entry, changelog_old)?;
+        }
+        // the new file might be shorter, truncate it to the current cursor position
+        let pos = changelog.seek(io::SeekFrom::Current(0))?;
+        changelog.set_len(pos)?;
     }
 
     if overlay_write_back {
@@ -757,6 +528,264 @@ pub fn prepare_debian_folder(
 
     fs::rename(tempdir.path(), pkg_srcdir.join("debian"))?;
     Ok(())
+}
+
+fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, std::io::Error>>(
+    deb_info: &DebInfo,
+    crate_info: &mut CrateInfo,
+    config: &Config,
+    mut file: F,
+) -> Result<(Vec<String>, bool)> {
+    let lib = crate_info.is_lib();
+    let mut bins = crate_info.get_binary_targets();
+    if lib && !bins.is_empty() && !config.build_bin_package() {
+        bins.clear();
+    }
+    let default_bin_name = crate_info.package().name().to_string().replace('_', "-");
+    let bin_name = if config.bin_name.eq(&Config::default().bin_name) {
+        if !bins.is_empty() {
+            debcargo_info!(
+                "Generate binary crate with default name '{}', set bin_name to override or bin = false to disable.",
+                &default_bin_name
+            );
+        }
+        &default_bin_name
+    } else {
+        &config.bin_name
+    };
+
+    let crate_name = crate_info.package_id().name();
+    let crate_version = crate_info.package_id().version();
+    let base_pkgname = deb_info.base_package_name();
+    let name_suffix = deb_info.name_suffix();
+    let upstream_name = deb_info.upstream_name();
+
+    let maintainer = config.maintainer().unwrap();
+    let uploaders: Vec<&str> = vec_opt_iter(config.uploaders())
+        .map(String::as_str)
+        .collect();
+
+    let mut features_with_deps = crate_info.all_dependencies_and_features();
+    let dev_depends = deb_deps(config, &crate_info.dev_dependencies())?;
+    /*debcargo_info!("features_with_deps: {:?}", features_with_deps
+    .iter()
+    .map(|(&f, &(ref ff, ref dd))| {
+        (f, (ff, deb_deps(config, dd).unwrap()))
+    }).collect::<Vec<_>>());*/
+    let meta = crate_info.metadata();
+
+    // debian/tests/control, preparation
+    let (all_features_test_broken, broken_tests) = {
+        let is_broken = |f: &str| {
+            config
+                .package_test_is_broken(PackageKey::feature(f))
+                .unwrap_or(false)
+        };
+        let mut broken_tests: BTreeMap<&str, bool> = BTreeMap::new();
+        let mut any_test_broken = false;
+        for (feature, _) in features_with_deps.iter() {
+            let broken = is_broken(feature);
+            if broken {
+                any_test_broken = true;
+            }
+            let all_deps = traverse_depth_2(&features_with_deps, feature);
+            broken_tests.insert(feature, broken || all_deps.iter().any(|f| is_broken(f)));
+        }
+        (is_broken("@") || any_test_broken, broken_tests)
+    };
+    let test_is_broken_for = |f: &str| *broken_tests.get(f).unwrap();
+
+    let build_deps = {
+        let build_deps = ["debhelper (>= 11)", "dh-cargo (>= 18)"]
+            .iter()
+            .map(|x| x.to_string());
+        let (default_features, default_deps) =
+            crate_info.feature_all_deps(&features_with_deps, "default");
+        //debcargo_info!("default_features: {:?}", default_features);
+        //debcargo_info!("default_deps: {:?}", deb_deps(config, &default_deps)?);
+        let extra_override_deps = package_field_for_feature(
+            &|x| config.package_depends(x),
+            PackageKey::feature("default"),
+            &default_features,
+        );
+        let build_deps_extra = ["cargo:native", "rustc:native", "libstd-rust-dev"]
+            .iter()
+            .map(|s| s.to_string())
+            .chain(deb_deps(config, &default_deps)?)
+            .chain(extra_override_deps);
+        if !bins.is_empty() {
+            build_deps.chain(build_deps_extra).collect()
+        } else {
+            assert!(lib);
+            build_deps
+                .chain(build_deps_extra.map(|d| deb_dep_add_nocheck(&d)))
+                .collect()
+        }
+    };
+    let mut source = Source::new(
+        base_pkgname,
+        name_suffix,
+        upstream_name,
+        if let Some(ref home) = meta.homepage {
+            home
+        } else {
+            ""
+        },
+        lib,
+        maintainer.to_string(),
+        uploaders.iter().map(|s| s.to_string()).collect(),
+        build_deps,
+    )?;
+
+    // If source overrides are present update related parts.
+    source.apply_overrides(config);
+
+    let mut control = io::BufWriter::new(file("control")?);
+    write!(control, "{}", source)?;
+
+    // Summary and description generated from Cargo.toml
+    let (summary, description) = crate_info.get_summary_description();
+    let summary = if !config.summary.is_empty() {
+        Some(config.summary.as_str())
+    } else {
+        if let Some(summary) = summary.as_ref() {
+            if summary.len() > 80 {
+                writeln!(
+                    control,
+                    "\n{}",
+                    concat!(
+                        "# FIXME (packages.\"(name)\".section) debcargo ",
+                        "auto-generated summaries are very long, consider overriding"
+                    )
+                )?;
+            }
+        }
+        summary.as_ref().map(String::as_str)
+    };
+    let description = if config.description.is_empty() {
+        description.as_ref().map(String::as_str)
+    } else {
+        Some(config.description.as_str())
+    };
+
+    if lib {
+        // debian/tests/control
+        let mut testctl = io::BufWriter::new(file("tests/control")?);
+        write!(
+            testctl,
+            "{}",
+            PkgTest::new(
+                "@",
+                &crate_name,
+                &crate_version,
+                vec!["--all-features"],
+                &dev_depends,
+                if all_features_test_broken {
+                    vec!["flaky"]
+                } else {
+                    vec![]
+                },
+            )?
+        )?;
+
+        let mut provides = crate_info.calculate_provides(&mut features_with_deps);
+        //debcargo_info!("provides: {:?}", provides);
+        let mut recommends = vec![];
+        let mut suggests = vec![];
+        for (&feature, features) in provides.iter() {
+            if feature == "" {
+                continue;
+            } else if feature == "default" || features.contains(&"default") {
+                recommends.push(feature);
+            } else {
+                suggests.push(feature);
+            }
+        }
+        for (feature, (f_deps, o_deps)) in features_with_deps.into_iter() {
+            let f_provides = provides.remove(feature).unwrap();
+            let mut package = Package::new(
+                base_pkgname,
+                name_suffix,
+                &crate_info.version(),
+                upstream_name,
+                summary,
+                description,
+                if feature == "" { None } else { Some(feature) },
+                f_deps,
+                deb_deps(config, &o_deps)?,
+                f_provides.clone(),
+                if feature == "" {
+                    recommends.clone()
+                } else {
+                    vec![]
+                },
+                if feature == "" {
+                    suggests.clone()
+                } else {
+                    vec![]
+                },
+            )?;
+
+            let test_is_broken =
+                test_is_broken_for(feature) || f_provides.iter().any(|f| test_is_broken_for(f));
+
+            // If any overrides present for this package it will be taken care.
+            package.apply_overrides(config, PackageKey::feature(feature), f_provides);
+            write!(control, "\n{}", package)?;
+
+            let pkgtest = PkgTest::new(
+                package.name(),
+                &crate_name,
+                &crate_version,
+                if feature == "" {
+                    vec!["--no-default-features"]
+                } else {
+                    vec!["--features", feature]
+                },
+                &dev_depends,
+                if test_is_broken {
+                    vec!["flaky"]
+                } else {
+                    vec![]
+                },
+            )?;
+            write!(testctl, "\n{}", pkgtest)?;
+        }
+        assert!(provides.is_empty());
+        // features_with_deps consumed by into_iter, no longer usable
+    }
+
+    if !bins.is_empty() {
+        let boilerplate = Some(format!(
+            "This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
+            upstream_name,
+            bins.join("\n - ")
+        ));
+
+        let mut bin_pkg = Package::new_bin(
+            bin_name,
+            name_suffix,
+            upstream_name,
+            // if not-a-lib then Source section is already FIXME
+            if !lib {
+                None
+            } else {
+                Some("FIXME-(packages.\"(name)\".section)")
+            },
+            summary,
+            description,
+            match boilerplate {
+                Some(ref s) => s,
+                None => "",
+            },
+        );
+
+        // Binary package overrides.
+        bin_pkg.apply_overrides(config, PackageKey::Bin, vec![]);
+        write!(control, "\n{}", bin_pkg)?;
+    }
+
+    Ok((dev_depends, test_is_broken_for("default")))
 }
 
 fn changelog_or_new(tempdir: &Path) -> Result<(fs::File, String)> {
