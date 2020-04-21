@@ -9,7 +9,7 @@ use clap::{crate_authors, crate_version, App, AppSettings, ArgMatches, SubComman
 
 use debcargo::config::{parse_config, Config};
 use debcargo::crates::{update_crates_io, CrateInfo};
-use debcargo::debian::{self, BaseInfo};
+use debcargo::debian::{self, DebInfo};
 use debcargo::errors::Result;
 use debcargo::util;
 use debcargo::{debcargo_info, debcargo_warn};
@@ -63,23 +63,23 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         Some(p) => CrateInfo::new_with_local_crate(crate_name, version, &p)?,
         None => CrateInfo::new(crate_name, version)?,
     };
-    let pkgbase = BaseInfo::new(
+    crate_info.set_includes_excludes(config.orig_tar_excludes(), config.orig_tar_whitelist());
+    let deb_info = DebInfo::new(
         crate_name,
         &crate_info,
         crate_version!(),
         config.semver_suffix,
     );
+    let pkg_srcdir = Path::new(directory.unwrap_or_else(|| deb_info.package_source_dir()));
+    let source_modified = crate_info.extract_crate(pkg_srcdir)?;
 
-    let pkg_srcdir = Path::new(directory.unwrap_or_else(|| pkgbase.package_source_dir()));
     let orig_tar_gz = pkg_srcdir
         .parent()
         .unwrap()
-        .join(pkgbase.orig_tarball_path());
-    crate_info.set_includes_excludes(config.orig_tar_excludes(), config.orig_tar_whitelist());
-    let source_modified = crate_info.extract_crate(pkg_srcdir)?;
+        .join(deb_info.orig_tarball_path());
     debian::prepare_orig_tarball(&crate_info, &orig_tar_gz, source_modified, pkg_srcdir)?;
     debian::prepare_debian_folder(
-        &pkgbase,
+        &deb_info,
         &mut crate_info,
         pkg_srcdir,
         config_path,
@@ -133,9 +133,9 @@ fn do_deb_src_name(matches: &ArgMatches) -> Result<()> {
     let version = matches.value_of("version");
 
     let crate_info = CrateInfo::new_with_update(crate_name, version, false)?;
-    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!(), version.is_some());
+    let deb_info = DebInfo::new(crate_name, &crate_info, crate_version!(), version.is_some());
 
-    println!("{}", pkgbase.package_name());
+    println!("{}", deb_info.package_name());
     Ok(())
 }
 
@@ -145,8 +145,8 @@ fn do_extract(matches: &ArgMatches) -> Result<()> {
     let directory = matches.value_of("directory");
 
     let crate_info = CrateInfo::new(crate_name, version)?;
-    let pkgbase = BaseInfo::new(crate_name, &crate_info, crate_version!(), false);
-    let pkg_srcdir = Path::new(directory.unwrap_or_else(|| pkgbase.package_source_dir()));
+    let deb_info = DebInfo::new(crate_name, &crate_info, crate_version!(), false);
+    let pkg_srcdir = Path::new(directory.unwrap_or_else(|| deb_info.package_source_dir()));
 
     crate_info.extract_crate(pkg_srcdir)?;
     Ok(())
