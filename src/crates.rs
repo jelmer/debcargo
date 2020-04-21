@@ -243,12 +243,21 @@ impl CrateInfo {
         })
     }
 
-    pub fn targets(&self) -> &[Target] {
-        self.manifest.targets()
+    pub fn package(&self) -> &Package {
+        &self.package
     }
 
     pub fn version(&self) -> &Version {
-        self.manifest.summary().package_id().version()
+        self.package_id().version()
+    }
+
+    pub fn semver(&self) -> String {
+        match *self.package_id().version() {
+            Version {
+                major: 0, minor, ..
+            } => format!("0.{}", minor),
+            Version { major, .. } => format!("{}", major),
+        }
     }
 
     pub fn manifest(&self) -> &Manifest {
@@ -262,24 +271,52 @@ impl CrateInfo {
         Ok(self)
     }
 
-    pub fn checksum(&self) -> Option<&str> {
-        self.manifest.summary().checksum()
-    }
-
-    pub fn package_id(&self) -> PackageId {
-        self.manifest.summary().package_id()
-    }
-
     pub fn metadata(&self) -> &ManifestMetadata {
         self.manifest.metadata()
+    }
+
+    pub fn targets(&self) -> &[Target] {
+        self.manifest.targets()
+    }
+
+    pub fn is_lib(&self) -> bool {
+        let mut lib = false;
+        for target in self.manifest.targets() {
+            match *target.kind() {
+                TargetKind::Lib(_) => {
+                    lib = true;
+                    break;
+                }
+                _ => continue,
+            }
+        }
+        lib
+    }
+
+    pub fn get_binary_targets(&self) -> Vec<&str> {
+        let mut bins = Vec::new();
+        for target in self.manifest.targets() {
+            match *target.kind() {
+                TargetKind::Bin => {
+                    bins.push(target.name());
+                }
+                _ => continue,
+            }
+        }
+        bins.sort();
+        bins
     }
 
     pub fn summary(&self) -> &Summary {
         self.manifest.summary()
     }
 
-    pub fn package(&self) -> &Package {
-        &self.package
+    pub fn checksum(&self) -> Option<&str> {
+        self.manifest.summary().checksum()
+    }
+
+    pub fn package_id(&self) -> PackageId {
+        self.manifest.summary().package_id()
     }
 
     pub fn crate_file(&self) -> &FileLock {
@@ -475,59 +512,6 @@ impl CrateInfo {
                 (*k, pp)
             })
             .collect::<BTreeMap<_, _>>()
-    }
-
-    pub fn is_lib(&self) -> bool {
-        let mut lib = false;
-        for target in self.manifest.targets() {
-            match *target.kind() {
-                TargetKind::Lib(_) => {
-                    lib = true;
-                    break;
-                }
-                _ => continue,
-            }
-        }
-
-        lib
-    }
-
-    pub fn get_binary_targets(&self) -> Vec<&str> {
-        let mut bins = Vec::new();
-        for target in self.manifest.targets() {
-            match *target.kind() {
-                TargetKind::Bin => {
-                    bins.push(target.name());
-                }
-                _ => continue,
-            }
-        }
-        bins.sort();
-        bins
-    }
-
-    pub fn semver_suffix(&self) -> String {
-        let lib = self.is_lib();
-        let bins = self.get_binary_targets();
-
-        match *self.package_id().version() {
-            _ if !lib && !bins.is_empty() => "".to_string(),
-            Version {
-                major: 0, minor, ..
-            } => format!("-0.{}", minor),
-            Version { major, .. } => format!("-{}", major),
-        }
-    }
-
-    pub fn semver_uscan_pattern(&self) -> String {
-        // See `man uscan` description of @ANY_VERSION@ on how these
-        // regex patterns were built.
-        match *self.package_id().version() {
-            Version {
-                major: 0, minor, ..
-            } => format!("[-_]?(0\\.{}\\.\\d[\\-+\\.:\\~\\da-zA-Z]*)", minor),
-            Version { major, .. } => format!("[-_]?({}\\.\\d[\\-+\\.:\\~\\da-zA-Z]*)", major),
-        }
     }
 
     pub fn get_summary_description(&self) -> (Option<String>, Option<String>) {

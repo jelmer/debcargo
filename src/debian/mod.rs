@@ -55,11 +55,22 @@ impl BaseInfo {
         let name_dashed = upstream.replace('_', "-");
         let base_package_name = name_dashed.to_lowercase();
         let (name_suffix, uscan_version_pattern, package_name) = if semver_suffix {
-            (
-                Some(crate_info.semver_suffix()),
-                Some(crate_info.semver_uscan_pattern()),
-                format!("{}{}", base_package_name, crate_info.semver_suffix()),
-            )
+            let semver = crate_info.semver();
+            let lib = crate_info.is_lib();
+            let bins = crate_info.get_binary_targets();
+            let name_suffix = if !lib && !bins.is_empty() {
+                "".to_string()
+            } else {
+                format!("-{}", &semver)
+            };
+
+            // See `man uscan` description of @ANY_VERSION@ on how these
+            // regex patterns were built.
+            let uscan = format!("[-_]?({}\\.\\d[\\-+\\.:\\~\\da-zA-Z]*)", &semver);
+
+            let pkgname = format!("{}{}", base_package_name, &name_suffix);
+
+            (Some(name_suffix), Some(uscan), pkgname)
         } else {
             (None, None, base_package_name.clone())
         };
