@@ -21,7 +21,7 @@ use crate::errors::*;
 use crate::util::{self, copy_tree, expect_success, vec_opt_iter};
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
-use self::control::deb_version;
+use self::control::{deb_version, dsc_name};
 use self::control::{Package, PkgTest, Source};
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
@@ -490,7 +490,7 @@ pub fn prepare_debian_folder(
             }
         }
         let changelog_new_entry = ChangelogEntry::new(
-            base_pkgname.to_string(),
+            dsc_name(&base_pkgname),
             source_deb_version,
             changelog::DEFAULT_DIST.to_string(),
             "urgency=medium".to_string(),

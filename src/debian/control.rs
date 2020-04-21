@@ -178,7 +178,7 @@ impl Source {
             "".to_string()
         };
         Ok(Source {
-            name: format!("rust-{}", pkgbase),
+            name: dsc_name(&pkgbase),
             section: section.to_string(),
             priority,
             maintainer,
@@ -190,10 +190,6 @@ impl Source {
             homepage: home.to_string(),
             x_cargo: cargo_crate,
         })
-    }
-
-    pub fn srcname(&self) -> &str {
-        self.name.as_str()
     }
 
     pub fn apply_overrides(&mut self, config: &Config) {
@@ -537,7 +533,11 @@ pub fn deb_version(v: &Version) -> String {
     s
 }
 
-fn deb_name(name: &str) -> String {
+pub fn dsc_name(name: &str) -> String {
+    format!("rust-{}", name.replace('_', "-"))
+}
+
+pub fn deb_name(name: &str) -> String {
     format!("librust-{}-dev", name.replace('_', "-"))
 }
 
