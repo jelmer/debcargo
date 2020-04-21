@@ -25,7 +25,7 @@ pub struct Config {
     pub crate_src_path: Option<PathBuf>,
     pub summary: String,
     pub description: String,
-    pub maintainer: Option<String>,
+    pub maintainer: String,
     pub uploaders: Option<Vec<String>>,
 
     pub source: Option<SourceOverride>,
@@ -69,7 +69,7 @@ impl Default for Config {
             crate_src_path: None,
             summary: "".to_string(),
             description: "".to_string(),
-            maintainer: Some(RUST_MAINT.to_string()),
+            maintainer: RUST_MAINT.to_string(),
             uploaders: None,
             source: None,
             packages: None,
@@ -101,8 +101,8 @@ impl Config {
         self.whitelist.as_ref()
     }
 
-    pub fn maintainer(&self) -> Option<&str> {
-        Some(self.maintainer.as_ref()?)
+    pub fn maintainer(&self) -> &str {
+        self.maintainer.as_str()
     }
 
     pub fn uploaders(&self) -> Option<&Vec<String>> {

@@ -259,7 +259,7 @@ pub fn prepare_debian_folder(
     let base_pkgname = deb_info.base_package_name();
     let upstream_name = deb_info.upstream_name();
 
-    let maintainer = config.maintainer().unwrap();
+    let maintainer = config.maintainer();
     let uploaders: Vec<&str> = vec_opt_iter(config.uploaders())
         .map(String::as_str)
         .collect();
@@ -560,7 +560,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     let name_suffix = deb_info.name_suffix();
     let upstream_name = deb_info.upstream_name();
 
-    let maintainer = config.maintainer().unwrap();
+    let maintainer = config.maintainer();
     let uploaders: Vec<&str> = vec_opt_iter(config.uploaders())
         .map(String::as_str)
         .collect();
