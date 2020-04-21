@@ -35,7 +35,7 @@ mod dependency;
 pub struct DebInfo {
     upstream_name: String,
     base_package_name: String,
-    name_suffix: Option<String>,
+    name_suffix: Option<String>, // Some implies semver_suffix, i.e. Some("") is different from None
     uscan_version_pattern: Option<String>,
     package_name: String,
     debian_version: String,
