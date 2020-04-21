@@ -367,14 +367,16 @@ pub fn prepare_debian_folder(
     }
 
     // debian/control & debian/tests/control
-    let (dev_depends, default_test_broken) =
+    let (has_dev_depends, default_test_broken) =
         prepare_debian_control(deb_info, crate_info, config, &mut file)?;
 
     // debian/rules
     {
         let mut rules = file("rules")?;
         rules.set_permissions(fs::Permissions::from_mode(0o777))?;
-        if !dev_depends.is_empty() {
+        if has_dev_depends {
+            // don't run any tests, we don't want extra B-D on dev-depends
+            // this could potentially cause B-D cycles so we avoid it
             write!(
                 rules,
                 "{}",
@@ -535,7 +537,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     crate_info: &mut CrateInfo,
     config: &Config,
     mut file: F,
-) -> Result<(Vec<String>, bool)> {
+) -> Result<(bool, bool)> {
     let lib = crate_info.is_lib();
     let mut bins = crate_info.get_binary_targets();
     if lib && !bins.is_empty() && !config.build_bin_package() {
@@ -785,7 +787,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         write!(control, "\n{}", bin_pkg)?;
     }
 
-    Ok((dev_depends, test_is_broken_for("default")))
+    Ok((!dev_depends.is_empty(), test_is_broken_for("default")))
 }
 
 fn changelog_or_new(tempdir: &Path) -> Result<(fs::File, String)> {
