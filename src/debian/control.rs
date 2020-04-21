@@ -183,7 +183,7 @@ impl Source {
             priority,
             maintainer,
             uploaders,
-            standards: "4.4.1".to_string(),
+            standards: "4.5.0".to_string(),
             build_deps,
             vcs_git,
             vcs_browser,

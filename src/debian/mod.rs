@@ -299,7 +299,7 @@ pub fn prepare_debian_folder(
     // debian/compat
     {
         let mut compat = file("compat")?;
-        writeln!(compat, "11")?;
+        writeln!(compat, "12")?;
     }
 
     // debian/copyright
@@ -596,7 +596,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     let test_is_broken_for = |f: &str| *broken_tests.get(f).unwrap();
 
     let build_deps = {
-        let build_deps = ["debhelper (>= 11)", "dh-cargo (>= 18)"]
+        let build_deps = ["debhelper (>= 12)", "dh-cargo (>= 24)"]
             .iter()
             .map(|x| x.to_string());
         let (default_features, default_deps) =
