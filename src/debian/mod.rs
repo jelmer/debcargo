@@ -19,7 +19,9 @@ use tempfile;
 use crate::config::{package_field_for_feature, Config, PackageKey};
 use crate::crates::CrateInfo;
 use crate::errors::*;
-use crate::util::{self, copy_tree, expect_success, get_rec_bool, traverse_depth, vec_opt_iter};
+use crate::util::{
+    self, copy_tree, expect_success, get_transitive_val, traverse_depth, vec_opt_iter,
+};
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
 use self::control::{deb_version, dsc_name};
@@ -569,7 +571,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     let test_is_marked_broken = |f: &str| config.package_test_is_broken(PackageKey::feature(f));
     let test_is_broken = |f: &str| {
         let getparents = |f: &str| features_with_deps.get(f).map(|(d, _)| d);
-        match get_rec_bool(&getparents, &test_is_marked_broken, f) {
+        match get_transitive_val(&getparents, &test_is_marked_broken, f) {
             Err((k, vv)) => debcargo_bail!(
                 "{} {}: {}: {:?}",
                 "error trying to recursively determine test_is_broken for",

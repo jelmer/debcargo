@@ -61,26 +61,27 @@ pub(crate) fn traverse_depth<'a>(
     x
 }
 
-/// Get a bool that might be set at a key or any of its ancestor keys,
+/// Get a value that might be set at a key or any of its ancestor keys,
 /// whichever is closest. Error if there are conflicting definitions.
-pub(crate) fn get_rec_bool<
+pub(crate) fn get_transitive_val<
     'a,
     P: Fn(K) -> Option<&'a Vec<K>>,
-    F: Fn(K) -> Option<bool>,
+    F: Fn(K) -> Option<V>,
     K: 'a + Ord + Copy,
+    V: Eq + Ord,
 >(
     getparents: &'a P,
     f: &F,
     key: K,
-) -> Result<Option<bool>, (K, Vec<(K, bool)>)> {
+) -> Result<Option<V>, (K, Vec<(K, V)>)> {
     let here = f(key);
     if here.is_some() {
-        // bool overrides anything from parents
+        // value overrides anything from parents
         Ok(here)
     } else {
         let mut candidates = Vec::new();
         for par in vec_opt_iter(getparents(key)) {
-            match get_rec_bool(getparents, f, *par)? {
+            match get_transitive_val(getparents, f, *par)? {
                 Some(v) => candidates.push((*par, v)),
                 None => (), // parent has no explicit value either
             };
@@ -92,7 +93,7 @@ pub(crate) fn get_rec_bool<
             values.sort();
             values.dedup();
             if values.len() == 1 {
-                Ok(Some(*values[0]))
+                Ok(candidates.pop().map(|(_, v)| v))
             } else {
                 Err((key, candidates)) // handle conflict
             }
