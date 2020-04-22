@@ -534,7 +534,7 @@ pub fn prepare_debian_folder(
 
 fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, std::io::Error>>(
     deb_info: &DebInfo,
-    crate_info: &mut CrateInfo,
+    crate_info: &CrateInfo,
     config: &Config,
     mut file: F,
 ) -> Result<(bool, bool)> {
