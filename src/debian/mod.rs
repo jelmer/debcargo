@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
 use std::os::unix::fs::PermissionsExt;
@@ -6,6 +7,7 @@ use std::process::Command;
 use std::str::FromStr;
 
 use anyhow::format_err;
+use cargo::core::Dependency;
 use chrono::{self, Datelike};
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
@@ -17,7 +19,7 @@ use tempfile;
 use crate::config::{package_field_for_feature, Config, PackageKey};
 use crate::crates::CrateInfo;
 use crate::errors::*;
-use crate::util::{self, copy_tree, expect_success, get_rec_bool, vec_opt_iter};
+use crate::util::{self, copy_tree, expect_success, get_rec_bool, traverse_depth, vec_opt_iter};
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
 use self::control::{deb_version, dsc_name};
@@ -677,8 +679,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             )?
         )?;
 
-        let mut reduced_features_with_deps = features_with_deps.clone();
-        let mut provides = crate_info.calculate_provides(&mut reduced_features_with_deps);
+        let (mut provides, reduced_features_with_deps) = reduce_provides(&features_with_deps);
         //debcargo_info!("provides: {:?}", provides);
         let mut recommends = vec![];
         let mut suggests = vec![];
@@ -755,7 +756,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             }
         }
         assert!(provides.is_empty());
-        // features_with_deps consumed by into_iter, no longer usable
+        // reduced_features_with_deps consumed by into_iter, no longer usable
     }
 
     if !bins.is_empty() {
@@ -789,6 +790,83 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     }
 
     Ok((!dev_depends.is_empty(), test_is_broken("default")?))
+}
+
+/// Calculate Provides: in an attempt to reduce the number of binaries.
+///
+/// Note: this mutates features_with_deps so you MUST run e.g.
+/// feature_all_deps *before* calling this.
+///
+/// The algorithm is very simple and incomplete. e.g. it does not, yet
+/// simplify things like:
+///   f1 depends on f2, f3
+///   f2 depends on f4
+///   f3 depends on f4
+/// into
+///   f4 provides f1, f2, f3
+fn reduce_provides<'a>(
+    orig_features_with_deps: &BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
+) -> (
+    BTreeMap<&'a str, Vec<&'a str>>,
+    BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
+) {
+    let mut features_with_deps = orig_features_with_deps.clone();
+
+    // If any features have duplicate dependencies, deduplicate them by
+    // making all of the subsequent ones depend on the first one.
+    let mut features_rev_deps = BTreeMap::new();
+    for (&f, dep) in features_with_deps.iter() {
+        if !features_rev_deps.contains_key(dep) {
+            features_rev_deps.insert(dep.clone(), vec![]);
+        }
+        features_rev_deps.get_mut(dep).unwrap().push(f);
+    }
+    for (_, ff) in features_rev_deps.into_iter() {
+        let f0 = ff[0];
+        for f in &ff[1..] {
+            features_with_deps.insert(f, (vec![f0], vec![]));
+        }
+    }
+
+    // Calculate provides by following 0- or 1-length dependency lists.
+    let mut provides = BTreeMap::new();
+    let mut provided = Vec::new();
+    for (&f, (ref ff, ref dd)) in features_with_deps.iter() {
+        //debcargo_info!("provides considering: {:?}", &f);
+        if !dd.is_empty() {
+            continue;
+        }
+        assert!(!ff.is_empty() || f == "");
+        let k = if ff.len() == 1 {
+            // if A depends on a single feature B, then B provides A.
+            ff[0]
+        } else {
+            continue;
+        };
+        //debcargo_info!("provides still considering: {:?}", &f);
+        if !provides.contains_key(k) {
+            provides.insert(k, vec![]);
+        }
+        provides.get_mut(k).unwrap().push(f);
+        provided.push(f);
+    }
+
+    //debcargo_info!("provides-internal: {:?}", &provides);
+    //debcargo_info!("provided-internal: {:?}", &provided);
+    for p in provided {
+        features_with_deps.remove(p);
+    }
+
+    let provides = features_with_deps
+        .keys()
+        .map(|k| {
+            let mut pp = traverse_depth(&provides, k);
+            pp.sort();
+            (*k, pp)
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    (provides, features_with_deps)
 }
 
 fn changelog_or_new(tempdir: &Path) -> Result<(fs::File, String)> {
