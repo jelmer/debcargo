@@ -656,10 +656,18 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
     if lib {
         // debian/tests/control
-        let all_features_test_broken = test_is_marked_broken("@").unwrap_or(false)
-            || features_with_deps
-                .keys()
-                .any(|f| test_is_marked_broken(f).unwrap_or(false));
+        let all_features_test_broken = Some(&"@")
+            .into_iter()
+            .chain(features_with_deps.keys())
+            .any(|f| test_is_marked_broken(f).unwrap_or(false));
+        let all_features_test_depends = Some(&"@")
+            .into_iter()
+            .chain(features_with_deps.keys())
+            .map(|f| vec_opt_iter(config.package_test_depends(PackageKey::feature(f))))
+            .flatten()
+            .map(|s| s.to_string())
+            .chain(dev_depends.clone())
+            .collect::<Vec<_>>();
         let mut testctl = io::BufWriter::new(file("tests/control")?);
         write!(
             testctl,
@@ -670,7 +678,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 "@",
                 &crate_version,
                 vec!["--all-features"],
-                &dev_depends,
+                &all_features_test_depends,
                 if all_features_test_broken {
                     vec!["flaky"]
                 } else {
@@ -725,10 +733,12 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
             // Generate tests for all features in this package
             for f in crate_features {
+                let (feature_deps, _) = crate_info.feature_all_deps(&features_with_deps, f);
+
+                // args
                 let mut args = if f == "default" {
                     vec![]
                 } else {
-                    let (feature_deps, _) = crate_info.feature_all_deps(&features_with_deps, f);
                     if feature_deps.contains(&"default") {
                         vec![]
                     } else {
@@ -739,13 +749,23 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                     args.push("--features");
                     args.push(f);
                 }
+
+                // deps
+                let test_depends = Some(f)
+                    .into_iter()
+                    .chain(feature_deps)
+                    .map(|f| vec_opt_iter(config.package_test_depends(PackageKey::feature(f))))
+                    .flatten()
+                    .map(|s| s.to_string())
+                    .chain(dev_depends.clone())
+                    .collect::<Vec<_>>();
                 let pkgtest = PkgTest::new(
                     package.name(),
                     &crate_name,
                     &f,
                     &crate_version,
                     args,
-                    &dev_depends,
+                    &test_depends,
                     if test_is_broken(f)? {
                         vec!["flaky"]
                     } else {

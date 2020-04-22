@@ -54,6 +54,7 @@ pub struct PackageOverride {
     provides: Option<Vec<String>>,
     extra_lines: Option<Vec<String>>,
     test_is_broken: Option<bool>,
+    test_depends: Option<Vec<String>>,
 }
 
 impl Default for Config {
@@ -192,6 +193,10 @@ impl Config {
 
     pub fn package_test_is_broken(&self, key: PackageKey) -> Option<bool> {
         self.with_package(key, |pkg| pkg.test_is_broken)
+    }
+
+    pub fn package_test_depends(&self, key: PackageKey) -> Option<&Vec<String>> {
+        self.with_package(key, |pkg| pkg.test_depends.as_ref())
     }
 }
 

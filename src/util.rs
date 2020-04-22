@@ -61,11 +61,13 @@ pub(crate) fn traverse_depth<'a>(
     x
 }
 
+/// Get a bool that might be set at a key or any of its ancestor keys,
+/// whichever is closest. Error if there are conflicting definitions.
 pub(crate) fn get_rec_bool<
     'a,
-    K: 'a + Ord + Copy,
     P: Fn(K) -> Option<&'a Vec<K>>,
     F: Fn(K) -> Option<bool>,
+    K: 'a + Ord + Copy,
 >(
     getparents: &'a P,
     f: &F,

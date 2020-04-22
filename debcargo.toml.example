@@ -198,15 +198,16 @@ uploaders = [ "foo bar <foo@debian.org>" ]
 # true for [packages.lib] and false for [packages."lib+std"].
 #test_is_broken = false
 
-# TODO:
-# Some tests depend on extra system tools or libraries. This is for that. Like
-# test_is_broken, the effect is transitive to its rdeps. To explicitly unset it
-# for a feature B, prepend it with a "-".
-#
-# So for example if feature A depends on git, and feature B depends on A but
-# for some reason doesn't depend on git, add "git" here for feature A and
-# "-git" here for feature B.
+# Some tests depend on extra system tools or libraries, which need to be given
+# to autopkgtest. Like test_is_broken, the effect is transitive to its rdeps.
 #test_depends = []
+#
+# Note: we do not (currently) support unsetting of this in indirect rdeps. The
+# reason is it's unclear what the semantics should be: suppose we have a
+# diamond-shaped dependency graph, feature A depends on {B, C} depends on D.
+# Now suppose D says "depends:git" and C says "cancel depends:git". Does this
+# mean A depends on git via B, or do we cancel it going via C? We also can't
+# see a real use-case for this, but please file an issue if you have one.
 
 # More additional fields. This is mostly useful for binary packages that might
 # relate to other external programs, e.g. debcargo Recommends cargo.
