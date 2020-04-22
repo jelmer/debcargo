@@ -196,18 +196,23 @@ uploaders = [ "foo bar <foo@debian.org>" ]
 # So for example if the test breaks for the bare library (when running with
 # --no-default-features) but works when the std feature is enabled, set this to
 # true for [packages.lib] and false for [packages."lib+std"].
+#
+# Note: debcargo will error if you set these in an inconsistent way. For
+# example if feature A depends on {B, C}, B says true and C says false, of
+# course we cannot determine what A should be. You can suppress the error by
+# explicitly giving A a value, either true or false.
+#
 #test_is_broken = false
 
 # Some tests depend on extra system tools or libraries, which need to be given
 # to autopkgtest. Like test_is_broken, the effect is transitive to its rdeps.
 #test_depends = []
 #
-# Note: we do not (currently) support unsetting of this in indirect rdeps. The
-# reason is it's unclear what the semantics should be: suppose we have a
-# diamond-shaped dependency graph, feature A depends on {B, C} depends on D.
-# Now suppose D says "depends:git" and C says "cancel depends:git". Does this
-# mean A depends on git via B, or do we cancel it going via C? We also can't
-# see a real use-case for this, but please file an issue if you have one.
+# Note: we do not (currently) support unsetting of this in indirect rdeps. This
+# would result in similar conflict issues as documented for test_is_broken. It
+# is possible to work around it similarly, by requiring manual resolution - but
+# cancelling dependencies is harder to implement than true/false so we avoid it
+# for now. Please file an issue if you have a real use-case for it.
 
 # More additional fields. This is mostly useful for binary packages that might
 # relate to other external programs, e.g. debcargo Recommends cargo.
