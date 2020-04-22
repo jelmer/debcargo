@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::fs;
 use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
 use std::os::unix::fs::PermissionsExt;
@@ -18,7 +17,7 @@ use tempfile;
 use crate::config::{package_field_for_feature, Config, PackageKey};
 use crate::crates::CrateInfo;
 use crate::errors::*;
-use crate::util::{self, copy_tree, expect_success, vec_opt_iter};
+use crate::util::{self, copy_tree, expect_success, get_rec_bool, vec_opt_iter};
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
 use self::control::{deb_version, dsc_name};
@@ -125,20 +124,6 @@ impl DebInfo {
     pub fn orig_tarball_path(&self) -> &str {
         self.orig_tarball_path.as_str()
     }
-}
-
-fn traverse_depth_2<'a, T>(
-    map: &BTreeMap<&'a str, (Vec<&'a str>, T)>,
-    key: &'a str,
-) -> Vec<&'a str> {
-    let mut x = Vec::new();
-    if let Some((pp, _)) = (*map).get(key) {
-        x.extend(pp);
-        for p in pp {
-            x.extend(traverse_depth_2(map, p));
-        }
-    }
-    x
 }
 
 pub fn prepare_orig_tarball(
@@ -567,35 +552,32 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         .map(String::as_str)
         .collect();
 
-    let mut features_with_deps = crate_info.all_dependencies_and_features();
+    let features_with_deps = crate_info.all_dependencies_and_features();
     let dev_depends = deb_deps(config, &crate_info.dev_dependencies())?;
-    /*debcargo_info!("features_with_deps: {:?}", features_with_deps
-    .iter()
-    .map(|(&f, &(ref ff, ref dd))| {
-        (f, (ff, deb_deps(config, dd).unwrap()))
-    }).collect::<Vec<_>>());*/
+    /*debcargo_info!(
+        "features_with_deps: {:?}",
+        features_with_deps
+            .iter()
+            .map(|(&f, &(ref ff, ref dd))| { (f, (ff, deb_deps(config, dd).unwrap())) })
+            .collect::<Vec<_>>()
+    );*/
     let meta = crate_info.metadata();
 
     // debian/tests/control, preparation
-    let (all_features_test_broken, broken_tests) = {
-        let is_broken = |f: &str| {
-            config
-                .package_test_is_broken(PackageKey::feature(f))
-                .unwrap_or(false)
-        };
-        let mut broken_tests: BTreeMap<&str, bool> = BTreeMap::new();
-        let mut any_test_broken = false;
-        for (feature, _) in features_with_deps.iter() {
-            let broken = is_broken(feature);
-            if broken {
-                any_test_broken = true;
-            }
-            let all_deps = traverse_depth_2(&features_with_deps, feature);
-            broken_tests.insert(feature, broken || all_deps.iter().any(|f| is_broken(f)));
+    let test_is_marked_broken = |f: &str| config.package_test_is_broken(PackageKey::feature(f));
+    let test_is_broken = |f: &str| {
+        let getparents = |f: &str| features_with_deps.get(f).map(|(d, _)| d);
+        match get_rec_bool(&getparents, &test_is_marked_broken, f) {
+            Err((k, vv)) => debcargo_bail!(
+                "{} {}: {}: {:?}",
+                "error trying to recursively determine test_is_broken for",
+                k,
+                "dependencies have inconsistent config values",
+                vv
+            ),
+            Ok(v) => Ok(v.unwrap_or(false)),
         }
-        (is_broken("@") || any_test_broken, broken_tests)
     };
-    let test_is_broken_for = |f: &str| *broken_tests.get(f).unwrap();
 
     let build_deps = {
         let build_deps = ["debhelper (>= 12)", "dh-cargo (>= 24)"]
@@ -672,13 +654,18 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
     if lib {
         // debian/tests/control
+        let all_features_test_broken = test_is_marked_broken("@").unwrap_or(false)
+            || features_with_deps
+                .keys()
+                .any(|f| test_is_marked_broken(f).unwrap_or(false));
         let mut testctl = io::BufWriter::new(file("tests/control")?);
         write!(
             testctl,
             "{}",
             PkgTest::new(
-                "@",
+                &dsc_name(&crate_name),
                 &crate_name,
+                "@",
                 &crate_version,
                 vec!["--all-features"],
                 &dev_depends,
@@ -690,7 +677,8 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             )?
         )?;
 
-        let mut provides = crate_info.calculate_provides(&mut features_with_deps);
+        let mut reduced_features_with_deps = features_with_deps.clone();
+        let mut provides = crate_info.calculate_provides(&mut reduced_features_with_deps);
         //debcargo_info!("provides: {:?}", provides);
         let mut recommends = vec![];
         let mut suggests = vec![];
@@ -703,8 +691,11 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 suggests.push(feature);
             }
         }
-        for (feature, (f_deps, o_deps)) in features_with_deps.into_iter() {
+        for (feature, (f_deps, o_deps)) in reduced_features_with_deps.into_iter() {
             let f_provides = provides.remove(feature).unwrap();
+            let mut crate_features = f_provides.clone();
+            crate_features.push(feature);
+
             let mut package = Package::new(
                 base_pkgname,
                 name_suffix,
@@ -727,31 +718,41 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                     vec![]
                 },
             )?;
-
-            let test_is_broken =
-                test_is_broken_for(feature) || f_provides.iter().any(|f| test_is_broken_for(f));
-
             // If any overrides present for this package it will be taken care.
             package.apply_overrides(config, PackageKey::feature(feature), f_provides);
             write!(control, "\n{}", package)?;
 
-            let pkgtest = PkgTest::new(
-                package.name(),
-                &crate_name,
-                &crate_version,
-                if feature == "" {
-                    vec!["--no-default-features"]
-                } else {
-                    vec!["--features", feature]
-                },
-                &dev_depends,
-                if test_is_broken {
-                    vec!["flaky"]
-                } else {
+            // Generate tests for all features in this package
+            for f in crate_features {
+                let mut args = if f == "default" {
                     vec![]
-                },
-            )?;
-            write!(testctl, "\n{}", pkgtest)?;
+                } else {
+                    let (feature_deps, _) = crate_info.feature_all_deps(&features_with_deps, f);
+                    if feature_deps.contains(&"default") {
+                        vec![]
+                    } else {
+                        vec!["--no-default-features"]
+                    }
+                };
+                if f != "" {
+                    args.push("--features");
+                    args.push(f);
+                }
+                let pkgtest = PkgTest::new(
+                    package.name(),
+                    &crate_name,
+                    &f,
+                    &crate_version,
+                    args,
+                    &dev_depends,
+                    if test_is_broken(f)? {
+                        vec!["flaky"]
+                    } else {
+                        vec![]
+                    },
+                )?;
+                write!(testctl, "\n{}", pkgtest)?;
+            }
         }
         assert!(provides.is_empty());
         // features_with_deps consumed by into_iter, no longer usable
@@ -787,7 +788,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         write!(control, "\n{}", bin_pkg)?;
     }
 
-    Ok((!dev_depends.is_empty(), test_is_broken_for("default")))
+    Ok((!dev_depends.is_empty(), test_is_broken("default")?))
 }
 
 fn changelog_or_new(tempdir: &Path) -> Result<(fs::File, String)> {

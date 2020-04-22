@@ -188,9 +188,25 @@ uploaders = [ "foo bar <foo@debian.org>" ]
 #
 # packages."lib+@"      - disables the test for the --all-features autopkgtest
 #
-# The effect is transitive so e.g. if you specify this for feature A, and
-# feature B depends on feature A, then feature B also implicitly has this set.
+# The effect is transitive to its reverse-dependencies, so e.g. if you specify
+# this for feature A, and feature B depends on feature A, then feature B also
+# implicitly has this set. To unset it on feature B (and its transitive rdeps),
+# explicit set this to false for feature B as well.
+#
+# So for example if the test breaks for the bare library (when running with
+# --no-default-features) but works when the std feature is enabled, set this to
+# true for [packages.lib] and false for [packages."lib+std"].
 #test_is_broken = false
+
+# TODO:
+# Some tests depend on extra system tools or libraries. This is for that. Like
+# test_is_broken, the effect is transitive to its rdeps. To explicitly unset it
+# for a feature B, prepend it with a "-".
+#
+# So for example if feature A depends on git, and feature B depends on A but
+# for some reason doesn't depend on git, add "git" here for feature A and
+# "-git" here for feature B.
+#test_depends = []
 
 # More additional fields. This is mostly useful for binary packages that might
 # relate to other external programs, e.g. debcargo Recommends cargo.

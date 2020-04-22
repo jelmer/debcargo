@@ -42,6 +42,7 @@ pub struct Package {
 pub struct PkgTest {
     name: String,
     crate_name: String,
+    feature: String,
     version: Version,
     extra_test_args: Vec<String>,
     depends: Vec<String>,
@@ -113,7 +114,7 @@ impl fmt::Display for PkgTest {
             self.version,
             self.extra_test_args.join(" ")
         )?;
-        writeln!(f, "Features: test-name={}", &self.name)?;
+        writeln!(f, "Features: test-name={}:{}", &self.name, &self.feature)?;
         // TODO: drop the below workaround when rust-lang/cargo#5133 is fixed.
         // The downside of our present work-around is that more dependencies
         // must be installed, which makes it harder to actually run the tests
@@ -285,6 +286,12 @@ impl Package {
         i.map(|i| provides.remove(i));
 
         let mut depends = vec!["${misc:Depends}".to_string()];
+        if feature.is_some() && !f_deps.contains(&"") {
+            // in dh-cargo we symlink /usr/share/doc/{$feature => $main} pkg
+            // so we always need this direct dependency, even if the feature
+            // only indirectly depends on the bare library via another
+            depends.push(deb_feature(""));
+        }
         depends.extend(f_deps.into_iter().map(deb_feature));
         depends.extend(o_deps);
 
@@ -507,6 +514,7 @@ impl PkgTest {
     pub fn new(
         name: &str,
         crate_name: &str,
+        feature: &str,
         version: &Version,
         extra_test_args: Vec<&str>,
         depends: &[String],
@@ -515,6 +523,7 @@ impl PkgTest {
         Ok(PkgTest {
             name: name.to_string(),
             crate_name: crate_name.to_string(),
+            feature: feature.to_string(),
             version: version.clone(),
             extra_test_args: extra_test_args.iter().map(|x| x.to_string()).collect(),
             depends: depends.to_vec(),

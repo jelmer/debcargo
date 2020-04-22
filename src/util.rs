@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::Error;
 use std::iter::Iterator;
@@ -43,5 +44,56 @@ pub fn vec_opt_iter<'a, T>(option: Option<&'a Vec<T>>) -> impl Iterator<Item = &
 pub fn expect_success(cmd: &mut Command, err: &str) {
     if !cmd.status().unwrap().success() {
         panic!("{}", err);
+    }
+}
+
+pub(crate) fn traverse_depth<'a>(
+    map: &BTreeMap<&'a str, Vec<&'a str>>,
+    key: &'a str,
+) -> Vec<&'a str> {
+    let mut x = Vec::new();
+    if let Some(pp) = (*map).get(key) {
+        x.extend(pp);
+        for p in pp {
+            x.extend(traverse_depth(map, p));
+        }
+    }
+    x
+}
+
+pub(crate) fn get_rec_bool<
+    'a,
+    K: 'a + Ord + Copy,
+    P: Fn(K) -> Option<&'a Vec<K>>,
+    F: Fn(K) -> Option<bool>,
+>(
+    getparents: &'a P,
+    f: &F,
+    key: K,
+) -> Result<Option<bool>, (K, Vec<(K, bool)>)> {
+    let here = f(key);
+    if here.is_some() {
+        // bool overrides anything from parents
+        Ok(here)
+    } else {
+        let mut candidates = Vec::new();
+        for par in vec_opt_iter(getparents(key)) {
+            match get_rec_bool(getparents, f, *par)? {
+                Some(v) => candidates.push((*par, v)),
+                None => (), // parent has no explicit value either
+            };
+        }
+        if candidates.is_empty() {
+            Ok(None) // here is None
+        } else {
+            let mut values = candidates.iter().map(|(_, v)| v).collect::<Vec<_>>();
+            values.sort();
+            values.dedup();
+            if values.len() == 1 {
+                Ok(Some(*values[0]))
+            } else {
+                Err((key, candidates)) // handle conflict
+            }
+        }
     }
 }
