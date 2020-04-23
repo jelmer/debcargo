@@ -546,7 +546,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     };
 
     let crate_name = crate_info.package_id().name();
-    let crate_version = crate_info.package_id().version();
+    let debian_version = deb_info.debian_version();
     let base_pkgname = deb_info.base_package_name();
     let name_suffix = deb_info.name_suffix();
     let upstream_name = deb_info.upstream_name();
@@ -677,7 +677,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 &dsc_name(&crate_name),
                 &crate_name,
                 "@",
-                &crate_version,
+                &debian_version,
                 vec!["--all-features"],
                 &all_features_test_depends,
                 if all_features_test_broken {
@@ -764,7 +764,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                     package.name(),
                     &crate_name,
                     &f,
-                    &crate_version,
+                    &debian_version,
                     args,
                     &test_depends,
                     if test_is_broken(f)? {
