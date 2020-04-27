@@ -746,7 +746,9 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                         vec!["--no-default-features"]
                     }
                 };
-                if f != "" {
+                // --features default sometimes fails, see
+                // https://github.com/rust-lang/cargo/issues/8164
+                if f != "" && f != "default" {
                     args.push("--features");
                     args.push(f);
                 }
