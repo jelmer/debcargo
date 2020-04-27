@@ -70,6 +70,7 @@ impl fmt::Display for Source {
         if !self.x_cargo.is_empty() {
             writeln!(f, "X-Cargo-Crate: {}", self.x_cargo)?;
         }
+        writeln!(f, "Rules-Requires-Root: no")?;
 
         Ok(())
     }
