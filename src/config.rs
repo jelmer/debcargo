@@ -158,7 +158,7 @@ impl Config {
     }
 
     pub fn package_summary(&self, key: PackageKey) -> Option<&str> {
-        self.with_package(key, |pkg| pkg.section.as_ref().map(|s| s.as_str()))
+        self.with_package(key, |pkg| pkg.summary.as_ref().map(|s| s.as_str()))
     }
 
     pub fn package_description(&self, key: PackageKey) -> Option<&str> {

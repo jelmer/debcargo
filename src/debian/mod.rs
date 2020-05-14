@@ -827,7 +827,8 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     }
 
     if !bins.is_empty() {
-        let pkg_summary = format!("{} - binaries", summary_prefix);
+        // adding " - binaries" is a bit redundant for users, so just leave as-is
+        let pkg_summary = summary_prefix;
         let pkg_description = format!(
             "{}This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
             description_prefix,

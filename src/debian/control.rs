@@ -404,7 +404,7 @@ impl Package {
             self.summary = summary.to_string();
         }
         if let Some(description) = config.package_description(key) {
-            self.summary = description.to_string();
+            self.description = description.to_string();
         }
 
         self.depends.extend(package_field_for_feature(
