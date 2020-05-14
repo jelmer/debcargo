@@ -2,7 +2,6 @@ use std::env::{self, VarError};
 use std::fmt::{self, Write};
 
 use anyhow::{format_err, Error};
-use itertools::Itertools;
 use semver::Version;
 use textwrap::fill;
 
@@ -35,7 +34,6 @@ pub struct Package {
     provides: Vec<String>,
     summary: String,
     description: String,
-    boilerplate: String,
     extra_lines: Vec<String>,
 }
 
@@ -230,9 +228,8 @@ impl Package {
         basename: &str,
         name_suffix: Option<&str>,
         version: &Version,
-        upstream_name: &str,
-        summary: Option<&str>,
-        description: Option<&str>,
+        summary: &str,
+        description: &str,
         feature: Option<&str>,
         f_deps: Vec<&str>,
         o_deps: Vec<String>,
@@ -296,52 +293,6 @@ impl Package {
         depends.extend(f_deps.into_iter().map(deb_feature));
         depends.extend(o_deps);
 
-        let summary_default = format!("Rust crate \"{}\"", upstream_name);
-        let summary = summary.unwrap_or(&summary_default);
-        let short_desc = match feature {
-            Some(f) => match f_provides.len() {
-                0 => format!("{} - feature \"{}\"", summary, f),
-                _ => format!(
-                    "{} - feature \"{}\" and {} more",
-                    summary,
-                    f,
-                    f_provides.len()
-                ),
-            },
-            None => format!("{} - Rust source code", summary),
-        };
-
-        let long_desc = description.unwrap_or("");
-        let boilerplate = match feature {
-            None => format!(
-                "This package contains the source for the \
-                 Rust {} crate, packaged by debcargo for use \
-                 with cargo and dh-cargo.",
-                upstream_name
-            ),
-            Some(f) => format!(
-                "This metapackage enables feature \"{}\" for the \
-                 Rust {} crate, by pulling in any additional \
-                 dependencies needed by that feature.{}",
-                f,
-                upstream_name,
-                match f_provides.len() {
-                    0 => "".to_string(),
-                    1 => format!(
-                        "\n\nAdditionally, this package also provides the \
-                         \"{}\" feature.",
-                        f_provides[0],
-                    ),
-                    _ => format!(
-                        "\n\nAdditionally, this package also provides the \
-                         \"{}\", and \"{}\" features.",
-                        f_provides[..f_provides.len() - 1].join("\", \""),
-                        f_provides[f_provides.len() - 1],
-                    ),
-                },
-            ),
-        };
-
         Ok(Package {
             name: match feature {
                 None => deb_name(&pkgbase),
@@ -374,9 +325,8 @@ impl Package {
             recommends,
             suggests,
             provides,
-            summary: short_desc,
-            description: fill(&long_desc, 79),
-            boilerplate: fill(&boilerplate, 79),
+            summary: summary.to_string(),
+            description: fill(&description, 79),
             extra_lines: match (name_suffix, feature) {
                 (Some(_), None) => {
                     let fullpkg = format!("{}-{}", basename, version);
@@ -393,11 +343,9 @@ impl Package {
     pub fn new_bin(
         basename: &str,
         name_suffix: Option<&str>,
-        upstream_name: &str,
         section: Option<&str>,
-        summary: Option<&str>,
-        description: Option<&str>,
-        boilerplate: &str,
+        summary: &str,
+        description: &str,
     ) -> Self {
         let (name, mut provides) = match name_suffix {
             None => (basename.to_string(), vec![]),
@@ -406,16 +354,6 @@ impl Package {
                 vec![format!("{} (= ${{binary:Version}})", basename)],
             ),
         };
-        let short_desc = match summary {
-            None => format!("Binaries built from the Rust {} crate", upstream_name),
-            Some(s) => s.to_string(),
-        };
-
-        let long_desc = match description {
-            None => "".to_string(),
-            Some(s) => s.to_string(),
-        };
-
         provides.push("${cargo:Provides}".to_string());
         Package {
             name,
@@ -430,9 +368,8 @@ impl Package {
             recommends: vec!["${cargo:Recommends}".to_string()],
             suggests: vec!["${cargo:Suggests}".to_string()],
             provides,
-            summary: short_desc,
-            description: long_desc,
-            boilerplate: boilerplate.to_string(),
+            summary: summary.to_string(),
+            description: description.to_string(),
             extra_lines: vec![
                 "Built-Using: ${cargo:Built-Using}".to_string(),
                 "XB-X-Cargo-Built-Using: ${cargo:X-Cargo-Built-Using}".to_string(),
@@ -446,18 +383,7 @@ impl Package {
 
     fn write_description(&self, out: &mut fmt::Formatter) -> fmt::Result {
         writeln!(out, "Description: {}", self.summary)?;
-        let description = [&self.description, &self.boilerplate]
-            .iter()
-            .filter_map(|x| {
-                let x = x.trim();
-                if x.is_empty() {
-                    None
-                } else {
-                    Some(x)
-                }
-            })
-            .join("\n\n");
-        for line in description.trim().lines() {
+        for line in self.description.trim().lines() {
             let line = line.trim_end();
             if line.is_empty() {
                 writeln!(out, " .")?;
@@ -474,15 +400,11 @@ impl Package {
         if let Some(section) = config.package_section(key) {
             self.section = Some(section.to_string());
         }
-
-        if let Some((s, d)) = config.package_summary(key) {
-            if !s.is_empty() {
-                self.summary = s.to_string();
-            }
-
-            if !d.is_empty() {
-                self.description = d.to_string();
-            }
+        if let Some(summary) = config.package_summary(key) {
+            self.summary = summary.to_string();
+        }
+        if let Some(description) = config.package_description(key) {
+            self.summary = description.to_string();
         }
 
         self.depends.extend(package_field_for_feature(

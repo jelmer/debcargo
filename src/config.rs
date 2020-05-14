@@ -157,18 +157,12 @@ impl Config {
         self.with_package(key, |pkg| pkg.section.as_ref().map(|s| s.as_str()))
     }
 
-    pub fn package_summary(&self, key: PackageKey) -> Option<(&str, &str)> {
-        self.with_package(key, |pkg| {
-            let s = match pkg.summary {
-                Some(ref s) => s,
-                None => "",
-            };
-            let d = match pkg.description {
-                Some(ref d) => d,
-                None => "",
-            };
-            Some((s, d))
-        })
+    pub fn package_summary(&self, key: PackageKey) -> Option<&str> {
+        self.with_package(key, |pkg| pkg.section.as_ref().map(|s| s.as_str()))
+    }
+
+    pub fn package_description(&self, key: PackageKey) -> Option<&str> {
+        self.with_package(key, |pkg| pkg.description.as_ref().map(|s| s.as_str()))
     }
 
     pub fn package_depends(&self, key: PackageKey) -> Option<&Vec<String>> {

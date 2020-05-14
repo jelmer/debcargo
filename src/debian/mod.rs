@@ -631,28 +631,27 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     write!(control, "{}", source)?;
 
     // Summary and description generated from Cargo.toml
-    let (summary, description) = crate_info.get_summary_description();
-    let summary = if !config.summary.is_empty() {
-        Some(config.summary.as_str())
-    } else {
-        if let Some(summary) = summary.as_ref() {
-            if summary.len() > 80 {
-                writeln!(
-                    control,
-                    "\n{}",
-                    concat!(
-                        "# FIXME (packages.\"(name)\".section) debcargo ",
-                        "auto-generated summaries are very long, consider overriding"
-                    )
-                )?;
-            }
+    let (crate_summary, crate_description) = crate_info.get_summary_description();
+    if let Some(crate_summary) = crate_summary.as_ref() {
+        if crate_summary.len() > 80 {
+            writeln!(
+                control,
+                "\n{}",
+                concat!(
+                    "# FIXME (packages.\"(name)\".section) debcargo ",
+                    "auto-generated summaries are very long, consider overriding"
+                )
+            )?;
         }
-        summary.as_ref().map(String::as_str)
-    };
-    let description = if config.description.is_empty() {
-        description.as_ref().map(String::as_str)
-    } else {
-        Some(config.description.as_str())
+    }
+    let summary_prefix = crate_summary.unwrap_or(format!("Rust crate \"{}\"", upstream_name));
+    let description_prefix = {
+        let tmp = crate_description.unwrap_or("".to_string());
+        if tmp == "" {
+            tmp
+        } else {
+            format!("{}\n.\n", tmp)
+        }
     };
 
     if lib {
@@ -701,18 +700,63 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 suggests.push(feature);
             }
         }
+
         for (feature, (f_deps, o_deps)) in reduced_features_with_deps.into_iter() {
+            let pk = PackageKey::feature(feature);
             let f_provides = provides.remove(feature).unwrap();
             let mut crate_features = f_provides.clone();
             crate_features.push(feature);
 
+            let pkg_summary = if feature == "" {
+                format!("{} - Rust source code", summary_prefix)
+            } else {
+                match f_provides.len() {
+                    0 => format!("{} - feature \"{}\"", summary_prefix, feature),
+                    _ => format!(
+                        "{} - feature \"{}\" and {} more",
+                        summary_prefix,
+                        feature,
+                        f_provides.len()
+                    ),
+                }
+            };
+            let pkg_description = if feature == "" {
+                format!(
+                    "{}This package contains the source for the \
+                     Rust {} crate, packaged by debcargo for use \
+                     with cargo and dh-cargo.",
+                    description_prefix, upstream_name
+                )
+            } else {
+                format!(
+                    "{}This metapackage enables feature \"{}\" for the \
+                     Rust {} crate, by pulling in any additional \
+                     dependencies needed by that feature.{}",
+                    description_prefix,
+                    feature,
+                    upstream_name,
+                    match f_provides.len() {
+                        0 => "".to_string(),
+                        1 => format!(
+                            "\n\nAdditionally, this package also provides the \
+                             \"{}\" feature.",
+                            f_provides[0],
+                        ),
+                        _ => format!(
+                            "\n\nAdditionally, this package also provides the \
+                             \"{}\", and \"{}\" features.",
+                            f_provides[..f_provides.len() - 1].join("\", \""),
+                            f_provides[f_provides.len() - 1],
+                        ),
+                    },
+                )
+            };
             let mut package = Package::new(
                 base_pkgname,
                 name_suffix,
                 &crate_info.version(),
-                upstream_name,
-                summary,
-                description,
+                &pkg_summary,
+                &pkg_description,
                 if feature == "" { None } else { Some(feature) },
                 f_deps,
                 deb_deps(config, &o_deps)?,
@@ -729,7 +773,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 },
             )?;
             // If any overrides present for this package it will be taken care.
-            package.apply_overrides(config, PackageKey::feature(feature), f_provides);
+            package.apply_overrides(config, pk, f_provides);
             write!(control, "\n{}", package)?;
 
             // Generate tests for all features in this package
@@ -783,28 +827,25 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     }
 
     if !bins.is_empty() {
-        let boilerplate = Some(format!(
-            "This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
+        let pkg_summary = format!("{} - binaries", summary_prefix);
+        let pkg_description = format!(
+            "{}This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
+            description_prefix,
             upstream_name,
             bins.join("\n - ")
-        ));
+        );
 
         let mut bin_pkg = Package::new_bin(
             bin_name,
             name_suffix,
-            upstream_name,
             // if not-a-lib then Source section is already FIXME
             if !lib {
                 None
             } else {
                 Some("FIXME-(packages.\"(name)\".section)")
             },
-            summary,
-            description,
-            match boilerplate {
-                Some(ref s) => s,
-                None => "",
-            },
+            &pkg_summary,
+            &pkg_description,
         );
 
         // Binary package overrides.

@@ -63,11 +63,16 @@
 # sometimes this may lead to a meaningless, weird short description.
 #
 # The full short description of each binary package is constructed using this
-# string (or the autoextracted default) plus a suffix describing the feature.
+# string plus an auto-generated suffix. The entire string can be overridden by
+# the [packages.KEY].description config key, see below.
 #summary = "PLACEHOLDER"
 
-# Long description for each binary package. If omitted, a generic boilerplate
-# will be used, which is good enough for most cases.
+# This is the stem of the long description for each binary package. By default
+# this is empty.
+#
+# The full long description of each binary package is constructed using this
+# string plus an auto-generated suffix. The entire string can be overridden by
+# the [packages.KEY].summary config key, see below.
 #description = """
 #PLACEHOLDER
 #"""
@@ -161,11 +166,11 @@ uploaders = [ "foo bar <foo@debian.org>" ]
 #section = "PLACEHOLDER"
 
 # Short description for the package. If omitted, debcargo autogenerates this
-# using the earlier "summary" key plus a suffix describing the feature.
+# using the top-level "summary" key plus a suffix describing the feature.
 #summary = "PLACEHOLDER"
 
-# Long description for the package. If omitted, a generic boilerplate will be
-# used, which is good enough for most cases.
+# Long description for the package. If omitted, debcargo autogenerates this
+# using the top-level "description" key plus a suffix describing the feature.
 #description = """
 #PLACEHOLDER
 #"""
