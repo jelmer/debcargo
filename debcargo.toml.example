@@ -122,7 +122,7 @@ uploaders = [ "foo bar <foo@debian.org>" ]
 # then you may need to use this.
 #
 # OTOH, if your crate needs external development headers to build, these should
-# probably instead go in the [package.lib] depends key rather than this key.
+# probably instead go in the [packages.lib] depends key rather than this key.
 # debcargo will then automatically add those into the package Build-Depends if
 # needed by dh-cargo; you don't have to add them here as well.
 #build_depends = ["PLACEHOLDER", "PLACEHOLDER"]
