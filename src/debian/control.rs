@@ -160,7 +160,7 @@ impl Source {
         let section = if lib {
             "rust"
         } else {
-            "FIXME-(source.section)"
+            "FIXME-IN-THE-SOURCE-SECTION"
         };
         let priority = "optional".to_string();
         let vcs_browser = format!(
