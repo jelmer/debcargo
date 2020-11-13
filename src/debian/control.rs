@@ -326,7 +326,7 @@ impl Package {
             suggests,
             provides,
             summary: summary.to_string(),
-            description: fill(&description, 79),
+            description: description.to_string(),
             extra_lines: match (name_suffix, feature) {
                 (Some(_), None) => {
                     let fullpkg = format!("{}-{}", basename, version);
@@ -383,7 +383,7 @@ impl Package {
 
     fn write_description(&self, out: &mut fmt::Formatter) -> fmt::Result {
         writeln!(out, "Description: {}", self.summary)?;
-        for line in self.description.trim().lines() {
+        for line in fill(&self.description.trim(), 79).lines() {
             let line = line.trim_end();
             if line.is_empty() {
                 writeln!(out, " .")?;
