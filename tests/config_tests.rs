@@ -42,8 +42,13 @@ fn source_package_override() {
     let sd = config.package_summary(PackageKey::Bin);
     assert!(sd.is_some());
 
-    if let Some((s, d)) = sd {
+    if let Some(s) = sd {
         assert_eq!(s, "Tool to create Debian package from Rust crate");
+    }
+
+    let sd = config.package_description(PackageKey::Bin);
+    assert!(sd.is_some());
+    if let Some(d) = sd {
         assert_eq!(
             d,
             "\
