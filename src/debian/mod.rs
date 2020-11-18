@@ -687,7 +687,12 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             )?
         )?;
 
-        let (mut provides, reduced_features_with_deps) = reduce_provides(&features_with_deps);
+        let (mut provides, reduced_features_with_deps) = if config.collapse_features {
+            collapse_features(&features_with_deps)
+        } else {
+            reduce_provides(&features_with_deps)
+        };
+
         //debcargo_info!("provides: {:?}", provides);
         let mut recommends = vec![];
         let mut suggests = vec![];
@@ -875,6 +880,38 @@ fn transitive_deps<'a>(
         all_deps.extend(dd1);
     }
     (all_features, all_deps)
+}
+
+fn collapse_features<'a>(
+    orig_features_with_deps: &BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
+) -> (
+    BTreeMap<&'a str, Vec<&'a str>>,
+    BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
+) {
+    let mut features_with_deps = orig_features_with_deps.clone();
+
+    let mut provided = Vec::new();
+    let mut deps = Vec::new();
+
+    for (&f, (_, ref mut dd)) in features_with_deps.iter_mut() {
+        if f == "" {
+            continue;
+        }
+
+        provided.push(f);
+        deps.append(dd);
+    }
+
+    for p in &provided {
+        features_with_deps.remove(p);
+    }
+    let (_, ref mut dd) = features_with_deps.get_mut("").unwrap();
+    dd.append(&mut deps);
+
+    let mut provides = BTreeMap::new();
+    provides.insert("", provided);
+
+    (provides, features_with_deps)
 }
 
 /// Calculate Provides: in an attempt to reduce the number of binaries.
