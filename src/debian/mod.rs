@@ -888,30 +888,25 @@ fn collapse_features<'a>(
     BTreeMap<&'a str, Vec<&'a str>>,
     BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
 ) {
-    let mut features_with_deps = orig_features_with_deps.clone();
+    let (provides, deps) = orig_features_with_deps
+        .into_iter()
+        .fold(
+            (Vec::new(), Vec::new()),
+            |(mut provides, mut deps), (f, (_, f_deps))| {
+                if f != &"" {
+                    provides.push(*f);
+                }
+                deps.append(&mut f_deps.clone());
+                (provides, deps)
+            });
 
-    let mut provided = Vec::new();
-    let mut deps = Vec::new();
+    let mut collapsed_provides = BTreeMap::new();
+    collapsed_provides.insert("", provides);
 
-    for (&f, (_, ref mut dd)) in features_with_deps.iter_mut() {
-        if f == "" {
-            continue;
-        }
+    let mut collapsed_features_with_deps = BTreeMap::new();
+    collapsed_features_with_deps.insert("", (Vec::new(), deps));
 
-        provided.push(f);
-        deps.append(dd);
-    }
-
-    for p in &provided {
-        features_with_deps.remove(p);
-    }
-    let (_, ref mut dd) = features_with_deps.get_mut("").unwrap();
-    dd.append(&mut deps);
-
-    let mut provides = BTreeMap::new();
-    provides.insert("", provided);
-
-    (provides, features_with_deps)
+    (collapsed_provides, collapsed_features_with_deps)
 }
 
 /// Calculate Provides: in an attempt to reduce the number of binaries.
