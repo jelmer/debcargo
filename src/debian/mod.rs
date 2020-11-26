@@ -687,7 +687,12 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             )?
         )?;
 
-        let (mut provides, reduced_features_with_deps) = reduce_provides(&features_with_deps);
+        let (mut provides, reduced_features_with_deps) = if config.collapse_features {
+            collapse_features(&features_with_deps)
+        } else {
+            reduce_provides(&features_with_deps)
+        };
+
         //debcargo_info!("provides: {:?}", provides);
         let mut recommends = vec![];
         let mut suggests = vec![];
@@ -875,6 +880,33 @@ fn transitive_deps<'a>(
         all_deps.extend(dd1);
     }
     (all_features, all_deps)
+}
+
+fn collapse_features<'a>(
+    orig_features_with_deps: &BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
+) -> (
+    BTreeMap<&'a str, Vec<&'a str>>,
+    BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
+) {
+    let (provides, deps) = orig_features_with_deps
+        .into_iter()
+        .fold(
+            (Vec::new(), Vec::new()),
+            |(mut provides, mut deps), (f, (_, f_deps))| {
+                if f != &"" {
+                    provides.push(*f);
+                }
+                deps.append(&mut f_deps.clone());
+                (provides, deps)
+            });
+
+    let mut collapsed_provides = BTreeMap::new();
+    collapsed_provides.insert("", provides);
+
+    let mut collapsed_features_with_deps = BTreeMap::new();
+    collapsed_features_with_deps.insert("", (Vec::new(), deps));
+
+    (collapsed_provides, collapsed_features_with_deps)
 }
 
 /// Calculate Provides: in an attempt to reduce the number of binaries.

@@ -27,6 +27,7 @@ pub struct Config {
     pub description: String,
     pub maintainer: String,
     pub uploaders: Option<Vec<String>>,
+    pub collapse_features: bool,
 
     pub source: Option<SourceOverride>,
     pub packages: Option<HashMap<String, PackageOverride>>,
@@ -72,6 +73,7 @@ impl Default for Config {
             description: "".to_string(),
             maintainer: RUST_MAINT.to_string(),
             uploaders: None,
+            collapse_features: false,
             source: None,
             packages: None,
         }
