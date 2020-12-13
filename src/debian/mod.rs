@@ -327,20 +327,20 @@ pub fn prepare_debian_folder(
                     .uscan_version_pattern
                     .as_ref()
                     .map_or_else(|| "@ANY_VERSION@".to_string(), |ref s| s.to_string());
-                write!(watch, "version=4\n")?;
-                write!(
+                writeln!(watch, "version=4")?;
+                writeln!(
                     watch,
-                    r"opts=filenamemangle=s/.*\/(.*)\/download/{name}-$1\.tar\.gz/g,\\n",
+                    r"opts=filenamemangle=s/.*\/(.*)\/download/{name}-$1\.tar\.gz/g,\",
                     name = upstream_name
                 )?;
-                write!(
+                writeln!(
                     watch,
-                    r"uversionmangle=s/(\d)[_\.\-\+]?((RC|rc|pre|dev|beta|alpha)\d*)$/$1~$2/ \\n"
+                    r"uversionmangle=s/(\d)[_\.\-\+]?((RC|rc|pre|dev|beta|alpha)\d*)$/$1~$2/ \"
                 )?;
-                write!(
+                writeln!(
                     watch,
                     "https://qa.debian.org/cgi-bin/fakeupstream.cgi?upstream=crates.io/{name} \
-                     .*/crates/{name}/{version_pattern}/download\n",
+                     .*/crates/{name}/{version_pattern}/download",
                     name = upstream_name,
                     version_pattern = uscan_version_pattern
                 )?;
