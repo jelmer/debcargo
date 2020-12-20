@@ -781,6 +781,12 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             package.apply_overrides(config, pk, f_provides);
             write!(control, "\n{}", package)?;
 
+            // Override pointless overzealous warnings from lintian
+            if feature != "" {
+                let mut overrides = io::BufWriter::new(file(&format!("{}.lintian-overrides", package.name()))?);
+                write!(overrides, "{} binary: empty-rust-library-declares-provides *", package.name())?;
+            }
+
             // Generate tests for all features in this package
             for f in crate_features {
                 let (feature_deps, _) = transitive_deps(&features_with_deps, f);
