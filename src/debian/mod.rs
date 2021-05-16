@@ -212,10 +212,6 @@ pub fn prepare_debian_folder(
         .tempdir_in(".")?;
     let overlay = config.overlay_dir(config_path);
     if let Some(p) = overlay.as_ref() {
-        if p.to_str().unwrap() == "." {
-            println!("Refusing to recursively copy {} to {} (overlay directory should not be .)", p.to_str().unwrap(), tempdir.path().to_str().unwrap());
-            std::process::exit(1);
-        }
         copy_tree(p.as_path(), tempdir.path()).unwrap();
     }
     if tempdir.path().join("control").exists() {
@@ -556,7 +552,6 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     let upstream_name = deb_info.upstream_name();
 
     let maintainer = config.maintainer();
-    let requires_root = config.requires_root();
     let uploaders: Vec<&str> = vec_opt_iter(config.uploaders())
         .map(String::as_str)
         .collect();
@@ -627,12 +622,6 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         maintainer.to_string(),
         uploaders.iter().map(|s| s.to_string()).collect(),
         build_deps,
-        if requires_root.is_some() {
-            requires_root.as_ref().unwrap().to_string()
-        }
-        else {
-            "no".to_string()
-        }
     )?;
 
     // If source overrides are present update related parts.

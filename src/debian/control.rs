@@ -21,7 +21,6 @@ pub struct Source {
     vcs_browser: String,
     homepage: String,
     x_cargo: String,
-    requires_root: String,
 }
 
 pub struct Package {
@@ -69,7 +68,7 @@ impl fmt::Display for Source {
         if !self.x_cargo.is_empty() {
             writeln!(f, "X-Cargo-Crate: {}", self.x_cargo)?;
         }
-        writeln!(f, "Rules-Requires-Root: {}", self.requires_root)?;
+        writeln!(f, "Rules-Requires-Root: no")?;
 
         Ok(())
     }
@@ -153,7 +152,6 @@ impl Source {
         maintainer: String,
         uploaders: Vec<String>,
         build_deps: Vec<String>,
-        _requires_root: String,
     ) -> Result<Source> {
         let pkgbase = match name_suffix {
             None => basename.to_string(),
@@ -191,7 +189,6 @@ impl Source {
             vcs_browser,
             homepage: home.to_string(),
             x_cargo: cargo_crate,
-            requires_root: "no".to_string(),
         })
     }
 
@@ -222,10 +219,6 @@ impl Source {
 
         if let Some(vcs_browser) = config.vcs_browser() {
             self.vcs_browser = vcs_browser.to_string();
-        }
-
-        if let Some(requires_root) = config.requires_root() {
-            self.requires_root = requires_root.to_string();
         }
     }
 }

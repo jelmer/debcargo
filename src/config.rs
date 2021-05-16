@@ -28,7 +28,6 @@ pub struct Config {
     pub maintainer: String,
     pub uploaders: Option<Vec<String>>,
     pub collapse_features: bool,
-    pub requires_root: Option<String>,
 
     pub source: Option<SourceOverride>,
     pub packages: Option<HashMap<String, PackageOverride>>,
@@ -77,7 +76,6 @@ impl Default for Config {
             collapse_features: false,
             source: None,
             packages: None,
-            requires_root: None,
         }
     }
 }
@@ -112,10 +110,6 @@ impl Config {
 
     pub fn uploaders(&self) -> Option<&Vec<String>> {
         self.uploaders.as_ref()
-    }
-
-    pub fn requires_root(&self) -> Option<&String> {
-        self.requires_root.as_ref()
     }
 
     // Source shortcuts
