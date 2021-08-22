@@ -589,7 +589,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     };
 
     let build_deps = {
-        let build_deps = ["debhelper (>= 12)", "dh-cargo (>= 24)"]
+        let build_deps = ["debhelper (>= 12)", "dh-cargo (>= 25)"]
             .iter()
             .map(|x| x.to_string());
         let (default_features, default_deps) = transitive_deps(&features_with_deps, "default");
