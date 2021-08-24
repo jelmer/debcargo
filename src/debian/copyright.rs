@@ -349,7 +349,13 @@ pub fn debian_copyright(
         Some(ref r) => r,
     };
 
-    let upstream = UpstreamInfo::new(manifest.name().to_string(), &meta.authors, repository);
+    // The Authors field is optional according to
+    // https://rust-lang.github.io/rfcs/3052-optional-authors-field.html
+    // and crates.io publishes crates without the field already.
+    let unknown_authors = vec!["FIXME (overlay) UNKNOWN-AUTHORS".to_string()];
+    let authors = if meta.authors.is_empty() { &unknown_authors } else { &meta.authors };
+
+    let upstream = UpstreamInfo::new(manifest.name().to_string(), authors, repository);
 
     let mut licenses: Vec<License> = Vec::new();
     let mut crate_license: String = "".to_string();
@@ -405,6 +411,7 @@ pub fn debian_copyright(
         "FIXME (overlay) UNKNOWN-YEARS".to_string()
     };
     let notice = match meta.authors.len() {
+        0 => vec![format!("FIXME (overlay) UNKNOWN-AUTHORS {}", years)],
         1 => vec![format!("{} {}", years, &meta.authors[0])],
         _ => meta
             .authors
