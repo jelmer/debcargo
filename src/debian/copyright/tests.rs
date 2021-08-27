@@ -1,4 +1,20 @@
-use super::get_licenses;
+use super::{debian_copyright, get_licenses};
+
+use std::path::Path;
+use std::rc::Rc;
+
+use cargo::{
+    core::{
+        SourceId,
+        package::Package,
+    },
+    util::{
+        toml::TomlManifest,
+        config::Config,
+    }
+};
+use toml::toml;
+
 
 #[test]
 fn check_get_licenses() {
@@ -21,4 +37,57 @@ fn check_get_licenses() {
             .collect();
         assert_eq!(&found[..], &expected[..]);
     }
+}
+
+#[test]
+fn check_debian_copyright_authors() {
+    let checks = vec![
+        (vec!(), vec!("FIXME (overlay) UNKNOWN-AUTHORS FIXME (overlay) UNKNOWN-YEARS")),
+        (vec!("Jordan Doe"), vec!("FIXME (overlay) UNKNOWN-YEARS Jordan Doe")),
+        (
+            vec!("Jordan Doe", "Jane Doe"),
+            vec!(
+                "FIXME (overlay) UNKNOWN-YEARS Jordan Doe",
+                "FIXME (overlay) UNKNOWN-YEARS Jane Doe"
+            )
+        ),
+    ];
+
+    for (input, expected_output) in checks.into_iter() {
+        let package = build_package_with_authors(input);
+        let srcdir = tempfile::tempdir().unwrap();
+        let copyright = debian_copyright(
+            &package,
+            srcdir.path(),
+            package.manifest(),
+            &"Jordan Doe",
+            &[],
+            (2000, 2020),
+            false).unwrap();
+        let mut generated = false;
+        for file in &copyright.files {
+            if file.files == "*" {
+                assert_eq!(file.copyright, expected_output);
+                generated = true;
+            }
+        }
+        assert!(generated);
+    }
+}
+
+fn build_package_with_authors(authors: Vec<&str>) -> Package {
+    let authors: Vec<String> = authors.into_iter().map(|s|s.to_string()).collect();
+    let toml = toml! {
+        [package]
+        name = "mypackage"
+        version = "1.2.3"
+        authors = authors
+        license = "AGPLv3"
+    };
+    let toml_manifest: Rc<TomlManifest> = Rc::new(toml::from_str(&toml::to_string(&toml).unwrap()).unwrap());
+    let source_id = SourceId::for_path(&Path::new("/path/to/mypackage")).unwrap();
+    let package_root = Path::new("/path/to/mypackage");
+    let config = Config::default().unwrap();
+    let manifest = TomlManifest::to_real_manifest(&toml_manifest, source_id, package_root, &config).unwrap().0;
+    Package::new(manifest.clone(), &Path::new("/path/to/manifest"))
 }
