@@ -425,9 +425,15 @@ impl Package {
         if let Some(section) = config.package_section(key) {
             self.section = Some(section.to_string());
         }
+        if let Some(summary) = &config.summary {
+            self.summary_prefix = summary.into();
+        }
         if let Some(summary) = config.package_summary(key) {
             self.summary_prefix = summary.to_string();
             self.summary_suffix = "".to_string();
+        }
+        if let Some(description) = &config.description {
+            self.description_prefix = description.into();
         }
         if let Some(description) = config.package_description(key) {
             self.description_prefix = description.to_string();
