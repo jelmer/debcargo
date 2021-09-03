@@ -25,7 +25,7 @@ use crate::util::{
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
 use self::control::{deb_version, dsc_name};
-use self::control::{Package, PkgTest, Source};
+use self::control::{Package, PkgTest, Source, Description};
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
 
@@ -757,8 +757,10 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 base_pkgname,
                 name_suffix,
                 &crate_info.version(),
-                &summary_prefix, &summary_suffix,
-                &description_prefix, &description_suffix,
+                Description { prefix: summary_prefix.clone(),
+                              suffix: summary_suffix.clone(), },
+                Description { prefix: description_prefix.clone(),
+                              suffix: description_suffix.clone(), },
                 if feature == "" { None } else { Some(feature) },
                 f_deps,
                 deb_deps(config, &o_deps)?,
@@ -850,7 +852,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
     if !bins.is_empty() {
         // adding " - binaries" is a bit redundant for users, so just leave as-is
-        let summary_suffix = "";
+        let summary_suffix = "".to_string();
         let description_suffix = format!(
             "This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
             upstream_name,
@@ -866,8 +868,10 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             } else {
                 Some("FIXME-(packages.\"(name)\".section)")
             },
-            &summary_prefix, &summary_suffix,
-            &description_prefix, &description_suffix,
+            Description { prefix: summary_prefix.clone(),
+                          suffix: summary_suffix.clone() },
+            Description { prefix: description_prefix.clone(),
+                          suffix: description_suffix.clone() },
         );
 
         // Binary package overrides.

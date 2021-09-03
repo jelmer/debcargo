@@ -33,11 +33,14 @@ pub struct Package {
     recommends: Vec<String>,
     suggests: Vec<String>,
     provides: Vec<String>,
-    summary_prefix: String,
-    summary_suffix: String,
-    description_prefix: String,
-    description_suffix: String,
+    summary: Description,
+    description: Description,
     extra_lines: Vec<String>,
+}
+
+pub struct Description {
+    pub prefix: String,
+    pub suffix: String,
 }
 
 pub struct PkgTest {
@@ -237,10 +240,8 @@ impl Package {
         basename: &str,
         name_suffix: Option<&str>,
         version: &Version,
-        summary_prefix: &str,
-        summary_suffix: &str,
-        description_prefix: &str,
-        description_suffix: &str,
+        summary: Description,
+        description: Description,
         feature: Option<&str>,
         f_deps: Vec<&str>,
         o_deps: Vec<String>,
@@ -336,10 +337,8 @@ impl Package {
             recommends,
             suggests,
             provides,
-            summary_prefix: summary_prefix.into(),
-            summary_suffix: summary_suffix.into(),
-            description_prefix: description_prefix.into(),
-            description_suffix: description_suffix.into(),
+            summary,
+            description,
             extra_lines: match (name_suffix, feature) {
                 (Some(_), None) => {
                     let fullpkg = format!("{}-{}", basename, version);
@@ -357,10 +356,8 @@ impl Package {
         basename: &str,
         name_suffix: Option<&str>,
         section: Option<&str>,
-        summary_prefix: &str,
-        summary_suffix: &str,
-        description_prefix: &str,
-        description_suffix: &str,
+        summary: Description,
+        description: Description,
     ) -> Self {
         let (name, mut provides) = match name_suffix {
             None => (basename.to_string(), vec![]),
@@ -383,10 +380,8 @@ impl Package {
             recommends: vec!["${cargo:Recommends}".to_string()],
             suggests: vec!["${cargo:Suggests}".to_string()],
             provides,
-            summary_prefix: summary_prefix.to_string(),
-            summary_suffix: summary_suffix.to_string(),
-            description_prefix: description_prefix.to_string(),
-            description_suffix: description_suffix.to_string(),
+            summary,
+            description,
             extra_lines: vec![
                 "Built-Using: ${cargo:Built-Using}".to_string(),
                 "XB-X-Cargo-Built-Using: ${cargo:X-Cargo-Built-Using}".to_string(),
@@ -400,10 +395,10 @@ impl Package {
 
     fn write_description(&self, out: &mut fmt::Formatter) -> fmt::Result {
         writeln!(out, "Description: {}{}",
-                 &self.summary_prefix, &self.summary_suffix)?;
+                 &self.summary.prefix, &self.summary.suffix)?;
         let description = format!("{}{}",
-                                  self.description_prefix,
-                                  self.description_suffix);
+                                  self.description.prefix,
+                                  self.description.suffix);
         for line in fill(&description.trim(), 79).lines() {
             let line = line.trim_end();
             if line.is_empty() {
@@ -418,7 +413,7 @@ impl Package {
     }
 
     pub fn summary_check_len(&self) -> std::result::Result<(),()> {
-        if self.summary_prefix.len() <= 80 { Ok(()) } else { Err(()) }
+        if self.summary.prefix.len() <= 80 { Ok(()) } else { Err(()) }
     }
 
     pub fn apply_overrides(&mut self, config: &Config, key: PackageKey, f_provides: Vec<&str>) {
@@ -426,18 +421,18 @@ impl Package {
             self.section = Some(section.to_string());
         }
         if let Some(summary) = &config.summary {
-            self.summary_prefix = summary.into();
+            self.summary.prefix = summary.into();
         }
         if let Some(summary) = config.package_summary(key) {
-            self.summary_prefix = summary.to_string();
-            self.summary_suffix = "".to_string();
+            self.summary.prefix = summary.to_string();
+            self.summary.suffix = "".to_string();
         }
         if let Some(description) = &config.description {
-            self.description_prefix = description.into();
+            self.description.prefix = description.into();
         }
         if let Some(description) = config.package_description(key) {
-            self.description_prefix = description.to_string();
-            self.description_suffix = "".to_string();
+            self.description.prefix = description.to_string();
+            self.description.suffix = "".to_string();
         }
 
         self.depends.extend(package_field_for_feature(
