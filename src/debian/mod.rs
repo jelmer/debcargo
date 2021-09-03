@@ -711,32 +711,33 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             let mut crate_features = f_provides.clone();
             crate_features.push(feature);
 
-            let pkg_summary = if feature == "" {
-                format!("{} - Rust source code", summary_prefix)
+            let summary_suffix = if feature == "" {
+                format!("Rust source code")
             } else {
                 match f_provides.len() {
-                    0 => format!("{} - feature \"{}\"", summary_prefix, feature),
+                    0 => format!("feature \"{}\"", feature),
                     _ => format!(
-                        "{} - feature \"{}\" and {} more",
-                        summary_prefix,
+                        "feature \"{}\" and {} more",
                         feature,
                         f_provides.len()
                     ),
                 }
             };
-            let pkg_description = if feature == "" {
+            let pkg_summary = format!("{} - {}",
+                                      summary_prefix,
+                                      summary_suffix);
+            let description_suffix = if feature == "" {
                 format!(
-                    "{}This package contains the source for the \
+                    "This package contains the source for the \
                      Rust {} crate, packaged by debcargo for use \
                      with cargo and dh-cargo.",
-                    description_prefix, upstream_name
+                    upstream_name
                 )
             } else {
                 format!(
-                    "{}This metapackage enables feature \"{}\" for the \
+                    "This metapackage enables feature \"{}\" for the \
                      Rust {} crate, by pulling in any additional \
                      dependencies needed by that feature.{}",
-                    description_prefix,
                     feature,
                     upstream_name,
                     match f_provides.len() {
@@ -755,6 +756,9 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                     },
                 )
             };
+            let pkg_description = format!("{}{}",
+                                          description_prefix,
+                                          description_suffix);
             let mut package = Package::new(
                 base_pkgname,
                 name_suffix,
