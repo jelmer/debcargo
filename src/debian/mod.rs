@@ -712,20 +712,17 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             crate_features.push(feature);
 
             let summary_suffix = if feature == "" {
-                format!("Rust source code")
+                format!(" - Rust source code")
             } else {
                 match f_provides.len() {
-                    0 => format!("feature \"{}\"", feature),
+                    0 => format!(" - feature \"{}\"", feature),
                     _ => format!(
-                        "feature \"{}\" and {} more",
+                        " - feature \"{}\" and {} more",
                         feature,
                         f_provides.len()
                     ),
                 }
             };
-            let pkg_summary = format!("{} - {}",
-                                      summary_prefix,
-                                      summary_suffix);
             let description_suffix = if feature == "" {
                 format!(
                     "This package contains the source for the \
@@ -756,15 +753,12 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                     },
                 )
             };
-            let pkg_description = format!("{}{}",
-                                          description_prefix,
-                                          description_suffix);
             let mut package = Package::new(
                 base_pkgname,
                 name_suffix,
                 &crate_info.version(),
-                &pkg_summary,
-                &pkg_description,
+                &summary_prefix, &summary_suffix,
+                &description_prefix, &description_suffix,
                 if feature == "" { None } else { Some(feature) },
                 f_deps,
                 deb_deps(config, &o_deps)?,
@@ -856,10 +850,9 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
     if !bins.is_empty() {
         // adding " - binaries" is a bit redundant for users, so just leave as-is
-        let pkg_summary = summary_prefix;
-        let pkg_description = format!(
-            "{}This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
-            description_prefix,
+        let summary_suffix = "";
+        let description_suffix = format!(
+            "This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
             upstream_name,
             bins.join("\n - ")
         );
@@ -873,8 +866,8 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             } else {
                 Some("FIXME-(packages.\"(name)\".section)")
             },
-            &pkg_summary,
-            &pkg_description,
+            &summary_prefix, &summary_suffix,
+            &description_prefix, &description_suffix,
         );
 
         // Binary package overrides.
