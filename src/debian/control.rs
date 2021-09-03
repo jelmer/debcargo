@@ -394,11 +394,8 @@ impl Package {
     }
 
     fn write_description(&self, out: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(out, "Description: {}{}",
-                 &self.summary.prefix, &self.summary.suffix)?;
-        let description = format!("{}{}",
-                                  self.description.prefix,
-                                  self.description.suffix);
+        writeln!(out, "Description: {}", &self.summary)?;
+        let description = format!("{}", &self.description);
         for line in fill(&description.trim(), 79).lines() {
             let line = line.trim_end();
             if line.is_empty() {
@@ -463,6 +460,11 @@ impl Description {
         } else if let Some(global) = &global {
             self.prefix = global.into();
         }
+    }
+}
+impl fmt::Display for Description {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}{}", &self.prefix, self.suffix)
     }
 }
 
