@@ -420,20 +420,14 @@ impl Package {
         if let Some(section) = config.package_section(key) {
             self.section = Some(section.to_string());
         }
-        if let Some(summary) = &config.summary {
-            self.summary.prefix = summary.into();
-        }
-        if let Some(summary) = config.package_summary(key) {
-            self.summary.prefix = summary.to_string();
-            self.summary.suffix = "".to_string();
-        }
-        if let Some(description) = &config.description {
-            self.description.prefix = description.into();
-        }
-        if let Some(description) = config.package_description(key) {
-            self.description.prefix = description.to_string();
-            self.description.suffix = "".to_string();
-        }
+        self.summary.apply_overrides(
+            &config.summary,
+            config.package_summary(key),
+        );
+        self.description.apply_overrides(
+            &config.description,
+            config.package_description(key),
+        );
 
         self.depends.extend(package_field_for_feature(
             &|x| config.package_depends(x),
@@ -458,6 +452,17 @@ impl Package {
 
         self.extra_lines
             .extend(vec_opt_iter(config.package_extra_lines(key)).map(|s| s.to_string()));
+    }
+}
+
+impl Description {
+    fn apply_overrides(&mut self, global: &Option<String>, per_package: Option<&str>) {
+        if let Some(per_package) = per_package {
+            self.prefix = per_package.to_string();
+            self.suffix = "".to_string();
+        } else if let Some(global) = &global {
+            self.prefix = global.into();
+        }
     }
 }
 
