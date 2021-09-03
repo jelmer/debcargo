@@ -403,6 +403,10 @@ impl Package {
         Ok(())
     }
 
+    pub fn summary_check_len(&self) -> std::result::Result<(),()> {
+        if self.summary.len() <= 80 { Ok(()) } else { Err(()) }
+    }
+
     pub fn apply_overrides(&mut self, config: &Config, key: PackageKey, f_provides: Vec<&str>) {
         if let Some(section) = config.package_section(key) {
             self.section = Some(section.to_string());

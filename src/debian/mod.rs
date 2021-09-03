@@ -643,18 +643,6 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
     // Summary and description generated from Cargo.toml
     let (crate_summary, crate_description) = crate_info.get_summary_description();
-    if let Some(crate_summary) = crate_summary.as_ref() {
-        if crate_summary.len() > 80 {
-            writeln!(
-                control,
-                "\n{}",
-                concat!(
-                    "# FIXME (packages.\"(name)\".section) debcargo ",
-                    "auto-generated summaries are very long, consider overriding"
-                )
-            )?;
-        }
-    }
     let summary_prefix = crate_summary.unwrap_or(format!("Rust crate \"{}\"", upstream_name));
     let description_prefix = {
         let tmp = crate_description.unwrap_or("".to_string());
@@ -790,6 +778,20 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             )?;
             // If any overrides present for this package it will be taken care.
             package.apply_overrides(config, pk, f_provides);
+
+            match package.summary_check_len() {
+                Err(()) => writeln!(
+                    control,
+                    concat!(
+                        "\n",
+                        "# FIXME (packages.\"(name)\".section) debcargo ",
+                        "auto-generated summary for {} is very long, consider overriding"
+                    ),
+                    package.name(),
+                )?,
+                Ok(()) => { },
+            };
+
             write!(control, "\n{}", package)?;
 
             // Override pointless overzealous warnings from lintian
