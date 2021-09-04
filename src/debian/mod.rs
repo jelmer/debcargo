@@ -25,7 +25,7 @@ use crate::util::{
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
 use self::control::{deb_version, dsc_name};
-use self::control::{Package, PkgTest, Source};
+use self::control::{Package, PkgTest, Source, Description};
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
 
@@ -643,18 +643,6 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
     // Summary and description generated from Cargo.toml
     let (crate_summary, crate_description) = crate_info.get_summary_description();
-    if let Some(crate_summary) = crate_summary.as_ref() {
-        if crate_summary.len() > 80 {
-            writeln!(
-                control,
-                "\n{}",
-                concat!(
-                    "# FIXME (packages.\"(name)\".section) debcargo ",
-                    "auto-generated summaries are very long, consider overriding"
-                )
-            )?;
-        }
-    }
     let summary_prefix = crate_summary.unwrap_or(format!("Rust crate \"{}\"", upstream_name));
     let description_prefix = {
         let tmp = crate_description.unwrap_or("".to_string());
@@ -723,32 +711,30 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             let mut crate_features = f_provides.clone();
             crate_features.push(feature);
 
-            let pkg_summary = if feature == "" {
-                format!("{} - Rust source code", summary_prefix)
+            let summary_suffix = if feature == "" {
+                format!(" - Rust source code")
             } else {
                 match f_provides.len() {
-                    0 => format!("{} - feature \"{}\"", summary_prefix, feature),
+                    0 => format!(" - feature \"{}\"", feature),
                     _ => format!(
-                        "{} - feature \"{}\" and {} more",
-                        summary_prefix,
+                        " - feature \"{}\" and {} more",
                         feature,
                         f_provides.len()
                     ),
                 }
             };
-            let pkg_description = if feature == "" {
+            let description_suffix = if feature == "" {
                 format!(
-                    "{}This package contains the source for the \
+                    "This package contains the source for the \
                      Rust {} crate, packaged by debcargo for use \
                      with cargo and dh-cargo.",
-                    description_prefix, upstream_name
+                    upstream_name
                 )
             } else {
                 format!(
-                    "{}This metapackage enables feature \"{}\" for the \
+                    "This metapackage enables feature \"{}\" for the \
                      Rust {} crate, by pulling in any additional \
                      dependencies needed by that feature.{}",
-                    description_prefix,
                     feature,
                     upstream_name,
                     match f_provides.len() {
@@ -771,8 +757,10 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 base_pkgname,
                 name_suffix,
                 &crate_info.version(),
-                &pkg_summary,
-                &pkg_description,
+                Description { prefix: summary_prefix.clone(),
+                              suffix: summary_suffix.clone(), },
+                Description { prefix: description_prefix.clone(),
+                              suffix: description_suffix.clone(), },
                 if feature == "" { None } else { Some(feature) },
                 f_deps,
                 deb_deps(config, &o_deps)?,
@@ -790,6 +778,20 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             )?;
             // If any overrides present for this package it will be taken care.
             package.apply_overrides(config, pk, f_provides);
+
+            match package.summary_check_len() {
+                Err(()) => writeln!(
+                    control,
+                    concat!(
+                        "\n",
+                        "# FIXME (packages.\"(name)\".section) debcargo ",
+                        "auto-generated summary for {} is very long, consider overriding"
+                    ),
+                    package.name(),
+                )?,
+                Ok(()) => { },
+            };
+
             write!(control, "\n{}", package)?;
 
             // Override pointless overzealous warnings from lintian
@@ -850,10 +852,9 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
     if !bins.is_empty() {
         // adding " - binaries" is a bit redundant for users, so just leave as-is
-        let pkg_summary = summary_prefix;
-        let pkg_description = format!(
-            "{}This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
-            description_prefix,
+        let summary_suffix = "".to_string();
+        let description_suffix = format!(
+            "This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
             upstream_name,
             bins.join("\n - ")
         );
@@ -867,8 +868,10 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             } else {
                 Some("FIXME-(packages.\"(name)\".section)")
             },
-            &pkg_summary,
-            &pkg_description,
+            Description { prefix: summary_prefix.clone(),
+                          suffix: summary_suffix.clone() },
+            Description { prefix: description_prefix.clone(),
+                          suffix: description_suffix.clone() },
         );
 
         // Binary package overrides.

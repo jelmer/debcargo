@@ -33,9 +33,14 @@ pub struct Package {
     recommends: Vec<String>,
     suggests: Vec<String>,
     provides: Vec<String>,
-    summary: String,
-    description: String,
+    summary: Description,
+    description: Description,
     extra_lines: Vec<String>,
+}
+
+pub struct Description {
+    pub prefix: String,
+    pub suffix: String,
 }
 
 pub struct PkgTest {
@@ -235,8 +240,8 @@ impl Package {
         basename: &str,
         name_suffix: Option<&str>,
         version: &Version,
-        summary: &str,
-        description: &str,
+        summary: Description,
+        description: Description,
         feature: Option<&str>,
         f_deps: Vec<&str>,
         o_deps: Vec<String>,
@@ -332,8 +337,8 @@ impl Package {
             recommends,
             suggests,
             provides,
-            summary: summary.to_string(),
-            description: description.to_string(),
+            summary,
+            description,
             extra_lines: match (name_suffix, feature) {
                 (Some(_), None) => {
                     let fullpkg = format!("{}-{}", basename, version);
@@ -351,8 +356,8 @@ impl Package {
         basename: &str,
         name_suffix: Option<&str>,
         section: Option<&str>,
-        summary: &str,
-        description: &str,
+        summary: Description,
+        description: Description,
     ) -> Self {
         let (name, mut provides) = match name_suffix {
             None => (basename.to_string(), vec![]),
@@ -375,8 +380,8 @@ impl Package {
             recommends: vec!["${cargo:Recommends}".to_string()],
             suggests: vec!["${cargo:Suggests}".to_string()],
             provides,
-            summary: summary.to_string(),
-            description: description.to_string(),
+            summary,
+            description,
             extra_lines: vec![
                 "Built-Using: ${cargo:Built-Using}".to_string(),
                 "XB-X-Cargo-Built-Using: ${cargo:X-Cargo-Built-Using}".to_string(),
@@ -389,8 +394,9 @@ impl Package {
     }
 
     fn write_description(&self, out: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(out, "Description: {}", self.summary)?;
-        for line in fill(&self.description.trim(), 79).lines() {
+        writeln!(out, "Description: {}", &self.summary)?;
+        let description = format!("{}", &self.description);
+        for line in fill(&description.trim(), 79).lines() {
             let line = line.trim_end();
             if line.is_empty() {
                 writeln!(out, " .")?;
@@ -403,16 +409,22 @@ impl Package {
         Ok(())
     }
 
+    pub fn summary_check_len(&self) -> std::result::Result<(),()> {
+        if self.summary.prefix.len() <= 80 { Ok(()) } else { Err(()) }
+    }
+
     pub fn apply_overrides(&mut self, config: &Config, key: PackageKey, f_provides: Vec<&str>) {
         if let Some(section) = config.package_section(key) {
             self.section = Some(section.to_string());
         }
-        if let Some(summary) = config.package_summary(key) {
-            self.summary = summary.to_string();
-        }
-        if let Some(description) = config.package_description(key) {
-            self.description = description.to_string();
-        }
+        self.summary.apply_overrides(
+            &config.summary,
+            config.package_summary(key),
+        );
+        self.description.apply_overrides(
+            &config.description,
+            config.package_description(key),
+        );
 
         self.depends.extend(package_field_for_feature(
             &|x| config.package_depends(x),
@@ -437,6 +449,22 @@ impl Package {
 
         self.extra_lines
             .extend(vec_opt_iter(config.package_extra_lines(key)).map(|s| s.to_string()));
+    }
+}
+
+impl Description {
+    fn apply_overrides(&mut self, global: &Option<String>, per_package: Option<&str>) {
+        if let Some(per_package) = per_package {
+            self.prefix = per_package.to_string();
+            self.suffix = "".to_string();
+        } else if let Some(global) = &global {
+            self.prefix = global.into();
+        }
+    }
+}
+impl fmt::Display for Description {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}{}", &self.prefix, self.suffix)
     }
 }
 
