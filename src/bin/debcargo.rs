@@ -112,7 +112,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                 None => debcargo_warn!("\t •  Write a config file and use it with --config"),
                 Some(c) => {
                     debcargo_warn!("\t •  Add or edit overrides in your config file:");
-                    debcargo_warn!("\t    {}", rel_p(&c, &curdir));
+                    debcargo_warn!("\t    {}", rel_p(c, &curdir));
                 }
             };
             match config.overlay_dir(config_path) {

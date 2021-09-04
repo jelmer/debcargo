@@ -162,15 +162,15 @@ impl Config {
     }
 
     pub fn package_section(&self, key: PackageKey) -> Option<&str> {
-        self.with_package(key, |pkg| pkg.section.as_ref().map(|s| s.as_str()))
+        self.with_package(key, |pkg| pkg.section.as_deref())
     }
 
     pub fn package_summary(&self, key: PackageKey) -> Option<&str> {
-        self.with_package(key, |pkg| pkg.summary.as_ref().map(|s| s.as_str()))
+        self.with_package(key, |pkg| pkg.summary.as_deref())
     }
 
     pub fn package_description(&self, key: PackageKey) -> Option<&str> {
-        self.with_package(key, |pkg| pkg.description.as_ref().map(|s| s.as_str()))
+        self.with_package(key, |pkg| pkg.description.as_deref())
     }
 
     pub fn package_depends(&self, key: PackageKey) -> Option<&Vec<String>> {
@@ -234,7 +234,7 @@ pub enum PackageKey<'a> {
 impl<'a> PackageKey<'a> {
     pub fn feature(f: &'a str) -> PackageKey<'a> {
         use self::PackageKey::*;
-        if f == "" {
+        if f.is_empty() {
             BareLib
         } else {
             FeatureLib(f)

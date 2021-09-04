@@ -330,8 +330,8 @@ pub fn deb_dep(config: &Config, dep: &Dependency) -> Result<Vec<String>> // resu
         let base = format!("librust-{}", dep_dashed);
         let mut vr = VRange::new();
         for p in &req.predicates {
-            let op = coerce_unacceptable_predicate(dep, &p, config.allow_prerelease_deps)?;
-            generate_version_constraints(&mut vr, dep, &p, op)?;
+            let op = coerce_unacceptable_predicate(dep, p, config.allow_prerelease_deps)?;
+            generate_version_constraints(&mut vr, dep, p, op)?;
         }
         deps.push(vr.to_deb_or_clause(&base, &suffix)?);
     }

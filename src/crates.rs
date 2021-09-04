@@ -135,7 +135,7 @@ impl CrateInfo {
                     .open_rw(&filename, &config, "crate file")?
             };
 
-            (package.clone(), crate_file)
+            (package, crate_file)
         };
 
         let manifest = package.manifest().clone();
@@ -179,7 +179,7 @@ impl CrateInfo {
 
         let dependency = Dependency::parse_no_deprecated(
             crate_name,
-            version.as_ref().map(String::as_str),
+            version.as_deref(),
             source_id,
         )?;
 
@@ -291,7 +291,7 @@ impl CrateInfo {
                 _ => continue,
             }
         }
-        bins.sort();
+        bins.sort_unstable();
         bins
     }
 
@@ -394,7 +394,7 @@ impl CrateInfo {
             for &dep in deps {
                 if dep.is_optional() {
                     features_with_deps
-                        .insert(&dep.name_in_toml().as_str(), (vec![""], vec![dep.clone()]));
+                        .insert(dep.name_in_toml().as_str(), (vec![""], vec![dep.clone()]));
                 } else {
                     deps_required.push(dep.clone())
                 }
@@ -554,13 +554,13 @@ impl CrateInfo {
         }
 
         if let Err(e) = fs::rename(entries[0].path(), &path) {
-            return Err(Error::from(Error::from(e).context(format!(
+            return Err(Error::from(e).context(format!(
                 concat!(
                     "Could not create source directory {0}\n",
                     "To regenerate, move or remove {0}"
                 ),
                 path.display()
-            ))));
+            )));
         }
 
         // Ensure that Cargo.toml is in standard form, e.g. does not contain

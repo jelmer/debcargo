@@ -106,7 +106,7 @@ impl DebInfo {
     }
 
     pub fn name_suffix(&self) -> Option<&str> {
-        self.name_suffix.as_ref().map(|s| s.as_str())
+        self.name_suffix.as_deref()
     }
 
     pub fn package_name(&self) -> &str {
@@ -485,7 +485,7 @@ pub fn prepare_debian_folder(
             }
         }
         let changelog_new_entry = ChangelogEntry::new(
-            dsc_name(&base_pkgname),
+            dsc_name(base_pkgname),
             source_deb_version,
             changelog::DEFAULT_DIST.to_string(),
             "urgency=medium".to_string(),
@@ -646,7 +646,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     let summary_prefix = crate_summary.unwrap_or(format!("Rust crate \"{}\"", upstream_name));
     let description_prefix = {
         let tmp = crate_description.unwrap_or("".to_string());
-        if tmp == "" {
+        if tmp.is_empty() {
             tmp
         } else {
             format!("{}\n.\n", tmp)
@@ -675,7 +675,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 &dsc_name(&crate_name),
                 &crate_name,
                 "@",
-                &debian_version,
+                debian_version,
                 vec!["--all-features"],
                 &all_features_test_depends,
                 if all_features_test_broken {
@@ -696,7 +696,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         let mut recommends = vec![];
         let mut suggests = vec![];
         for (&feature, features) in provides.iter() {
-            if feature == "" {
+            if feature.is_empty() {
                 continue;
             } else if feature == "default" || features.contains(&"default") {
                 recommends.push(feature);
@@ -711,8 +711,8 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             let mut crate_features = f_provides.clone();
             crate_features.push(feature);
 
-            let summary_suffix = if feature == "" {
-                format!(" - Rust source code")
+            let summary_suffix = if feature.is_empty() {
+                " - Rust source code".to_string()
             } else {
                 match f_provides.len() {
                     0 => format!(" - feature \"{}\"", feature),
@@ -723,7 +723,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                     ),
                 }
             };
-            let description_suffix = if feature == "" {
+            let description_suffix = if feature.is_empty() {
                 format!(
                     "This package contains the source for the \
                      Rust {} crate, packaged by debcargo for use \
@@ -756,21 +756,21 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             let mut package = Package::new(
                 base_pkgname,
                 name_suffix,
-                &crate_info.version(),
+                crate_info.version(),
                 Description { prefix: summary_prefix.clone(),
                               suffix: summary_suffix.clone(), },
                 Description { prefix: description_prefix.clone(),
                               suffix: description_suffix.clone(), },
-                if feature == "" { None } else { Some(feature) },
+                if feature.is_empty() { None } else { Some(feature) },
                 f_deps,
                 deb_deps(config, &o_deps)?,
                 f_provides.clone(),
-                if feature == "" {
+                if feature.is_empty() {
                     recommends.clone()
                 } else {
                     vec![]
                 },
-                if feature == "" {
+                if feature.is_empty() {
                     suggests.clone()
                 } else {
                     vec![]
@@ -795,7 +795,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             write!(control, "\n{}", package)?;
 
             // Override pointless overzealous warnings from lintian
-            if feature != "" {
+            if !feature.is_empty() {
                 let mut overrides = io::BufWriter::new(file(&format!("{}.lintian-overrides", package.name()))?);
                 write!(overrides, "{} binary: empty-rust-library-declares-provides *", package.name())?;
             }
@@ -807,16 +807,14 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 // args
                 let mut args = if f == "default" {
                     vec![]
+                } else if feature_deps.contains(&"default") {
+                    vec![]
                 } else {
-                    if feature_deps.contains(&"default") {
-                        vec![]
-                    } else {
-                        vec!["--no-default-features"]
-                    }
+                    vec!["--no-default-features"]
                 };
                 // --features default sometimes fails, see
                 // https://github.com/rust-lang/cargo/issues/8164
-                if f != "" && f != "default" {
+                if !f.is_empty() && f != "default" {
                     args.push("--features");
                     args.push(f);
                 }
@@ -833,8 +831,8 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 let pkgtest = PkgTest::new(
                     package.name(),
                     &crate_name,
-                    &f,
-                    &debian_version,
+                    f,
+                    debian_version,
                     args,
                     &test_depends,
                     if test_is_broken(f)? {
@@ -868,10 +866,10 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             } else {
                 Some("FIXME-(packages.\"(name)\".section)")
             },
-            Description { prefix: summary_prefix.clone(),
-                          suffix: summary_suffix.clone() },
-            Description { prefix: description_prefix.clone(),
-                          suffix: description_suffix.clone() },
+            Description { prefix: summary_prefix,
+                          suffix: summary_suffix },
+            Description { prefix: description_prefix,
+                          suffix: description_suffix },
         );
 
         // Binary package overrides.
@@ -895,7 +893,7 @@ fn transitive_deps<'a>(
     all_features.extend(ff.clone());
     all_deps.extend(dd.clone());
     for f in ff {
-        let (ff1, dd1) = transitive_deps(&features_with_deps, f);
+        let (ff1, dd1) = transitive_deps(features_with_deps, f);
         all_features.extend(ff1);
         all_deps.extend(dd1);
     }
@@ -909,7 +907,7 @@ fn collapse_features<'a>(
     BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
 ) {
     let (provides, deps) = orig_features_with_deps
-        .into_iter()
+        .iter()
         .fold(
             (Vec::new(), Vec::new()),
             |(mut provides, mut deps), (f, (_, f_deps))| {
@@ -970,7 +968,7 @@ fn reduce_provides<'a>(
         if !dd.is_empty() {
             continue;
         }
-        assert!(!ff.is_empty() || f == "");
+        assert!(!ff.is_empty() || f.is_empty());
         let k = if ff.len() == 1 {
             // if A depends on a single feature B, then B provides A.
             ff[0]
@@ -995,7 +993,7 @@ fn reduce_provides<'a>(
         .keys()
         .map(|k| {
             let mut pp = traverse_depth(&provides, k);
-            pp.sort();
+            pp.sort_unstable();
             (*k, pp)
         })
         .collect::<BTreeMap<_, _>>();

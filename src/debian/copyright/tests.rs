@@ -60,7 +60,7 @@ fn check_debian_copyright_authors() {
             &package,
             srcdir.path(),
             package.manifest(),
-            &"Jordan Doe",
+            "Jordan Doe",
             &[],
             (2000, 2020),
             false).unwrap();
@@ -85,9 +85,9 @@ fn build_package_with_authors(authors: Vec<&str>) -> Package {
         license = "AGPLv3"
     };
     let toml_manifest: Rc<TomlManifest> = Rc::new(toml::from_str(&toml::to_string(&toml).unwrap()).unwrap());
-    let source_id = SourceId::for_path(&Path::new("/path/to/mypackage")).unwrap();
+    let source_id = SourceId::for_path(Path::new("/path/to/mypackage")).unwrap();
     let package_root = Path::new("/path/to/mypackage");
     let config = Config::default().unwrap();
     let manifest = TomlManifest::to_real_manifest(&toml_manifest, source_id, package_root, &config).unwrap().0;
-    Package::new(manifest.clone(), &Path::new("/path/to/manifest"))
+    Package::new(manifest, Path::new("/path/to/manifest"))
 }
