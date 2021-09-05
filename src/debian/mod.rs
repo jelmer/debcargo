@@ -705,6 +705,16 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             debcargo_warn!("progress - namely to move Debian rust packages into a separate section of the");
             debcargo_warn!("archive, which will then have the stricter current NEW rules lifted, and then");
             debcargo_warn!("the collapse_features work around would no longer be necessary.");
+            debcargo_warn!("");
+            debcargo_warn!("A basic example of the above would be:");
+            debcargo_warn!("");
+            debcargo_warn!("- crate A with feature AX depends on crate B with feature BY");
+            debcargo_warn!("- crate B with feature BX depends on crate A with feature AY");
+            debcargo_warn!("");
+            debcargo_warn!("This is a perfectly valid situation in the rust+cargo ecosystem. Notice that");
+            debcargo_warn!("there is no dependency cycle on the per-feature level, and this is enforced by");
+            debcargo_warn!("cargo; but if collapse_features is used then package A+AX+AY would cyclicly");
+            debcargo_warn!("depend on package B+BX+BY.");
             collapse_features(&features_with_deps)
         } else {
             reduce_provides(&features_with_deps)
