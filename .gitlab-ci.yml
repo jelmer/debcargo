@@ -9,22 +9,12 @@ test:clippy:
   stage: test
   before_script:
     - rustup component add clippy
-    - cargo install gitlab_clippy
   script:
     - cargo clippy
-  after_script:
-    - cargo clippy --message-format=json | gitlab-clippy > gl-code-quality-report.json
-  artifacts:
-    reports:
-      codequality: gl-code-quality-report.json
-    expire_in: 1 week
-  rules:
-    - if: '$CODE_QUALITY_DISABLED'
-      when: never
-    - if: '$CI_PIPELINE_SOURCE == "push"'
 
 test:format-code:
   stage: test
-  script:
+  before_script:
     - rustup component add rustfmt
+  script:
     - cargo fmt -- --check
