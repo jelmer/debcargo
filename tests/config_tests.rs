@@ -77,11 +77,11 @@ fn sd_top_level() {
     assert_eq!(section.unwrap(), "rust");
 
     assert_eq!(
-        config.summary,
+        config.summary.unwrap(),
         "Tool to create Debian package from Rust crate"
     );
     assert_eq!(
-        config.description,
+        config.description.unwrap(),
         "\
 This package provides debcargo a tool to create Debian source package from \
                     Rust

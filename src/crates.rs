@@ -363,14 +363,14 @@ impl CrateInfo {
                     // another feature is a dependency
                     Feature(dep_feature) => feature_deps.push(dep_feature),
                     // another package is a dependency
-                    Crate(dep_name) => {
+                    Dep {dep_name } => {
                         // unwrap is ok, valid Cargo.toml files must have this
                         for &dep in deps_by_name.get(dep_name.as_str()).unwrap() {
                             other_deps.push(dep.clone());
                         }
                     }
                     // another package is a dependency
-                    CrateFeature(dep_name, dep_feature) => {
+                    DepFeature {dep_name, dep_feature, .. } => {
                         // unwrap is ok, valid Cargo.toml files must have this
                         for &dep in deps_by_name.get(dep_name.as_str()).unwrap() {
                             let mut dep = dep.clone();
