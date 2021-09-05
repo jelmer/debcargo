@@ -23,12 +23,10 @@ fn lookup_fixmes(srcdir: &Path) -> Result<Vec<PathBuf>> {
             let reader = BufReader::new(file);
             // If we find one FIXME we break the loop and check next file. Idea
             // is only to find files with FIXME strings in it.
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    if line.contains("FIXME") {
-                        fixme_files.push(entry.path().to_path_buf());
-                        break;
-                    }
+            for line in reader.lines().flatten() {
+                if line.contains("FIXME") {
+                    fixme_files.push(entry.path().to_path_buf());
+                    break;
                 }
             }
         }
@@ -112,7 +110,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
                 None => debcargo_warn!("\t •  Write a config file and use it with --config"),
                 Some(c) => {
                     debcargo_warn!("\t •  Add or edit overrides in your config file:");
-                    debcargo_warn!("\t    {}", rel_p(&c, &curdir));
+                    debcargo_warn!("\t    {}", rel_p(c, &curdir));
                 }
             };
             match config.overlay_dir(config_path) {

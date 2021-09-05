@@ -16,8 +16,7 @@ use std::path::Path;
 
 use crate::errors::*;
 
-const DEB_COPYRIGHT_FORMAT: &str =
-    "\
+const DEB_COPYRIGHT_FORMAT: &str = "\
      https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/";
 
 macro_rules! format_para {
@@ -353,7 +352,11 @@ pub fn debian_copyright(
     // https://rust-lang.github.io/rfcs/3052-optional-authors-field.html
     // and crates.io publishes crates without the field already.
     let unknown_authors = vec!["FIXME (overlay) UNKNOWN-AUTHORS".to_string()];
-    let authors = if meta.authors.is_empty() { &unknown_authors } else { &meta.authors };
+    let authors = if meta.authors.is_empty() {
+        &unknown_authors
+    } else {
+        &meta.authors
+    };
 
     let upstream = UpstreamInfo::new(manifest.name().to_string(), authors, repository);
 

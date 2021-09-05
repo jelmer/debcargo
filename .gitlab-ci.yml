@@ -4,3 +4,17 @@ test:cargo:
   script:
     - rustc --version && cargo --version  # Print version info for debugging
     - cargo test --workspace --verbose
+
+test:clippy:
+  stage: test
+  before_script:
+    - rustup component add clippy
+  script:
+    - cargo clippy
+
+test:format-code:
+  stage: test
+  before_script:
+    - rustup component add rustfmt
+  script:
+    - cargo fmt -- --check

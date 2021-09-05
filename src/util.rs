@@ -4,14 +4,14 @@ use std::io::Error;
 use std::iter::Iterator;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::symlink;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
 use walkdir;
 
 pub const HINT_SUFFIX: &str = ".debcargo.hint";
 
-pub fn is_hint_file(file: &PathBuf) -> bool {
+pub fn is_hint_file(file: &Path) -> bool {
     let file = file.as_os_str().as_bytes();
     file.len() >= HINT_SUFFIX.len()
         && &file[file.len() - HINT_SUFFIX.len()..] == HINT_SUFFIX.as_bytes()
@@ -63,6 +63,7 @@ pub(crate) fn traverse_depth<'a>(
 
 /// Get a value that might be set at a key or any of its ancestor keys,
 /// whichever is closest. Error if there are conflicting definitions.
+#[allow(clippy::type_complexity)]
 pub(crate) fn get_transitive_val<
     'a,
     P: Fn(K) -> Option<&'a Vec<K>>,
@@ -81,10 +82,9 @@ pub(crate) fn get_transitive_val<
     } else {
         let mut candidates = Vec::new();
         for par in vec_opt_iter(getparents(key)) {
-            match get_transitive_val(getparents, f, *par)? {
-                Some(v) => candidates.push((*par, v)),
-                None => (), // parent has no explicit value either
-            };
+            if let Some(v) = get_transitive_val(getparents, f, *par)? {
+                candidates.push((*par, v))
+            }
         }
         if candidates.is_empty() {
             Ok(None) // here is None

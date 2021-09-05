@@ -149,6 +149,7 @@ impl fmt::Display for PkgTest {
 }
 
 impl Source {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         basename: &str,
         name_suffix: Option<&str>,
@@ -236,6 +237,7 @@ impl Source {
 }
 
 impl Package {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         basename: &str,
         name_suffix: Option<&str>,
@@ -262,7 +264,7 @@ impl Package {
                 }
             )
         };
-        let deb_feature = &|f: &str| deb_feature2(&pkgbase, &f);
+        let deb_feature = &|f: &str| deb_feature2(&pkgbase, f);
 
         let filter_provides = &|x: Vec<&str>| {
             x.into_iter()
@@ -396,7 +398,7 @@ impl Package {
     fn write_description(&self, out: &mut fmt::Formatter) -> fmt::Result {
         writeln!(out, "Description: {}", &self.summary)?;
         let description = format!("{}", &self.description);
-        for line in fill(&description.trim(), 79).lines() {
+        for line in fill(description.trim(), 79).lines() {
             let line = line.trim_end();
             if line.is_empty() {
                 writeln!(out, " .")?;
@@ -409,22 +411,23 @@ impl Package {
         Ok(())
     }
 
-    pub fn summary_check_len(&self) -> std::result::Result<(),()> {
-        if self.summary.prefix.len() <= 80 { Ok(()) } else { Err(()) }
+    #[allow(clippy::result_unit_err)]
+    pub fn summary_check_len(&self) -> std::result::Result<(), ()> {
+        if self.summary.prefix.len() <= 80 {
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 
     pub fn apply_overrides(&mut self, config: &Config, key: PackageKey, f_provides: Vec<&str>) {
         if let Some(section) = config.package_section(key) {
             self.section = Some(section.to_string());
         }
-        self.summary.apply_overrides(
-            &config.summary,
-            config.package_summary(key),
-        );
-        self.description.apply_overrides(
-            &config.description,
-            config.package_description(key),
-        );
+        self.summary
+            .apply_overrides(&config.summary, config.package_summary(key));
+        self.description
+            .apply_overrides(&config.description, config.package_description(key));
 
         self.depends.extend(package_field_for_feature(
             &|x| config.package_depends(x),
@@ -525,10 +528,8 @@ fn get_envs(keys: &[&str]) -> Result<Option<String>> {
                 return Ok(Some(val));
             }
             Err(e @ VarError::NotUnicode(_)) => {
-                return Err(Error::from(
-                    Error::from(e)
-                        .context(format!("Environment variable ${} not valid UTF-8", key)),
-                ));
+                return Err(Error::from(e)
+                    .context(format!("Environment variable ${} not valid UTF-8", key)));
             }
             Err(VarError::NotPresent) => {}
         }

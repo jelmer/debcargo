@@ -26,7 +26,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::errors::*;
 use crate::util::vec_opt_iter;
@@ -135,7 +135,7 @@ impl CrateInfo {
                     .open_rw(&filename, &config, "crate file")?
             };
 
-            (package.clone(), crate_file)
+            (package, crate_file)
         };
 
         let manifest = package.manifest().clone();
@@ -177,11 +177,8 @@ impl CrateInfo {
             }
         });
 
-        let dependency = Dependency::parse_no_deprecated(
-            crate_name,
-            version.as_ref().map(String::as_str),
-            source_id,
-        )?;
+        let dependency =
+            Dependency::parse_no_deprecated(crate_name, version.as_deref(), source_id)?;
 
         let registry_name = format!(
             "{}-{:016x}",
@@ -252,7 +249,7 @@ impl CrateInfo {
         &self.manifest
     }
 
-    pub fn replace_manifest(&mut self, path: &PathBuf) -> Result<&Self> {
+    pub fn replace_manifest(&mut self, path: &Path) -> Result<&Self> {
         if let (EitherManifest::Real(v), _) = read_manifest(path, self.source_id, &self.config)? {
             self.manifest = v;
         }
@@ -291,7 +288,7 @@ impl CrateInfo {
                 _ => continue,
             }
         }
-        bins.sort();
+        bins.sort_unstable();
         bins
     }
 
@@ -363,14 +360,18 @@ impl CrateInfo {
                     // another feature is a dependency
                     Feature(dep_feature) => feature_deps.push(dep_feature),
                     // another package is a dependency
-                    Dep {dep_name } => {
+                    Dep { dep_name } => {
                         // unwrap is ok, valid Cargo.toml files must have this
                         for &dep in deps_by_name.get(dep_name.as_str()).unwrap() {
                             other_deps.push(dep.clone());
                         }
                     }
                     // another package is a dependency
-                    DepFeature {dep_name, dep_feature, .. } => {
+                    DepFeature {
+                        dep_name,
+                        dep_feature,
+                        ..
+                    } => {
                         // unwrap is ok, valid Cargo.toml files must have this
                         for &dep in deps_by_name.get(dep_name.as_str()).unwrap() {
                             let mut dep = dep.clone();
@@ -394,7 +395,7 @@ impl CrateInfo {
             for &dep in deps {
                 if dep.is_optional() {
                     features_with_deps
-                        .insert(&dep.name_in_toml().as_str(), (vec![""], vec![dep.clone()]));
+                        .insert(dep.name_in_toml().as_str(), (vec![""], vec![dep.clone()]));
                 } else {
                     deps_required.push(dep.clone())
                 }
@@ -554,13 +555,13 @@ impl CrateInfo {
         }
 
         if let Err(e) = fs::rename(entries[0].path(), &path) {
-            return Err(Error::from(Error::from(e).context(format!(
+            return Err(Error::from(e).context(format!(
                 concat!(
                     "Could not create source directory {0}\n",
                     "To regenerate, move or remove {0}"
                 ),
                 path.display()
-            ))));
+            )));
         }
 
         // Ensure that Cargo.toml is in standard form, e.g. does not contain

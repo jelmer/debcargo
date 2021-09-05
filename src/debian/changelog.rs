@@ -178,6 +178,6 @@ impl<'a> Iterator for ChangelogIterator<'a> {
             result = &slice[..=i];
             break;
         }
-        Some(str::from_utf8(&result).unwrap())
+        Some(str::from_utf8(result).unwrap())
     }
 }
