@@ -25,7 +25,7 @@ use crate::util::{
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
 use self::control::{deb_version, dsc_name};
-use self::control::{Package, PkgTest, Source, Description};
+use self::control::{Description, Package, PkgTest, Source};
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
 
@@ -630,10 +630,9 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         build_deps,
         if requires_root.is_some() {
             requires_root.as_ref().unwrap().to_string()
-        }
-        else {
+        } else {
             "no".to_string()
-        }
+        },
     )?;
 
     // If source overrides are present update related parts.
@@ -717,11 +716,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             } else {
                 match f_provides.len() {
                     0 => format!(" - feature \"{}\"", feature),
-                    _ => format!(
-                        " - feature \"{}\" and {} more",
-                        feature,
-                        f_provides.len()
-                    ),
+                    _ => format!(" - feature \"{}\" and {} more", feature, f_provides.len()),
                 }
             };
             let description_suffix = if feature.is_empty() {
@@ -758,11 +753,19 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 base_pkgname,
                 name_suffix,
                 crate_info.version(),
-                Description { prefix: summary_prefix.clone(),
-                              suffix: summary_suffix.clone(), },
-                Description { prefix: description_prefix.clone(),
-                              suffix: description_suffix.clone(), },
-                if feature.is_empty() { None } else { Some(feature) },
+                Description {
+                    prefix: summary_prefix.clone(),
+                    suffix: summary_suffix.clone(),
+                },
+                Description {
+                    prefix: description_prefix.clone(),
+                    suffix: description_suffix.clone(),
+                },
+                if feature.is_empty() {
+                    None
+                } else {
+                    Some(feature)
+                },
                 f_deps,
                 deb_deps(config, &o_deps)?,
                 f_provides.clone(),
@@ -790,15 +793,20 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                     ),
                     package.name(),
                 )?,
-                Ok(()) => { },
+                Ok(()) => {}
             };
 
             write!(control, "\n{}", package)?;
 
             // Override pointless overzealous warnings from lintian
             if !feature.is_empty() {
-                let mut overrides = io::BufWriter::new(file(&format!("{}.lintian-overrides", package.name()))?);
-                write!(overrides, "{} binary: empty-rust-library-declares-provides *", package.name())?;
+                let mut overrides =
+                    io::BufWriter::new(file(&format!("{}.lintian-overrides", package.name()))?);
+                write!(
+                    overrides,
+                    "{} binary: empty-rust-library-declares-provides *",
+                    package.name()
+                )?;
             }
 
             // Generate tests for all features in this package
@@ -865,10 +873,14 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             } else {
                 Some("FIXME-(packages.\"(name)\".section)")
             },
-            Description { prefix: summary_prefix,
-                          suffix: summary_suffix },
-            Description { prefix: description_prefix,
-                          suffix: description_suffix },
+            Description {
+                prefix: summary_prefix,
+                suffix: summary_suffix,
+            },
+            Description {
+                prefix: description_prefix,
+                suffix: description_suffix,
+            },
         );
 
         // Binary package overrides.
@@ -906,17 +918,16 @@ fn collapse_features<'a>(
     BTreeMap<&'a str, Vec<&'a str>>,
     BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
 ) {
-    let (provides, deps) = orig_features_with_deps
-        .iter()
-        .fold(
-            (Vec::new(), Vec::new()),
-            |(mut provides, mut deps), (f, (_, f_deps))| {
-                if f != &"" {
-                    provides.push(*f);
-                }
-                deps.append(&mut f_deps.clone());
-                (provides, deps)
-            });
+    let (provides, deps) = orig_features_with_deps.iter().fold(
+        (Vec::new(), Vec::new()),
+        |(mut provides, mut deps), (f, (_, f_deps))| {
+            if f != &"" {
+                provides.push(*f);
+            }
+            deps.append(&mut f_deps.clone());
+            (provides, deps)
+        },
+    );
 
     let mut collapsed_provides = BTreeMap::new();
     collapsed_provides.insert("", provides);

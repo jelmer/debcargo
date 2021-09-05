@@ -82,7 +82,9 @@ pub(crate) fn get_transitive_val<
     } else {
         let mut candidates = Vec::new();
         for par in vec_opt_iter(getparents(key)) {
-            if let Some(v) = get_transitive_val(getparents, f, *par)? { candidates.push((*par, v)) }
+            if let Some(v) = get_transitive_val(getparents, f, *par)? {
+                candidates.push((*par, v))
+            }
         }
         if candidates.is_empty() {
             Ok(None) // here is None
