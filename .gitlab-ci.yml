@@ -22,3 +22,9 @@ test:clippy:
     - if: '$CODE_QUALITY_DISABLED'
       when: never
     - if: '$CI_PIPELINE_SOURCE == "push"'
+
+test:format-code:
+  stage: test
+  script:
+    - rustup component add rustfmt
+    - cargo fmt -- --check
