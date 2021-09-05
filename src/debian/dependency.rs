@@ -12,6 +12,7 @@ use crate::debian;
 use crate::errors::*;
 
 #[derive(Eq, Clone)]
+#[allow(clippy::upper_case_acronyms)]
 enum V {
     M(u64),
     MM(u64, u64),

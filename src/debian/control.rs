@@ -149,6 +149,7 @@ impl fmt::Display for PkgTest {
 }
 
 impl Source {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         basename: &str,
         name_suffix: Option<&str>,
@@ -236,6 +237,7 @@ impl Source {
 }
 
 impl Package {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         basename: &str,
         name_suffix: Option<&str>,
@@ -409,6 +411,7 @@ impl Package {
         Ok(())
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn summary_check_len(&self) -> std::result::Result<(),()> {
         if self.summary.prefix.len() <= 80 { Ok(()) } else { Err(()) }
     }

@@ -26,7 +26,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::errors::*;
 use crate::util::vec_opt_iter;
@@ -252,7 +252,7 @@ impl CrateInfo {
         &self.manifest
     }
 
-    pub fn replace_manifest(&mut self, path: &PathBuf) -> Result<&Self> {
+    pub fn replace_manifest(&mut self, path: &Path) -> Result<&Self> {
         if let (EitherManifest::Real(v), _) = read_manifest(path, self.source_id, &self.config)? {
             self.manifest = v;
         }

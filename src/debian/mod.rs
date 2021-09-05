@@ -197,6 +197,7 @@ pub fn prepare_orig_tarball(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_debian_folder(
     deb_info: &DebInfo,
     crate_info: &mut CrateInfo,
@@ -473,7 +474,7 @@ pub fn prepare_debian_folder(
         let source_deb_version = format!(
             "{}-{}",
             deb_info.debian_version(),
-            &deb_version_suffix.unwrap_or("1".to_string())
+            &deb_version_suffix.unwrap_or_else(|| "1".to_string())
         );
         if !uploaders.contains(&author.as_str()) {
             debcargo_warn!(
@@ -645,7 +646,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     let (crate_summary, crate_description) = crate_info.get_summary_description();
     let summary_prefix = crate_summary.unwrap_or(format!("Rust crate \"{}\"", upstream_name));
     let description_prefix = {
-        let tmp = crate_description.unwrap_or("".to_string());
+        let tmp = crate_description.unwrap_or_else(|| "".to_string());
         if tmp.is_empty() {
             tmp
         } else {
@@ -805,9 +806,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 let (feature_deps, _) = transitive_deps(&features_with_deps, f);
 
                 // args
-                let mut args = if f == "default" {
-                    vec![]
-                } else if feature_deps.contains(&"default") {
+                let mut args = if f == "default" || feature_deps.contains(&"default") {
                     vec![]
                 } else {
                     vec!["--no-default-features"]
@@ -900,6 +899,7 @@ fn transitive_deps<'a>(
     (all_features, all_deps)
 }
 
+#[allow(clippy::type_complexity)]
 fn collapse_features<'a>(
     orig_features_with_deps: &BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
 ) -> (
@@ -936,6 +936,7 @@ fn collapse_features<'a>(
 ///   f3 depends on f4
 /// into
 ///   f4 provides f1, f2, f3
+#[allow(clippy::type_complexity)]
 fn reduce_provides<'a>(
     orig_features_with_deps: &BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
 ) -> (
