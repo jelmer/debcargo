@@ -687,23 +687,45 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         )?;
 
         let (mut provides, reduced_features_with_deps) = if config.collapse_features {
-            debcargo_warn!("You are using the collapse_features work-around, which makes the resulting");
-            debcargo_warn!("package uninstallable when (now or in the future) your crate dependencies");
-            debcargo_warn!("contain cyclic dependencies on the crate-level; this is because cargo only");
+            debcargo_warn!(
+                "You are using the collapse_features work-around, which makes the resulting"
+            );
+            debcargo_warn!(
+                "package uninstallable when (now or in the future) your crate dependencies"
+            );
+            debcargo_warn!(
+                "contain cyclic dependencies on the crate-level; this is because cargo only"
+            );
             debcargo_warn!("enforces acyclicity of dependencies on the per-feature level.");
             debcargo_warn!("");
-            debcargo_warn!("By switching on collapse_features, you are telling debcargo to generate Debian");
-            debcargo_warn!("binary package on a per-crate-level basis and not a per-feature-level, meaning");
-            debcargo_warn!("that there is the chance of generating a dependency cycle on the Debian binary");
+            debcargo_warn!(
+                "By switching on collapse_features, you are telling debcargo to generate Debian"
+            );
+            debcargo_warn!(
+                "binary package on a per-crate-level basis and not a per-feature-level, meaning"
+            );
+            debcargo_warn!(
+                "that there is the chance of generating a dependency cycle on the Debian binary"
+            );
             debcargo_warn!("package level, which APT by default refuses to install.");
             debcargo_warn!("");
-            debcargo_warn!("You should not be doing this just because \"somebody told you so\"; you should");
-            debcargo_warn!("understand the situation and be prepared to deal with future technical debt");
+            debcargo_warn!(
+                "You should not be doing this just because \"somebody told you so\"; you should"
+            );
+            debcargo_warn!(
+                "understand the situation and be prepared to deal with future technical debt"
+            );
             debcargo_warn!("when the aforementioned cycles arise.");
             debcargo_warn!("");
-            debcargo_warn!("Note that a long-term solution has been discussed with the FTP team and is in");
-            debcargo_warn!("progress - namely to move Debian rust packages into a separate section of the");
-            debcargo_warn!("archive, which will then have the stricter current NEW rules lifted, and then");
+            debcargo_warn!(
+                "Note that a long-term solution has been discussed with the FTP team and is in"
+            );
+            debcargo_warn!(
+                "progress - namely to move Debian rust packages into a separate section of the"
+            );
+            debcargo_warn!(
+                "archive, which will then have the stricter current NEW rules lifted, and then"
+            );
             debcargo_warn!("the collapse_features work around would no longer be necessary.");
             debcargo_warn!("");
             debcargo_warn!("A basic example of the above would be:");
@@ -711,9 +733,15 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             debcargo_warn!("- crate A with feature AX depends on crate B with feature BY");
             debcargo_warn!("- crate B with feature BX depends on crate A with feature AY");
             debcargo_warn!("");
-            debcargo_warn!("This is a perfectly valid situation in the rust+cargo ecosystem. Notice that");
-            debcargo_warn!("there is no dependency cycle on the per-feature level, and this is enforced by");
-            debcargo_warn!("cargo; but if collapse_features is used then package A+AX+AY would cyclicly");
+            debcargo_warn!(
+                "This is a perfectly valid situation in the rust+cargo ecosystem. Notice that"
+            );
+            debcargo_warn!(
+                "there is no dependency cycle on the per-feature level, and this is enforced by"
+            );
+            debcargo_warn!(
+                "cargo; but if collapse_features is used then package A+AX+AY would cyclicly"
+            );
             debcargo_warn!("depend on package B+BX+BY.");
             collapse_features(&features_with_deps)
         } else {
