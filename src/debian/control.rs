@@ -201,6 +201,10 @@ impl Source {
         })
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     pub fn apply_overrides(&mut self, config: &Config) {
         if let Some(section) = config.section() {
             self.section = section.to_string();

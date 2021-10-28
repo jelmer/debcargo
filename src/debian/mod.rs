@@ -24,7 +24,7 @@ use crate::util::{
 };
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
-use self::control::{deb_version, dsc_name};
+use self::control::deb_version;
 use self::control::{Description, Package, PkgTest, Source};
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
@@ -250,7 +250,6 @@ pub fn prepare_debian_folder(
 
     let crate_name = crate_info.package_id().name();
     let crate_version = crate_info.package_id().version();
-    let base_pkgname = deb_info.base_package_name();
     let upstream_name = deb_info.upstream_name();
 
     let maintainer = config.maintainer();
@@ -361,7 +360,7 @@ pub fn prepare_debian_folder(
     }
 
     // debian/control & debian/tests/control
-    let (has_dev_depends, default_test_broken) =
+    let (source, has_dev_depends, default_test_broken) =
         prepare_debian_control(deb_info, crate_info, config, &mut file)?;
 
     // debian/rules
@@ -486,7 +485,7 @@ pub fn prepare_debian_folder(
             }
         }
         let changelog_new_entry = ChangelogEntry::new(
-            dsc_name(base_pkgname),
+            source.name().to_string(),
             source_deb_version,
             changelog::DEFAULT_DIST.to_string(),
             "urgency=medium".to_string(),
@@ -531,7 +530,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     crate_info: &CrateInfo,
     config: &Config,
     mut file: F,
-) -> Result<(bool, bool)> {
+) -> Result<(Source, bool, bool)> {
     let lib = crate_info.is_lib();
     let mut bins = crate_info.get_binary_targets();
     if lib && !bins.is_empty() && !config.build_bin_package() {
@@ -672,7 +671,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             testctl,
             "{}",
             PkgTest::new(
-                &dsc_name(&crate_name),
+                source.name(),
                 &crate_name,
                 "@",
                 debian_version,
@@ -944,7 +943,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         write!(control, "\n{}", bin_pkg)?;
     }
 
-    Ok((!dev_depends.is_empty(), test_is_broken("default")?))
+    Ok((source, !dev_depends.is_empty(), test_is_broken("default")?))
 }
 
 /// Calculate all feature-dependencies and external-dependencies of a given
