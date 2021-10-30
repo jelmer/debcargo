@@ -1,8 +1,5 @@
 use cargo::core::Dependency;
 use itertools::Itertools;
-use semver_parser;
-use semver_parser::range::Op::*;
-use semver_parser::range::*;
 
 use std::cmp;
 use std::fmt;
@@ -20,7 +17,7 @@ enum V {
 }
 
 impl V {
-    fn new(p: &Predicate) -> Result<Self> {
+    fn new(p: &semver::Comparator) -> Result<Self> {
         use self::V::*;
         let mmp = match (p.minor, p.patch) {
             (None, None) => M(p.major),
@@ -31,35 +28,11 @@ impl V {
         Ok(mmp)
     }
 
-    fn major(&self) -> u64 {
-        use self::V::*;
-        match *self {
-            M(major) | MM(major, _) | MMP(major, _, _) => major,
-        }
-    }
-
-    fn minor(&self) -> u64 {
-        use self::V::*;
-        match *self {
-            M(_) => 0,
-            MM(_, minor) | MMP(_, minor, _) => minor,
-        }
-    }
-
     fn inclast(&self) -> V {
         use self::V::*;
         match *self {
             M(major) => M(major + 1),
             MM(major, minor) => MM(major, minor + 1),
-            MMP(major, minor, patch) => MMP(major, minor, patch + 1),
-        }
-    }
-
-    fn incpatch(&self) -> V {
-        use self::V::*;
-        match *self {
-            M(major) => MMP(major, 0, 1),
-            MM(major, minor) => MMP(major, minor, 1),
             MMP(major, minor, patch) => MMP(major, minor, patch + 1),
         }
     }
@@ -193,9 +166,9 @@ impl VRange {
 
 fn coerce_unacceptable_predicate<'a>(
     dep: &Dependency,
-    p: &'a semver_parser::range::Predicate,
+    p: &'a semver::Comparator,
     allow_prerelease_deps: bool,
-) -> Result<&'a semver_parser::range::Op> {
+) -> Result<&'a semver::Op> {
     let mmp = &V::new(p)?;
 
     // Cargo/semver and Debian handle pre-release versions quite
@@ -219,15 +192,16 @@ fn coerce_unacceptable_predicate<'a>(
     }
 
     use debian::dependency::V::M;
+    use semver::Op::*;
     match (&p.op, mmp) {
-        (&Gt, &M(0)) => Ok(&p.op),
-        (&GtEq, &M(0)) => {
+        (&Greater, &M(0)) => Ok(&p.op),
+        (&GreaterEq, &M(0)) => {
             debcargo_warn!(
                 "Coercing unrepresentable dependency version predicate 'GtEq 0' to 'Gt 0': {} {:?}",
                 dep.package_name(),
                 p
             );
-            Ok(&Gt)
+            Ok(&Greater)
         }
         // TODO: This will prevent us from handling wildcard dependencies with
         // 0.0.0* so for now commenting this out.
@@ -243,68 +217,61 @@ fn coerce_unacceptable_predicate<'a>(
 fn generate_version_constraints(
     vr: &mut VRange,
     dep: &Dependency,
-    p: &semver_parser::range::Predicate,
-    op: &semver_parser::range::Op,
+    p: &semver::Comparator,
+    op: &semver::Op,
 ) -> Result<()> {
     let mmp = V::new(p)?;
     use debian::dependency::V::*;
+    use semver::Op::*;
     // see https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html
-    // for semantics
-    match (op, &mmp.clone()) {
-        (&Lt, &M(0)) | (&Lt, &MM(0, 0)) | (&Lt, &MMP(0, 0, 0)) => debcargo_bail!(
+    // and https://docs.rs/semver/1/semver/enum.Op.html for semantics
+    match (*op, &mmp) {
+        (Less, &M(0)) | (Less, &MM(0, 0)) | (Less, &MMP(0, 0, 0)) => debcargo_bail!(
             "Unrepresentable dependency version predicate: {} {:?}",
             dep.package_name(),
             p
         ),
-        (&Lt, _) => {
+        (Less, _) => {
             vr.constrain_lt(mmp);
         }
-        (&LtEq, _) => {
-            vr.constrain_lt(mmp.incpatch());
+        (LessEq, _) => {
+            vr.constrain_lt(mmp.inclast());
         }
-        (&Gt, _) => {
-            vr.constrain_ge(mmp.incpatch());
+        (Greater, _) => {
+            vr.constrain_ge(mmp.inclast());
         }
-        (&GtEq, _) => {
+        (GreaterEq, _) => {
             vr.constrain_ge(mmp);
         }
-
-        (&Ex, _) => {
-            vr.constrain_lt(mmp.incpatch());
-            vr.constrain_ge(mmp);
-        }
-
-        (&Tilde, &M(_)) | (&Tilde, &MM(_, _)) => {
+        (Exact, _) | (Wildcard, _) => {
             vr.constrain_lt(mmp.inclast());
             vr.constrain_ge(mmp);
         }
-        (&Tilde, &MMP(major, minor, _)) => {
+        (Tilde, &M(_)) | (Tilde, &MM(_, _)) => {
+            vr.constrain_lt(mmp.inclast());
+            vr.constrain_ge(mmp);
+        }
+        (Tilde, &MMP(major, minor, _)) => {
             vr.constrain_lt(MM(major, minor + 1));
             vr.constrain_ge(mmp);
         }
 
-        (&Compatible, &MMP(0, 0, _)) => {
+        (Caret, &MMP(0, 0, _)) => {
             vr.constrain_lt(mmp.inclast());
             vr.constrain_ge(mmp);
         }
-        (&Compatible, &MMP(0, minor, _)) | (&Compatible, &MM(0, minor)) => {
+        (Caret, &MMP(0, minor, _)) | (Caret, &MM(0, minor)) => {
             vr.constrain_lt(MM(0, minor + 1));
             vr.constrain_ge(mmp);
         }
-        (&Compatible, &MMP(major, _, _))
-        | (&Compatible, &MM(major, _))
-        | (&Compatible, &M(major)) => {
+        (Caret, &MMP(major, _, _)) | (Caret, &MM(major, _)) | (Caret, &M(major)) => {
             vr.constrain_lt(M(major + 1));
             vr.constrain_ge(mmp);
         }
 
-        (&Wildcard(WildcardVersion::Minor), _) => {
-            vr.constrain_lt(M(mmp.major() + 1));
-            vr.constrain_ge(M(mmp.major()));
-        }
-        (&Wildcard(WildcardVersion::Patch), _) => {
-            vr.constrain_lt(MM(mmp.major(), mmp.minor() + 1));
-            vr.constrain_ge(mmp);
+        (_, _) => {
+            // https://github.com/dtolnay/semver/issues/262
+            panic!("Op is non-exhuastive for some reason");
         }
     }
 
@@ -325,12 +292,12 @@ pub fn deb_dep(config: &Config, dep: &Dependency) -> Result<Vec<String>> // resu
     if suffixes.is_empty() {
         suffixes.push("-dev".to_string());
     }
-    let req = semver_parser::range::parse(&dep.version_req().to_string()).unwrap();
+    let req = semver::VersionReq::parse(&dep.version_req().to_string()).unwrap();
     let mut deps = Vec::new();
     for suffix in suffixes {
         let base = format!("librust-{}", dep_dashed);
         let mut vr = VRange::new();
-        for p in &req.predicates {
+        for p in &req.comparators {
             let op = coerce_unacceptable_predicate(dep, p, config.allow_prerelease_deps)?;
             generate_version_constraints(&mut vr, dep, p, op)?;
         }

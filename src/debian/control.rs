@@ -501,8 +501,8 @@ impl PkgTest {
 /// prerelease version so it compares earlier than the subsequent release.
 pub fn deb_version(v: &Version) -> String {
     let mut s = format!("{}.{}.{}", v.major, v.minor, v.patch);
-    for (n, id) in v.pre.iter().enumerate() {
-        write!(s, "{}{}", if n == 0 { '~' } else { '.' }, id).unwrap();
+    if !v.pre.is_empty() {
+        write!(s, "~{}", v.pre.as_str()).unwrap();
     }
     s
 }

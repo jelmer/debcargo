@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
 use std::os::unix::fs::PermissionsExt;
@@ -1013,7 +1013,7 @@ fn reduce_provides<'a>(
 
     // If any features have duplicate dependencies, deduplicate them by
     // making all of the subsequent ones depend on the first one.
-    let mut features_rev_deps = BTreeMap::new();
+    let mut features_rev_deps = HashMap::new();
     for (&f, dep) in features_with_deps.iter() {
         if !features_rev_deps.contains_key(dep) {
             features_rev_deps.insert(dep.clone(), vec![]);

@@ -4,11 +4,11 @@ use cargo::{
     core::registry::PackageRegistry,
     core::source::MaybePackage,
     core::{
-        Dependency, EitherManifest, FeatureValue, Manifest, Package, PackageId, Registry, Source,
-        SourceId, Summary, Target, TargetKind, Workspace,
+        resolver::features::CliFeatures, Dependency, EitherManifest, FeatureValue, Manifest,
+        Package, PackageId, Registry, Source, SourceId, Summary, Target, TargetKind, Workspace,
     },
     ops,
-    ops::PackageOpts,
+    ops::{PackageOpts, Packages},
     sources::registry::RegistrySource,
     util::{interning::InternedString, toml::read_manifest, FileLock},
     Config,
@@ -85,7 +85,7 @@ impl CrateInfo {
 
             let package_id = match version {
                 None | Some("") => {
-                    let dep = Dependency::parse_no_deprecated(crate_name, None, source_id)?;
+                    let dep = Dependency::parse(crate_name, None, source_id)?;
                     let mut package_id: Option<PackageId> = None;
                     source.query(&dep, &mut |p| package_id = Some(p.package_id()))?;
                     package_id.unwrap()
@@ -112,11 +112,10 @@ impl CrateInfo {
                     list: false,
                     check_metadata: true,
                     allow_dirty: true,
-                    all_features: true,
-                    no_default_features: false,
+                    cli_features: CliFeatures::from_command_line(&[], true, false)?,
                     jobs: None,
                     targets: Vec::new(),
-                    features: Vec::new(),
+                    to_package: Packages::Default,
                 };
 
                 // as of cargo 0.41 this returns a FileLock with a temp path, instead of the one
@@ -177,8 +176,7 @@ impl CrateInfo {
             }
         });
 
-        let dependency =
-            Dependency::parse_no_deprecated(crate_name, version.as_deref(), source_id)?;
+        let dependency = Dependency::parse(crate_name, version.as_deref(), source_id)?;
 
         let registry_name = format!(
             "{}-{:016x}",
