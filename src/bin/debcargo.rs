@@ -57,6 +57,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
 
     let crate_path = config.crate_src_path(config_path);
 
+    log::info!("preparing crate info");
     let mut crate_info = match crate_path {
         Some(p) => CrateInfo::new_with_local_crate(crate_name, version, &p)?,
         None => CrateInfo::new(crate_name, version)?,
@@ -69,13 +70,16 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         config.semver_suffix,
     );
     let pkg_srcdir = Path::new(directory.unwrap_or_else(|| deb_info.package_source_dir()));
+    log::info!("extracting crate");
     let source_modified = crate_info.extract_crate(pkg_srcdir)?;
 
     let orig_tar_gz = pkg_srcdir
         .parent()
         .unwrap()
         .join(deb_info.orig_tarball_path());
+    log::info!("preparing orig tarball");
     debian::prepare_orig_tarball(&crate_info, &orig_tar_gz, source_modified, pkg_srcdir)?;
+    log::info!("preparing debian folder");
     debian::prepare_debian_folder(
         &deb_info,
         &mut crate_info,
@@ -200,6 +204,7 @@ fn real_main() -> Result<()> {
 }
 
 fn main() {
+    env_logger::init();
     if let Err(e) = real_main() {
         eprintln!("{}", Red.bold().paint(format!("Something failed: {:?}", e)));
         std::process::exit(1);
