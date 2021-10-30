@@ -168,11 +168,13 @@ impl CrateInfo {
             }
         };
 
-        let version = version.map(|v| {
-            if v.starts_with(|c: char| c.is_digit(10)) {
-                ["=", v].concat()
+        let version = version.and_then(|v| {
+            if v.is_empty() {
+                None
+            } else if v.starts_with(|c: char| c.is_digit(10)) {
+                Some(["=", v].concat())
             } else {
-                v.to_string()
+                Some(v.to_string())
             }
         });
 
