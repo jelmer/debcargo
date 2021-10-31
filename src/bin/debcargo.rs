@@ -53,6 +53,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     };
     let changelog_ready = matches.is_present("changelog-ready");
     let overlay_write_back = !matches.is_present("no-overlay-write-back");
+    let no_abort_suspicious = matches.is_present("no-abort-suspicious");
     let copyright_guess_harder = matches.is_present("copyright-guess-harder");
 
     let crate_path = config.crate_src_path(config_path);
@@ -71,7 +72,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     );
     let pkg_srcdir = Path::new(directory.unwrap_or_else(|| deb_info.package_source_dir()));
     log::info!("extracting crate");
-    let source_modified = crate_info.extract_crate(pkg_srcdir)?;
+    let source_modified = crate_info.extract_crate(pkg_srcdir, no_abort_suspicious)?;
 
     let orig_tar_gz = pkg_srcdir
         .parent()
@@ -145,12 +146,13 @@ fn do_extract(matches: &ArgMatches) -> Result<()> {
     let crate_name = matches.value_of("crate").unwrap();
     let version = matches.value_of("version");
     let directory = matches.value_of("directory");
+    let no_abort_suspicious = matches.is_present("no-abort-suspicious");
 
     let crate_info = CrateInfo::new(crate_name, version)?;
     let deb_info = DebInfo::new(crate_name, &crate_info, crate_version!(), false);
     let pkg_srcdir = Path::new(directory.unwrap_or_else(|| deb_info.package_source_dir()));
 
-    crate_info.extract_crate(pkg_srcdir)?;
+    crate_info.extract_crate(pkg_srcdir, no_abort_suspicious)?;
     Ok(())
 }
 
@@ -173,6 +175,7 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("--directory [directory] 'Output directory.'")
                               .arg_from_usage("--changelog-ready 'Assume the changelog is already bumped, and leave it alone.'")
                               .arg_from_usage("--copyright-guess-harder 'Guess extra values for d/copyright. Might be slow.'")
+                              .arg_from_usage("--no-abort-suspicious 'Don\'t abort on suspicious files. Used only for tests.'")
                               .arg_from_usage("--no-overlay-write-back 'Don\'t write back hint files or d/changelog to the source overlay directory.'")
                               .arg_from_usage("--config [file] 'TOML file providing additional \
                                                package-specific options.'")
@@ -189,6 +192,7 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("[version] 'Version of the crate to package; may \
                                                include dependency operators'")
                               .arg_from_usage("--directory [directory] 'Output directory.'")
+                              .arg_from_usage("--no-abort-suspicious 'Don\'t abort on suspicious files. Used only for tests.'")
                      ])
         .subcommands(vec![SubCommand::with_name("update")
                               .about("Update the crates.io index, outside of a workspace.")

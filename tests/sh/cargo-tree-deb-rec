@@ -28,7 +28,7 @@ def cargo_tree_args(*args):
 	# non-dev dependencies, default feature set.
 	# this is what we put in Build-Depends in Debian
 	return subprocess.check_output([os.path.join(scriptdir, "cargo-tree-any")] +
-		list(args) + ["--no-dev-dependencies", "--all-targets", "--prefix-depth", "-a"])
+		list(args) + ["-e=no-dev", "--target=all", "--prefix=depth", "--no-dedupe"])
 
 lock = threading.Lock()
 want = 0
@@ -40,7 +40,9 @@ def parse(output, stack):
 	self = None
 	with lock:
 		for line in reverse_topo(output.splitlines(), lambda x: x.split(b" ", 1)[1]):
-			i, pkg, ver = line.split(b" ", 2)
+			suffix = line.lstrip(b"0123456789")
+			i = line[0:len(line)-len(suffix)]
+			pkg, ver = suffix.strip().split(b" ", 1)
 			i = int(i)
 			pkg = pkg.decode("utf-8")
 			ver = ver.decode("utf-8")

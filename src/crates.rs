@@ -504,7 +504,7 @@ impl CrateInfo {
         }
     }
 
-    pub fn extract_crate(&self, path: &Path) -> Result<bool> {
+    pub fn extract_crate(&self, path: &Path, no_abort_suspicious: bool) -> Result<bool> {
         let mut archive = Archive::new(GzDecoder::new(self.crate_file.file()));
         let tempdir = tempfile::Builder::new()
             .prefix("debcargo")
@@ -539,9 +539,11 @@ impl CrateInfo {
             for e in err {
                 debcargo_warn!("{}", e);
             }
-            debcargo_bail!(
-                "Suspicious files detected, aborting. Ask on #debian-rust if you are stuck."
-            )
+            if !no_abort_suspicious {
+                debcargo_bail!(
+                    "Suspicious files detected, aborting. Ask on #debian-rust if you are stuck."
+                )
+            }
         }
 
         let entries = tempdir.path().read_dir()?.collect::<io::Result<Vec<_>>>()?;

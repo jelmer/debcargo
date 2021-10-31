@@ -12,7 +12,7 @@ set -e
 
 scriptdir="$(readlink -f "$(dirname "$0")")"
 
-if ! cargo tree --help | grep -q no-dev; then
+if ! cargo tree --help 2>/dev/null | grep -q no-dev; then
 	echo >&2 "wrong version of cargo-tree, get it from https://github.com/infinity0/cargo-tree"
 	exit 1
 fi
@@ -43,7 +43,7 @@ else
 	if [ -n "$ver" ]; then
 		echo "version = \"$ver\"" >> "$dir/cargo-tree-tmp"/Cargo.toml
 	fi
-	( cd $dir && $DEBCARGO 2>/dev/null extract $name $ver --directory "$dir/cargo-manifest" >/dev/null )
+	( cd $dir && $DEBCARGO 2>/dev/null extract $name $ver --no-abort-suspicious --directory "$dir/cargo-manifest" >/dev/null)
 	manifest="$dir/cargo-manifest/Cargo.toml"
 fi
 
