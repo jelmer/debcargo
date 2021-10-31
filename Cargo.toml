@@ -19,9 +19,10 @@ chrono = "0.4"
 env_logger = "0.9"
 filetime = "0.2"
 flate2 = "1"
-# Uncomment this if compiling non-Debian package on Debian as Debian's
+# Uncomment these if compiling non-Debian package on Debian as Debian's
 # libgit2 is too old - 1.1.0 vs 1.3.0 needed by newer git2 crates.
 #git2 = "= 0.13.21"
+#libgit2-sys = "= 0.12.22+1.1.0"
 git2 = "0.13.23"
 glob = "0.3"
 itertools = "0.10"
