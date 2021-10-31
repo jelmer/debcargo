@@ -250,3 +250,7 @@ fn package_key_string(key: PackageKey) -> String {
         FeatureLib(feature) => format!("lib+{}", feature),
     }
 }
+
+pub fn force_for_testing() -> bool {
+    std::env::var("DEBCARGO_FORCE_FOR_TESTING") == Ok("1".to_string())
+}

@@ -19,6 +19,8 @@ update=false
 extraargs=
 use_rec_hack=false
 
+export DEBCARGO_FORCE_FOR_TESTING=1
+
 DEB_HOST_ARCH=${DEB_HOST_ARCH:-$(dpkg-architecture -qDEB_HOST_ARCH)}
 
 while getopts 'd:f:a:l:c:bkrux:zh?' o; do
@@ -156,7 +158,7 @@ build_source() {(
 		echo >&2 "using config: $config"
 	fi
 
-	if ( set -x; $debcargo package $extraargs --no-abort-suspicious --no-overlay-write-back --directory $cratedir $option "${crate}" $version ); then
+	if ( set -x; $debcargo package $extraargs --no-overlay-write-back --directory $cratedir $option "${crate}" $version ); then
 		:
 	else
 		local x=$?

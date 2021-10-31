@@ -43,7 +43,7 @@ else
 	if [ -n "$ver" ]; then
 		echo "version = \"$ver\"" >> "$dir/cargo-tree-tmp"/Cargo.toml
 	fi
-	( cd $dir && $DEBCARGO 2>/dev/null extract $name $ver --no-abort-suspicious --directory "$dir/cargo-manifest" >/dev/null)
+	( cd $dir && $DEBCARGO 2>/dev/null extract $name $ver --directory "$dir/cargo-manifest" >/dev/null)
 	manifest="$dir/cargo-manifest/Cargo.toml"
 fi
 
