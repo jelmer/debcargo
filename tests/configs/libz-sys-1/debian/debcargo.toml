@@ -1,4 +1,0 @@
-excludes = ["src/zlib-*/**"]
-
-[packages.lib]
-depends = ["zlib1g-dev"]

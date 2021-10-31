@@ -1,5 +1,0 @@
-overlay = "."
-excludes = ["libssh2/**"]
-
-[packages.lib]
-depends = ["libssh2-1-dev"]

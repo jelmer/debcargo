@@ -1,5 +1,0 @@
-overlay = "."
-uploaders = ["Sylvestre Ledru <sylvestre@debian.org>", "Ximin Luo <infinity0@debian.org>" ]
-
-[packages.lib]
-depends = ["pkg-config"]

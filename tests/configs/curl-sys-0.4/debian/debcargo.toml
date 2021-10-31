@@ -1,4 +1,0 @@
-excludes = ["curl/**"]
-
-[packages.lib]
-depends = ["libcurl4-gnutls-dev"]
