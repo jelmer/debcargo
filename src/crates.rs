@@ -371,15 +371,36 @@ impl CrateInfo {
                         dep_name,
                         dep_feature,
                         ..
-                    } => {
+                    } => match deps_by_name.get(dep_name.as_str()) {
                         // unwrap is ok, valid Cargo.toml files must have this
-                        for &dep in deps_by_name.get(dep_name.as_str()).unwrap() {
-                            let mut dep = dep.clone();
-                            dep.set_features(vec![InternedString::new(dep_feature)]);
-                            dep.set_default_features(false);
-                            other_deps.push(dep);
+                        Some(dd) => {
+                            for &dep in dd {
+                                let mut dep = dep.clone();
+                                dep.set_features(vec![InternedString::new(dep_feature)]);
+                                dep.set_default_features(false);
+                                other_deps.push(dep);
+                            }
                         }
-                    }
+                        None => {
+                            let mut expected = false;
+                            for dep in self.dependencies() {
+                                if dep.kind() == DepKind::Development {
+                                    let s = dep.name_in_toml().as_str();
+                                    if s == dep_name.as_str() {
+                                        expected = true;
+                                    }
+                                }
+                            }
+                            if expected {
+                                debcargo_warn!("Ignoring dependency \"{}\" as it depends on a dev-dependency \"{}\"", feature, dep_name);
+                            } else {
+                                panic!(
+                                    "failed to account for dependency \"{}\" of feature \"{}\"",
+                                    dep_name, feature
+                                );
+                            }
+                        }
+                    },
                 }
             }
             if feature_deps.is_empty() {
