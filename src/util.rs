@@ -42,8 +42,15 @@ pub fn vec_opt_iter<'a, T>(option: Option<&'a Vec<T>>) -> impl Iterator<Item = &
 }
 
 pub fn expect_success(cmd: &mut Command, err: &str) {
-    if !cmd.status().unwrap().success() {
-        panic!("{}", err);
+    match cmd.status() {
+        Ok(status) => {
+            if !status.success() {
+                panic!("{}", err);
+            }
+        }
+        Err(e) => {
+            panic!("{}", e);
+        }
     }
 }
 
