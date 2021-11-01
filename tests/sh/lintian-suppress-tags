@@ -1,4 +1,4 @@
-## To be fixed by the user
+## To be fixed by the package developer
 
 # copyright
 missing-license-paragraph-in-dep5-copyright
@@ -14,10 +14,11 @@ description-synopsis-starts-with-article
 debian-changelog-line-too-long
 unknown-section
 spelling-error-in-binary
+rust-boilerplate
+no-manual-page
 
 ## To be fixed here in debcargo
 
-# this is our fault, we'll fix it later
 out-of-date-standards-version
 package-uses-old-debhelper-compat-version
 uses-debhelper-compat-file
