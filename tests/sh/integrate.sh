@@ -8,7 +8,7 @@ directory=tmp
 failures_file=""
 # inputs
 allow_failures="$scriptdir/build-allow-fail"
-lintian_overrides="$scriptdir/lintian-overrides"
+lintian_suppress_tags="$scriptdir/lintian-suppress-tags"
 config_dir="$scriptdir/../configs"
 # tweaks
 run_lintian=true
@@ -29,7 +29,6 @@ while getopts 'd:f:a:l:c:bkrux:zh?' o; do
 	f ) failures_file=$OPTARG;;
 
 	a ) allow_failures=$OPTARG;;
-	l ) lintian_overrides=$OPTARG;;
 	c ) config_dir=$OPTARG;;
 
 	b ) run_sbuild=true;;
@@ -54,9 +53,6 @@ Options for output:
 Options for input:
   -a FILE       File that lists crate names to ignore failures for, default:
                 $allow_failures.
-  -l FILE       Install this file as debian/source/lintian-overrides, to
-                override some generic stuff we haven't fixed yet. Default:
-                $lintian_overrides.
   -c DIR        Path to config directory, default: $config_dir.
 
 Options to control running:
@@ -101,10 +97,11 @@ run_lintian() {(
 	allow_fail "$crate" $version && return 0
 
 	base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
+	echo >&2 "running lintian for ${base}"
 	changes="${base}_source.changes"
-	lintian -EIL +pedantic "$changes" || true
+	lintian --suppress-tags-from-file "$lintian_suppress_tags" -EIL +pedantic "$changes" || true
 	changes="${base}_${DEB_HOST_ARCH}.changes"
-	lintian -EIL +pedantic "$changes" || true
+	lintian --suppress-tags-from-file "$lintian_suppress_tags" -EIL +pedantic "$changes" || true
 )}
 
 DEB_HOST_ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
@@ -175,7 +172,6 @@ build_source() {(
 	fi
 	cd "${cratedir}"
 	mkdir -p debian/source
-	cp "$lintian_overrides" debian/source/lintian-overrides
 	dpkg-buildpackage -d -S --no-sign
 )}
 
@@ -235,7 +231,7 @@ run_x_or_deps() {
 
 # make all paths absolute so things don't mess up when we switch dirs
 allow_failures=$(readlink -f "$allow_failures")
-lintian_overrides=$(readlink -f "$lintian_overrides")
+lintian_suppress_tags=$(readlink -f "$lintian_suppress_tags")
 config_dir=$(readlink -f "$config_dir")
 directory=$(readlink -f "$directory")
 scriptdir=$(readlink -f "$scriptdir")
