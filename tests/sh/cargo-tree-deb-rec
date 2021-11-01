@@ -34,16 +34,23 @@ lock = threading.Lock()
 want = 0
 done = 0
 
+def split_cargo_tree_prefix_depth(line):
+	# some versions of cargo-tree don't put a space between the depth and the
+	# rest of the line. this is most likely a bug introduced during refactoring
+	# which I haven't bothered reporting yet
+	suffix = line.lstrip(b"0123456789")
+	i = line[0:len(line)-len(suffix)]
+	i = int(i)
+	return (i, suffix.strip())
+
 def parse(output, stack):
 	global want, done, lock
 	to_recurse = []
 	self = None
 	with lock:
-		for line in reverse_topo(output.splitlines(), lambda x: x.split(b" ", 1)[1]):
-			suffix = line.lstrip(b"0123456789")
-			i = line[0:len(line)-len(suffix)]
-			pkg, ver = suffix.strip().split(b" ", 1)
-			i = int(i)
+		for line in reverse_topo(output.splitlines(), lambda x: split_cargo_tree_prefix_depth(x)[1]):
+			(i, item) = split_cargo_tree_prefix_depth(line)
+			pkg, ver = item.split(b" ", 1)
 			pkg = pkg.decode("utf-8")
 			ver = ver.decode("utf-8")
 			if " " in ver:
@@ -68,6 +75,7 @@ def parse(output, stack):
 				continue
 		sys.stderr.write("\033[K")
 		stack += (self,)
+		assert self is not None
 
 		print("%s: %s/%s done, %s todo, |%s|%s" %
 			(myname, done, want, want-done,
