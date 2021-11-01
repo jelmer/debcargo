@@ -16,7 +16,7 @@ use regex::Regex;
 use tar::{Archive, Builder};
 use tempfile;
 
-use crate::config::{package_field_for_feature, Config, PackageKey};
+use crate::config::{force_for_testing, package_field_for_feature, Config, PackageKey};
 use crate::crates::CrateInfo;
 use crate::errors::*;
 use crate::util::{
@@ -363,13 +363,33 @@ pub fn prepare_debian_folder(
     let (source, has_dev_depends, default_test_broken) =
         prepare_debian_control(deb_info, crate_info, config, &mut file)?;
 
+    // for testing only, debian/debcargo_testing_bin/env
+    if force_for_testing() {
+        fs::create_dir_all(tempdir.path().join("debcargo_testing_bin"))?;
+        let mut env_hack = file("debcargo_testing_bin/env")?;
+        env_hack.set_permissions(fs::Permissions::from_mode(0o777))?;
+        // intercept calls to dh-cargo-built-using
+        writeln!(
+            env_hack,
+            r#"#!/bin/sh
+case "$*" in */usr/share/cargo/bin/dh-cargo-built-using*)
+echo "debcargo testing: suppressing dh-cargo-built-using";;
+*) /usr/bin/env "$@";; esac
+"#
+        )?;
+    }
+
     // debian/rules
     {
         let mut rules = file("rules")?;
         rules.set_permissions(fs::Permissions::from_mode(0o777))?;
-        if has_dev_depends {
+        if has_dev_depends || force_for_testing() {
             // don't run any tests, we don't want extra B-D on dev-depends
             // this could potentially cause B-D cycles so we avoid it
+            //
+            // also don't run crate tests during integration testing since some
+            // of them are brittle and fail; the purpose is to test debcargo
+            // not the actual crates
             write!(
                 rules,
                 "{}",
@@ -379,6 +399,16 @@ pub fn prepare_debian_folder(
                     "\tdh $@ --buildsystem cargo\n"
                 )
             )?;
+            // some crates need nightly to compile, annoyingly. only do this in
+            // testing; outside of testing the user should explicitly override
+            // debian/rules to do this
+            if force_for_testing() {
+                write!(rules, "export RUSTC_BOOTSTRAP := 1\n")?;
+                write!(
+                    rules,
+                    "export PATH := $(CURDIR)/debian/debcargo_testing_bin:$(PATH)\n"
+                )?;
+            }
         } else {
             write!(
                 rules,

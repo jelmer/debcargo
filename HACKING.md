@@ -21,7 +21,7 @@ $ cargo outdated -R
 ```
 
 
-## Testing ##
+## Testing
 
 To test the `debcargo` produced packages, you can run the following script.
 
@@ -57,3 +57,20 @@ mostly when building with `-kbr` because sbuild will fail complaining about
 missing dependencies.)
 
 See `-h` for other options.
+
+### Spurious failures
+
+Due to the imperfect nature of our `cargo-tree-*` wrapper scripts, an sbuild
+step during the integration test may fail due to missing dependencies. You can
+manually work around this situation by editing `tmp/z-cache_<package>`, add
+the missing dependency immediately before the failing package, then re-running
+your integration test with the `-k` flag added.
+
+This is not a bug in debcargo but in our integration test helper scripts;
+please do not file bug reports about it. The fix is low priority for developers
+but we are happy to accept patches.
+
+On the other hand, if the work-around stated above does not work for you, then
+you may be running into a different situation which may be an actual debcargo
+bug. Run the integration test again without your changes; if it still occurs
+then do feel free to file a bug.
