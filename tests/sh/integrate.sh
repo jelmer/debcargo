@@ -129,8 +129,12 @@ run_sbuild() {(
 		return 0
 	fi
 
+	# We use --build-dep-resolver=aspcud as both apt/aptitude fail to resolve
+	# certain complex dependency situations e.g. bytes-0.4. For our official
+	# Debian rust packages we patch those crates to have simpler dependencies;
+	# but we don't want to maintain those patches for this integration test
 	echo >&2 "sbuild $dsc logging to $build"
-	sbuild --arch-all --arch-any --no-run-lintian --build-dep-resolver=aptitude -c "$CHROOT" -d unstable --extra-package=. $SBUILD_EXTRA_ARGS "$dsc"
+	sbuild --arch-all --arch-any --no-run-lintian --build-dep-resolver=aspcud -c "$CHROOT" -d unstable --extra-package=. $SBUILD_EXTRA_ARGS "$dsc"
 )}
 
 build_source() {(
