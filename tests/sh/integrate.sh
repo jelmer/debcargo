@@ -134,7 +134,8 @@ run_sbuild() {(
 	# Debian rust packages we patch those crates to have simpler dependencies;
 	# but we don't want to maintain those patches for this integration test
 	echo >&2 "sbuild $dsc logging to $build"
-	sbuild --arch-all --arch-any --no-run-lintian --build-dep-resolver=aspcud -c "$CHROOT" -d unstable --extra-package=. $SBUILD_EXTRA_ARGS "$dsc"
+	sbuild --arch-all --arch-any --no-run-lintian --build-dep-resolver=aspcud \
+	  -c "$CHROOT" -d unstable --extra-package=. $SBUILD_EXTRA_ARGS "$dsc"
 )}
 
 build_source() {(

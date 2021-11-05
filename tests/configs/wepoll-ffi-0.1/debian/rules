@@ -1,0 +1,8 @@
+#!/usr/bin/make -f
+include /usr/share/rustc/architecture.mk
+%:
+	dh $@ --buildsystem cargo
+
+# only supported on windows
+override_dh_auto_test:
+	case $(DEB_HOST_RUST_TYPE) in *-pc-windows-gnu) dh_auto_test;; *) true;; esac
