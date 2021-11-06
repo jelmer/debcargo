@@ -407,10 +407,10 @@ echo "debcargo testing: suppressing dh-cargo-built-using";;
             // testing; outside of testing the user should explicitly override
             // debian/rules to do this
             if force_for_testing() {
-                write!(rules, "export RUSTC_BOOTSTRAP := 1\n")?;
-                write!(
+                writeln!(rules, "export RUSTC_BOOTSTRAP := 1")?;
+                writeln!(
                     rules,
-                    "export PATH := $(CURDIR)/debian/debcargo_testing_bin:$(PATH)\n"
+                    "export PATH := $(CURDIR)/debian/debcargo_testing_bin:$(PATH)"
                 )?;
             }
         } else {
