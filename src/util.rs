@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
 use std::io::Error;
 use std::iter::Iterator;
@@ -106,4 +106,66 @@ pub(crate) fn get_transitive_val<
             }
         }
     }
+}
+
+pub fn graph_from_succ<V, FV, FL, E>(
+    seed: impl IntoIterator<Item = V>,
+    succ: &mut FV,
+    log: &mut FL,
+) -> Result<BTreeMap<V, BTreeSet<V>>, E>
+where
+    V: Ord + Clone,
+    FV: FnMut(&V) -> Result<Vec<V>, E>,
+    FL: FnMut(&VecDeque<V>, &BTreeMap<V, BTreeSet<V>>) -> Result<(), E>,
+{
+    let mut graph = BTreeMap::new();
+    let mut remain = VecDeque::from_iter(seed);
+    while let Some(v) = remain.pop_front() {
+        log(&remain, &graph)?;
+        let next = succ(&v)?;
+        for vv in next.iter() {
+            if !graph.contains_key(vv) {
+                remain.push_back(vv.clone());
+            }
+        }
+        graph.insert(v, BTreeSet::from_iter(next));
+    }
+    Ok(graph)
+}
+
+pub fn succ_to_pred<V>(succ: &BTreeMap<V, BTreeSet<V>>) -> BTreeMap<V, BTreeSet<V>>
+where
+    V: Ord + Clone,
+{
+    let mut pred: BTreeMap<V, BTreeSet<V>> = BTreeMap::new();
+    for (v, vv) in succ {
+        for v_ in vv {
+            pred.entry(v_.clone()).or_default().insert(v.clone());
+        }
+    }
+    pred
+}
+
+pub fn topo_sort<V>(
+    seed: impl IntoIterator<Item = V>,
+    succ: BTreeMap<V, BTreeSet<V>>,
+    mut pred: BTreeMap<V, BTreeSet<V>>,
+) -> Vec<V>
+where
+    V: Ord + Clone,
+{
+    let empty = BTreeSet::new();
+    let mut remain = VecDeque::from_iter(seed);
+    let mut sort = Vec::new();
+    while let Some(v) = remain.pop_front() {
+        sort.push(v.clone());
+        for v_ in succ.get(&v).unwrap_or(&empty) {
+            let par = pred.entry(v_.clone()).or_default();
+            par.remove(&v);
+            if par.is_empty() {
+                remain.push_back(v_.clone());
+            }
+        }
+    }
+    sort
 }

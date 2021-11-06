@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::env;
 use std::fs;
 use std::io::{BufRead, BufReader};
@@ -154,6 +155,56 @@ fn do_extract(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
+fn do_build_order(matches: &ArgMatches) -> Result<()> {
+    let crate_name = matches.value_of("crate").unwrap();
+    let version = matches.value_of("version");
+
+    let mut infos = BTreeMap::new();
+    let mut roots = BTreeSet::new();
+    let seed = CrateInfo::new(crate_name, version)?;
+    let seed_id = seed.package_id();
+    infos.insert(seed_id, seed);
+
+    let mut next = |id: &cargo::core::PackageId| -> Result<Vec<cargo::core::PackageId>> {
+        let crate_info = infos
+            .get(id)
+            .expect("build_order next called without crate info");
+        let mut deps = Vec::new();
+        for dep in debian::get_build_deps(&crate_info)? {
+            let info = CrateInfo::new_from_dependency(&dep, false)?;
+            let id = info.package_id();
+            infos.insert(id, info);
+            deps.push(id);
+        }
+        if deps.is_empty() {
+            roots.insert(id.clone());
+        }
+        Ok(deps)
+    };
+    let mut i = 0;
+    let mut log = |remaining: &VecDeque<_>, graph: &BTreeMap<_, _>| {
+        i += 1;
+        if i % 16 == 0 {
+            log::info!(
+                "build-order: done: {}, todo: {}",
+                graph.len(),
+                remaining.len()
+            );
+        }
+        Ok(())
+    };
+
+    let succ = util::graph_from_succ([seed_id], &mut next, &mut log)?;
+    let pred = util::succ_to_pred(&succ);
+    // swap pred/succ for call to topo_sort since we want reverse topo order
+    let build_order = util::topo_sort(roots, pred, succ);
+    for v in &build_order {
+        println!("{}", v);
+    }
+    assert_eq!(infos.len(), build_order.len());
+    Ok(())
+}
+
 fn do_update() -> Result<()> {
     update_crates_io()
 }
@@ -190,6 +241,12 @@ fn real_main() -> Result<()> {
                                                include dependency operators'")
                               .arg_from_usage("--directory [directory] 'Output directory.'")
                      ])
+        .subcommands(vec![SubCommand::with_name("build-order")
+                              .about("Print the transitive dependencies of a package in topological order.")
+                              .arg_from_usage("<crate> 'Name of the crate to package'")
+                              .arg_from_usage("[version] 'Version of the crate to package; may \
+                                               include dependency operators'")
+                     ])
         .subcommands(vec![SubCommand::with_name("update")
                               .about("Update the crates.io index, outside of a workspace.")
                      ])
@@ -198,6 +255,7 @@ fn real_main() -> Result<()> {
         ("package", Some(sm)) => do_package(sm),
         ("deb-src-name", Some(sm)) => do_deb_src_name(sm),
         ("extract", Some(sm)) => do_extract(sm),
+        ("build-order", Some(sm)) => do_build_order(sm),
         ("update", Some(_)) => do_update(),
         _ => unreachable!(),
     }
