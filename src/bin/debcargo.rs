@@ -5,11 +5,18 @@ use std::path::{Path, PathBuf};
 
 use ansi_term::Colour::Red;
 use anyhow::Context;
-use clap::{crate_authors, crate_version, App, AppSettings, ArgMatches, SubCommand};
+use structopt::{
+    clap::{crate_version, AppSettings},
+    StructOpt,
+};
 
 use debcargo::config::{parse_config, Config};
 use debcargo::crates::{update_crates_io, CrateInfo};
-use debcargo::debian::{self, build_order, DebInfo};
+use debcargo::debian::{
+    self,
+    build_order::{build_order, ResolveType},
+    DebInfo,
+};
 use debcargo::errors::Result;
 use debcargo::util;
 use debcargo::{debcargo_info, debcargo_warn};
@@ -39,11 +46,16 @@ fn rel_p<'a>(path: &'a Path, base: &'a Path) -> &'a str {
     path.strip_prefix(base).unwrap_or(path).to_str().unwrap()
 }
 
-fn do_package(matches: &ArgMatches) -> Result<()> {
-    let crate_name = matches.value_of("crate").unwrap();
-    let version = matches.value_of("version");
-    let directory = matches.value_of("directory");
-    let (config_path, config) = match matches.value_of("config") {
+fn do_package(
+    crate_name: &str,
+    version: Option<&str>,
+    directory: Option<&str>,
+    changelog_ready: bool,
+    copyright_guess_harder: bool,
+    no_overlay_write_back: bool,
+    config: Option<&str>,
+) -> Result<()> {
+    let (config_path, config) = match config {
         Some(p) => {
             let path = Path::new(p);
             let config = parse_config(path).context("failed to parse debcargo.toml")?;
@@ -51,10 +63,7 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
         }
         None => (None, Config::default()),
     };
-    let changelog_ready = matches.is_present("changelog-ready");
-    let overlay_write_back = !matches.is_present("no-overlay-write-back");
-    let copyright_guess_harder = matches.is_present("copyright-guess-harder");
-
+    let overlay_write_back = !no_overlay_write_back;
     let crate_path = config.crate_src_path(config_path);
 
     log::info!("preparing crate info");
@@ -130,41 +139,28 @@ fn do_package(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn do_deb_src_name(matches: &ArgMatches) -> Result<()> {
-    let crate_name = matches.value_of("crate").unwrap();
-    let version = matches.value_of("version");
-
+fn do_deb_src_name(crate_name: &str, version: Option<&str>) -> Result<()> {
     let crate_info = CrateInfo::new_with_update(crate_name, version, false)?;
     let deb_info = DebInfo::new(crate_name, &crate_info, crate_version!(), version.is_some());
-
     println!("{}", deb_info.package_name());
     Ok(())
 }
 
-fn do_extract(matches: &ArgMatches) -> Result<()> {
-    let crate_name = matches.value_of("crate").unwrap();
-    let version = matches.value_of("version");
-    let directory = matches.value_of("directory");
-
+fn do_extract(crate_name: &str, version: Option<&str>, directory: Option<&str>) -> Result<()> {
     let crate_info = CrateInfo::new(crate_name, version)?;
     let deb_info = DebInfo::new(crate_name, &crate_info, crate_version!(), false);
     let pkg_srcdir = Path::new(directory.unwrap_or_else(|| deb_info.package_source_dir()));
-
     crate_info.extract_crate(pkg_srcdir)?;
     Ok(())
 }
 
-fn do_build_order(matches: &ArgMatches) -> Result<()> {
-    let crate_name = matches.value_of("crate").unwrap();
-    let version = matches.value_of("version");
-    let resolve_type = matches
-        .value_of("resolve-type")
-        .unwrap_or("DebianBinaryUnstable");
-    let resolve_type = resolve_type.parse().unwrap();
-    let emulate_collapse_features = matches.is_present("emulate-collapse-features");
-
-    let build_order =
-        build_order::build_order(crate_name, version, resolve_type, emulate_collapse_features)?;
+fn do_build_order(
+    crate_name: &str,
+    version: Option<&str>,
+    resolve_type: ResolveType,
+    emulate_collapse_features: bool,
+) -> Result<()> {
+    let build_order = build_order(crate_name, version, resolve_type, emulate_collapse_features)?;
     for v in &build_order {
         println!("{}", v);
     }
@@ -175,67 +171,116 @@ fn do_update() -> Result<()> {
     update_crates_io()
 }
 
+#[derive(Debug, StructOpt)]
+#[structopt(name = "debcargo", about = "Package Rust crates for Debian.")]
+enum Opt {
+    /// Package a Rust crate for Debian.
+    Package {
+        /// Name of the crate to package.
+        crate_name: String,
+        /// Version of the crate to package; may contain dependency operators.
+        version: Option<String>,
+        /// Output directory.
+        #[structopt(long)]
+        directory: Option<String>,
+        /// Assume the changelog is already bumped, and leave it alone.
+        #[structopt(long)]
+        changelog_ready: bool,
+        /// Guess extra values for d/copyright. Might be slow.
+        #[structopt(long)]
+        copyright_guess_harder: bool,
+        /// Don't write back hint files or d/changelog to the source overlay directory.
+        #[structopt(long)]
+        no_overlay_write_back: bool,
+        /// TOML file providing additional package-specific options.
+        #[structopt(long)]
+        config: Option<String>,
+    },
+    /// Print the Debian package name for a crate.
+    DebSrcName {
+        /// Name of the crate to package.
+        crate_name: String,
+        /// Version of the crate to package; may contain dependency operators.
+        version: Option<String>,
+    },
+    /// Extract only a crate, without any other transformations.
+    Extract {
+        /// Name of the crate to package.
+        crate_name: String,
+        /// Version of the crate to package; may contain dependency operators.
+        version: Option<String>,
+        /// Output directory.
+        #[structopt(long)]
+        directory: Option<String>,
+    },
+    /// Print the transitive dependencies of a package in topological order.
+    BuildOrder {
+        /// Name of the crate to package.
+        crate_name: String,
+        /// Version of the crate to package; may contain dependency operators.
+        version: Option<String>,
+        /// Resolution type, one of BinaryForDebianUnstable | SourceForDebianTesting
+        #[structopt(long, default_value = "BinaryForDebianUnstable")]
+        resolve_type: ResolveType,
+        /// Emulate resolution as if every package were built with --collapse-features.
+        #[structopt(long)]
+        emulate_collapse_features: bool,
+    },
+    /// Update the user's default crates.io index, outside of a workspace.
+    Update,
+}
+
 fn real_main() -> Result<()> {
-    let m = App::new("debcargo")
-        .author(crate_authors!())
-        .version(crate_version!())
+    let m = Opt::clap()
         .global_setting(AppSettings::ColoredHelp)
-        .global_setting(AppSettings::UnifiedHelpMessage)
-        .setting(AppSettings::SubcommandRequiredElseHelp)
-        .subcommands(vec![SubCommand::with_name("package")
-                              .about("Package a crate from crates.io")
-                              .arg_from_usage("<crate> 'Name of the crate to package'")
-                              .arg_from_usage("[version] 'Version of the crate to package; may \
-                                               include dependency operators'")
-                              .arg_from_usage("--directory [directory] 'Output directory.'")
-                              .arg_from_usage("--changelog-ready 'Assume the changelog is already bumped, and leave it alone.'")
-                              .arg_from_usage("--copyright-guess-harder 'Guess extra values for d/copyright. Might be slow.'")
-                              .arg_from_usage("--no-overlay-write-back 'Don\'t write back hint files or d/changelog to the source overlay directory.'")
-                              .arg_from_usage("--config [file] 'TOML file providing additional \
-                                               package-specific options.'")
-                     ])
-        .subcommands(vec![SubCommand::with_name("deb-src-name")
-                              .about("Prints the Debian package name for a crate")
-                              .arg_from_usage("<crate> 'Name of the crate to package'")
-                              .arg_from_usage("[version] 'Version of the crate to package; may \
-                                               include dependency operators'")
-                     ])
-        .subcommands(vec![SubCommand::with_name("extract")
-                              .about("Extract only a crate, without any other transformations.")
-                              .arg_from_usage("<crate> 'Name of the crate to package'")
-                              .arg_from_usage("[version] 'Version of the crate to package; may \
-                                               include dependency operators'")
-                              .arg_from_usage("--directory [directory] 'Output directory.'")
-                     ])
-        .subcommands(vec![SubCommand::with_name("build-order")
-                              .about("Print the transitive dependencies of a package in topological order.")
-                              .arg_from_usage("<crate> 'Name of the crate to package'")
-                              .arg_from_usage("[version] 'Version of the crate to package; may \
-                                               include dependency operators'")
-                              .arg_from_usage("--resolve-type [type] 'Resolution type, one of \
-                                               DebianBinaryUnstable | DebianSourceTesting, \
-                                               default DebianBinaryUnstable.'")
-                              .arg_from_usage("--emulate-collapse-features 'Emulate resolution \
-                                               as if every package were built with --collapse-features.'")
-                     ])
-        .subcommands(vec![SubCommand::with_name("update")
-                              .about("Update the crates.io index, outside of a workspace.")
-                     ])
         .get_matches();
-    match m.subcommand() {
-        ("package", Some(sm)) => do_package(sm),
-        ("deb-src-name", Some(sm)) => do_deb_src_name(sm),
-        ("extract", Some(sm)) => do_extract(sm),
-        ("build-order", Some(sm)) => do_build_order(sm),
-        ("update", Some(_)) => do_update(),
-        _ => unreachable!(),
+    use Opt::*;
+    match Opt::from_clap(&m) {
+        Package {
+            crate_name,
+            version,
+            directory,
+            changelog_ready,
+            copyright_guess_harder,
+            no_overlay_write_back,
+            config,
+        } => do_package(
+            &crate_name,
+            version.as_deref(),
+            directory.as_deref(),
+            changelog_ready,
+            copyright_guess_harder,
+            no_overlay_write_back,
+            config.as_deref(),
+        ),
+        DebSrcName {
+            crate_name,
+            version,
+        } => do_deb_src_name(&crate_name, version.as_deref()),
+        Extract {
+            crate_name,
+            version,
+            directory,
+        } => do_extract(&crate_name, version.as_deref(), directory.as_deref()),
+        BuildOrder {
+            crate_name,
+            version,
+            resolve_type,
+            emulate_collapse_features,
+        } => do_build_order(
+            &crate_name,
+            version.as_deref(),
+            resolve_type,
+            emulate_collapse_features,
+        ),
+        Update => do_update(),
     }
 }
 
 fn main() {
     env_logger::init();
     if let Err(e) = real_main() {
-        eprintln!("{}", Red.bold().paint(format!("Something failed: {:?}", e)));
+        eprintln!("{}", Red.bold().paint(format!("debcargo failed: {:?}", e)));
         std::process::exit(1);
     }
 }

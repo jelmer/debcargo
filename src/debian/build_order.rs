@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 use cargo::core::{Dependency, PackageId};
-use clap::arg_enum;
+use structopt::clap::arg_enum;
 
 use crate::crates::{CrateDepInfo, CrateInfo};
 use crate::errors::Result;
@@ -10,8 +10,8 @@ use crate::util;
 arg_enum! {
     #[derive(Debug, Copy, Clone)]
     pub enum ResolveType {
-        DebianBinaryUnstable,
-        DebianSourceTesting,
+        BinaryForDebianUnstable,
+        SourceForDebianTesting,
     }
 }
 
@@ -50,8 +50,8 @@ fn get_build_deps(
         .collect::<Vec<_>>();
     use ResolveType::*;
     match resolve_type {
-        DebianBinaryUnstable => Ok((hard_deps, vec![])),
-        DebianSourceTesting => {
+        BinaryForDebianUnstable => Ok((hard_deps, vec![])),
+        SourceForDebianTesting => {
             let mut soft_deps = all_deps;
             for h in hard_deps.iter() {
                 soft_deps.remove(h);
@@ -141,7 +141,7 @@ pub fn build_order(
     let mut log = |remaining: &VecDeque<_>, graph: &BTreeMap<_, _>| {
         i += 1;
         if i % 16 == 0 {
-            log::info!(
+            debcargo_info!(
                 "build-order: done: {}, todo: {}",
                 graph.len(),
                 remaining.len()
