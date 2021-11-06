@@ -24,6 +24,7 @@ fn get_build_deps(
     crate_dep_info: &CrateDepInfo,
     package: &PackageIdFeat,
     resolve_type: ResolveType,
+    emulate_collapse_features: bool,
 ) -> Result<(Vec<Dependency>, Vec<Dependency>)> {
     let all_deps = crate_dep_info
         .iter()
@@ -33,12 +34,14 @@ fn get_build_deps(
         .collect::<HashSet<_>>();
     let feature_deps: HashSet<Dependency> =
         HashSet::from_iter(super::transitive_deps(crate_dep_info, package.1).1);
-    let additional_deps = {
-        // FIXME: read crate info (applying patches)
-        // if collapse_features is on, then additional_deps = all_deps
-        // if build_depends_features is an override, then use that instead of "default" below
-        // TODO: deprecate build_depends_excludes
-        // note: please keep this logic in sync with prepare_debian_control
+    // FIXME: read crate config, including Cargo.toml patches
+    // note: please keep the below logic in sync with prepare_debian_control
+    let additional_deps = if emulate_collapse_features {
+        // FIXME: if crate config collapse_features is on, also branch here
+        all_deps.clone()
+    } else {
+        // FIXME: if build_depends_features is an override, use that instead of "default"
+        // TODO: also deprecate build_depends_excludes
         HashSet::from_iter(super::transitive_deps(crate_dep_info, "default").1)
     };
     let hard_deps = feature_deps
@@ -102,6 +105,7 @@ pub fn build_order(
     crate_name: &str,
     version: Option<&str>,
     resolve_type: ResolveType,
+    emulate_collapse_features: bool,
 ) -> Result<Vec<PackageId>> {
     let mut infos = BTreeMap::new();
     let mut cache = HashMap::new();
@@ -112,7 +116,8 @@ pub fn build_order(
         let crate_info = infos
             .get(&idf.0)
             .expect("build_order next called without crate info");
-        let (hard, soft) = get_build_deps(&crate_info.1, idf, resolve_type)?;
+        let (hard, soft) =
+            get_build_deps(&crate_info.1, idf, resolve_type, emulate_collapse_features)?;
         // note: we might resolve the same crate-version several times;
         // this is expected, since different dependencies (with different
         // version ranges) might resolve into the same crate-version

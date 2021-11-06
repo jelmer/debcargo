@@ -161,8 +161,10 @@ fn do_build_order(matches: &ArgMatches) -> Result<()> {
         .value_of("resolve-type")
         .unwrap_or("DebianBinaryUnstable");
     let resolve_type = resolve_type.parse().unwrap();
+    let emulate_collapse_features = matches.is_present("emulate-collapse-features");
 
-    let build_order = build_order::build_order(crate_name, version, resolve_type)?;
+    let build_order =
+        build_order::build_order(crate_name, version, resolve_type, emulate_collapse_features)?;
     for v in &build_order {
         println!("{}", v);
     }
@@ -213,6 +215,8 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("--resolve-type [type] 'Resolution type, one of \
                                                DebianBinaryUnstable | DebianSourceTesting, \
                                                default DebianBinaryUnstable.'")
+                              .arg_from_usage("--emulate-collapse-features 'Emulate resolution \
+                                               as if every package were built with --collapse-features.'")
                      ])
         .subcommands(vec![SubCommand::with_name("update")
                               .about("Update the crates.io index, outside of a workspace.")
