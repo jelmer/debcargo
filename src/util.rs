@@ -118,20 +118,37 @@ where
     FV: FnMut(&V) -> Result<Vec<V>, E>,
     FL: FnMut(&VecDeque<V>, &BTreeMap<V, BTreeSet<V>>) -> Result<(), E>,
 {
+    let mut seen = BTreeSet::from_iter(seed);
     let mut graph = BTreeMap::new();
-    let mut remain = VecDeque::from_iter(seed);
+    let mut remain = VecDeque::from_iter(seen.iter().cloned());
     while let Some(v) = remain.pop_front() {
         log(&remain, &graph)?;
         let next = succ(&v)?;
         for v_ in next.iter() {
-            if !graph.contains_key(v_) {
-                graph.insert(v_.clone(), BTreeSet::new());
+            if !seen.contains(v_) {
+                seen.insert(v_.clone());
                 remain.push_back(v_.clone());
             }
         }
         graph.insert(v, BTreeSet::from_iter(next));
     }
     Ok(graph)
+}
+
+pub fn succ_proj<S, T, F>(succ: &BTreeMap<S, BTreeSet<S>>, proj: F) -> BTreeMap<T, BTreeSet<T>>
+where
+    F: Fn(&S) -> T,
+    S: Ord,
+    T: Ord + Clone,
+{
+    let mut succ_proj: BTreeMap<T, BTreeSet<T>> = BTreeMap::new();
+    for (s, ss) in succ {
+        let e = succ_proj.entry(proj(s)).or_default();
+        for s_ in ss {
+            e.insert(proj(s_));
+        }
+    }
+    succ_proj
 }
 
 pub fn succ_to_pred<V>(succ: &BTreeMap<V, BTreeSet<V>>) -> BTreeMap<V, BTreeSet<V>>
@@ -151,7 +168,7 @@ pub fn topo_sort<V>(
     seed: impl IntoIterator<Item = V>,
     succ: BTreeMap<V, BTreeSet<V>>,
     mut pred: BTreeMap<V, BTreeSet<V>>,
-) -> Vec<V>
+) -> Result<Vec<V>, BTreeMap<V, BTreeSet<V>>>
 where
     V: Ord + Clone,
 {
@@ -168,5 +185,10 @@ where
             }
         }
     }
-    sort
+    pred.retain(|_, v| !v.is_empty());
+    if !pred.is_empty() {
+        Err(pred)
+    } else {
+        Ok(sort)
+    }
 }

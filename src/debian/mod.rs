@@ -7,7 +7,6 @@ use std::process::Command;
 use std::str::FromStr;
 
 use anyhow::format_err;
-use cargo::core::Dependency;
 use chrono::{self, Datelike};
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
@@ -17,7 +16,7 @@ use tar::{Archive, Builder};
 use tempfile;
 
 use crate::config::{force_for_testing, package_field_for_feature, Config, PackageKey};
-use crate::crates::{transitive_deps, CrateInfo};
+use crate::crates::{transitive_deps, CrateDepInfo, CrateInfo};
 use crate::errors::*;
 use crate::util::{
     self, copy_tree, expect_success, get_transitive_val, traverse_depth, vec_opt_iter,
@@ -29,6 +28,7 @@ use self::control::{Description, Package, PkgTest, Source};
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
 
+pub mod build_order;
 pub mod changelog;
 pub mod control;
 pub mod copyright;
@@ -559,17 +559,6 @@ echo "debcargo testing: suppressing dh-cargo-built-using";;
     Ok(())
 }
 
-// TODO: add an option to get the dependencies of all binary packages (i.e. all
-// features not just the default). This would be useful for knowing what needs
-// to be packaged for Debian Testing, however it can potentially result in
-// dependency cycles, which a topological-sort needs to special-case handle.
-pub fn get_build_deps(crate_info: &CrateInfo) -> Result<Vec<Dependency>> {
-    // note: please keep this in sync with prepare_debian_control
-    let features_with_deps = crate_info.all_dependencies_and_features();
-    let (_, default_deps) = transitive_deps(&features_with_deps, "default");
-    Ok(default_deps)
-}
-
 fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, std::io::Error>>(
     deb_info: &DebInfo,
     crate_info: &CrateInfo,
@@ -637,7 +626,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         let build_deps = ["debhelper (>= 12)", "dh-cargo (>= 25)"]
             .iter()
             .map(|x| x.to_string());
-        // note: please keep this in sync with get_build_deps
+        // note: please keep this in sync with build_order::dep_features
         let (default_features, default_deps) = transitive_deps(&features_with_deps, "default");
         //debcargo_info!("default_features: {:?}", default_features);
         //debcargo_info!("default_deps: {:?}", deb_deps(config, &default_deps)?);
@@ -992,13 +981,9 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     Ok((source, !dev_depends.is_empty(), test_is_broken("default")?))
 }
 
-#[allow(clippy::type_complexity)]
-fn collapse_features<'a>(
-    orig_features_with_deps: &BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
-) -> (
-    BTreeMap<&'a str, Vec<&'a str>>,
-    BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
-) {
+fn collapse_features(
+    orig_features_with_deps: &CrateDepInfo,
+) -> (BTreeMap<&'static str, Vec<&'static str>>, CrateDepInfo) {
     let (provides, deps) = orig_features_with_deps.iter().fold(
         (Vec::new(), Vec::new()),
         |(mut provides, mut deps), (f, (_, f_deps))| {
@@ -1028,13 +1013,9 @@ fn collapse_features<'a>(
 ///   f3 depends on f4
 /// into
 ///   f4 provides f1, f2, f3
-#[allow(clippy::type_complexity)]
-fn reduce_provides<'a>(
-    orig_features_with_deps: &BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
-) -> (
-    BTreeMap<&'a str, Vec<&'a str>>,
-    BTreeMap<&'a str, (Vec<&'a str>, Vec<Dependency>)>,
-) {
+fn reduce_provides(
+    orig_features_with_deps: &CrateDepInfo,
+) -> (BTreeMap<&'static str, Vec<&'static str>>, CrateDepInfo) {
     let mut features_with_deps = orig_features_with_deps.clone();
 
     // If any features have duplicate dependencies, deduplicate them by

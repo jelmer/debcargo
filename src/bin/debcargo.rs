@@ -1,4 +1,3 @@
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::env;
 use std::fs;
 use std::io::{BufRead, BufReader};
@@ -10,7 +9,7 @@ use clap::{crate_authors, crate_version, App, AppSettings, ArgMatches, SubComman
 
 use debcargo::config::{parse_config, Config};
 use debcargo::crates::{update_crates_io, CrateInfo};
-use debcargo::debian::{self, DebInfo};
+use debcargo::debian::{self, build_order, DebInfo};
 use debcargo::errors::Result;
 use debcargo::util;
 use debcargo::{debcargo_info, debcargo_warn};
@@ -158,50 +157,15 @@ fn do_extract(matches: &ArgMatches) -> Result<()> {
 fn do_build_order(matches: &ArgMatches) -> Result<()> {
     let crate_name = matches.value_of("crate").unwrap();
     let version = matches.value_of("version");
+    let resolve_type = matches
+        .value_of("resolve-type")
+        .unwrap_or("DebianBinaryUnstable");
+    let resolve_type = resolve_type.parse().unwrap();
 
-    let mut infos = BTreeMap::new();
-    let mut roots = BTreeSet::new();
-    let seed = CrateInfo::new(crate_name, version)?;
-    let seed_id = seed.package_id();
-    infos.insert(seed_id, seed);
-
-    let mut next = |id: &cargo::core::PackageId| -> Result<Vec<cargo::core::PackageId>> {
-        let crate_info = infos
-            .get(id)
-            .expect("build_order next called without crate info");
-        let mut deps = Vec::new();
-        for dep in debian::get_build_deps(&crate_info)? {
-            let info = CrateInfo::new_from_dependency(&dep, false)?;
-            let id = info.package_id();
-            infos.insert(id, info);
-            deps.push(id);
-        }
-        if deps.is_empty() {
-            roots.insert(id.clone());
-        }
-        Ok(deps)
-    };
-    let mut i = 0;
-    let mut log = |remaining: &VecDeque<_>, graph: &BTreeMap<_, _>| {
-        i += 1;
-        if i % 16 == 0 {
-            log::info!(
-                "build-order: done: {}, todo: {}",
-                graph.len(),
-                remaining.len()
-            );
-        }
-        Ok(())
-    };
-
-    let succ = util::graph_from_succ([seed_id], &mut next, &mut log)?;
-    let pred = util::succ_to_pred(&succ);
-    // swap pred/succ for call to topo_sort since we want reverse topo order
-    let build_order = util::topo_sort(roots, pred, succ);
+    let build_order = build_order::build_order(crate_name, version, resolve_type)?;
     for v in &build_order {
         println!("{}", v);
     }
-    assert_eq!(infos.len(), build_order.len());
     Ok(())
 }
 
@@ -246,6 +210,9 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("<crate> 'Name of the crate to package'")
                               .arg_from_usage("[version] 'Version of the crate to package; may \
                                                include dependency operators'")
+                              .arg_from_usage("--resolve-type [type] 'Resolution type, one of \
+                                               CargoBinaryUpstream | DebianBinaryUnstable | DebianSourceTesting, \
+                                               default DebianBinaryUnstable.'")
                      ])
         .subcommands(vec![SubCommand::with_name("update")
                               .about("Update the crates.io index, outside of a workspace.")

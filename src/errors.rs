@@ -43,13 +43,13 @@ macro_rules! debcargo_warn {
 #[macro_export]
 macro_rules! debcargo_bail {
     ($e:expr) => {{
-        return Err(format_err!("{}", $e));
+        return Err(::anyhow::format_err!("{}", $e));
     }};
 
     ($fmt:expr, $( $arg:tt)+) => {
         {
             let error_string = format!($fmt, $($arg)+);
-            return Err(format_err!("{}", error_string));
+            return Err(::anyhow::format_err!("{}", error_string));
         }
     };
 }
