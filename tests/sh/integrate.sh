@@ -15,9 +15,7 @@ run_lintian=true
 run_sbuild=false
 keepfiles=false
 recursive=false
-update=false
 extraargs=
-use_rec_hack=false
 
 export DEBCARGO_FORCE_FOR_TESTING=1
 
@@ -34,9 +32,7 @@ while getopts 'd:f:a:l:c:bkrux:zh?' o; do
 	b ) run_sbuild=true;;
 	k ) keepfiles=true;;
 	r ) recursive=true;;
-	u ) update=true;;
 	x ) extraargs="$extraargs $OPTARG";;
-	z ) use_rec_hack=true;;
 	h|\? ) cat >&2 <<eof
 Usage: $0 [-ru] (<crate name>|<path/to/crate>) [..]
 
@@ -59,13 +55,9 @@ Options to control running:
   -b            Run sbuild on the resulting dsc package.
   -k            Don't wipe the output directory at the start of the test, and
                 don't rebuild a crate if its directory already exists.
-  -r            Operate on all transitive dependencies. Requires cargo-tree.
-  -u            With -r, run "cargo update" before calculating dependencies.
-                Otherwise, cargo-tree uses the versions listed in Cargo.lock.
+  -r            Operate on all transitive dependencies.
   -x ARG        Give ARG as an extra argument to debcargo, e.g. like
                 -x--copyright-guess-harder.
-  -z            Use the slower but more accurate "cargo-tree-deb-rec"
-                script to calculate dependencies with -r.
 eof
 		exit 2;;
 	esac
@@ -180,36 +172,18 @@ build_source() {(
 	dpkg-buildpackage -d -S --no-sign
 )}
 
-cargo_tree() {
-	"$scriptdir/cargo-tree-any" "$@" --all-targets --no-indent -a
-}
-
-cargo_tree_rec() {
-	# tac|awk gives us reverse-topological ordering https://stackoverflow.com/a/11532197
-	cargo_tree "$@" | tac | awk '!x[$0]++'
-}
-if $use_rec_hack; then
 cargo_tree_rec() {
 	local cache="$directory/z-cache_${*/\//_}"
 	if [ ! -f "$cache" ]; then
-		$scriptdir/cargo-tree-deb-rec "$@" > "$cache"
+		RUST_LOG=info "$debcargo" build-order "$@" > "$cache"
 	fi
 	cat "$cache"
 }
-fi
 
 run_x_or_deps() {
 	local x="$1"
 	shift
 	case "$x" in
-	*/*)
-		test -d "$x" || x=$(dirname "$x")
-		# might give spurious "broken pipe" errors, see @sfackler/cargo-tree#2
-		spec=$(cargo_tree "$x" | head -n1)
-		tree_args="$x"
-		# debcargo does not support packaging path-based crates yet
-		echo >&2 "warning: will use latest version from crates.io instead of $x"
-		;;
 	*-[0-9]*)
 		spec="${x%-[0-9]*} ${x##*-}"
 		tree_args="${x%-[0-9]*}:${x##*-}"
@@ -219,9 +193,6 @@ run_x_or_deps() {
 		tree_args="$x"
 		;;
 	esac
-	if $update && test -d "$spec"; then
-		( cd "$spec"; cargo update )
-	fi
 	if $recursive; then
 		set -o pipefail
 		cargo_tree_rec $tree_args | head -n-1 | while read pkg ver extra; do
