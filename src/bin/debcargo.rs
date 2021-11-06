@@ -211,7 +211,7 @@ fn real_main() -> Result<()> {
                               .arg_from_usage("[version] 'Version of the crate to package; may \
                                                include dependency operators'")
                               .arg_from_usage("--resolve-type [type] 'Resolution type, one of \
-                                               CargoBinaryUpstream | DebianBinaryUnstable | DebianSourceTesting, \
+                                               DebianBinaryUnstable | DebianSourceTesting, \
                                                default DebianBinaryUnstable.'")
                      ])
         .subcommands(vec![SubCommand::with_name("update")

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 use cargo::core::{Dependency, PackageId};
 use clap::arg_enum;
@@ -10,7 +10,6 @@ use crate::util;
 arg_enum! {
     #[derive(Debug, Copy, Clone)]
     pub enum ResolveType {
-        CargoBinaryUpstream,
         DebianBinaryUnstable,
         DebianSourceTesting,
     }
@@ -19,53 +18,57 @@ arg_enum! {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct PackageIdFeat(PackageId, &'static str);
 
-fn get_build_deps(crate_dep_info: &CrateDepInfo, feature: &str) -> Result<Vec<Dependency>> {
-    if feature == "@" {
-        let deps = crate_dep_info
-            .iter()
-            .map(|(_, v)| v.1.iter())
-            .flatten()
-            .collect::<HashSet<_>>();
-        Ok(deps.into_iter().cloned().collect::<Vec<_>>())
-    } else {
+// First result: if somebody build-depends on us, what do they first need to build?
+// Second result: what other packages need to go into Debian Testing before us?
+fn get_build_deps(
+    crate_dep_info: &CrateDepInfo,
+    package: &PackageIdFeat,
+    resolve_type: ResolveType,
+) -> Result<(Vec<Dependency>, Vec<Dependency>)> {
+    let all_deps = crate_dep_info
+        .iter()
+        .map(|(_, v)| v.1.iter())
+        .flatten()
+        .cloned()
+        .collect::<HashSet<_>>();
+    let feature_deps: HashSet<Dependency> =
+        HashSet::from_iter(super::transitive_deps(crate_dep_info, package.1).1);
+    let additional_deps = {
+        // FIXME: read crate info (applying patches)
+        // if collapse_features is on, then additional_deps = all_deps
+        // if build_depends_features is an override, then use that instead of "default" below
+        // TODO: deprecate build_depends_excludes
         // note: please keep this logic in sync with prepare_debian_control
-        let (_, default_deps) = super::transitive_deps(crate_dep_info, feature);
-        Ok(default_deps)
+        HashSet::from_iter(super::transitive_deps(crate_dep_info, "default").1)
+    };
+    let hard_deps = feature_deps
+        .union(&additional_deps)
+        .cloned()
+        .collect::<Vec<_>>();
+    use ResolveType::*;
+    match resolve_type {
+        DebianBinaryUnstable => Ok((hard_deps, vec![])),
+        DebianSourceTesting => {
+            let mut soft_deps = all_deps;
+            for h in hard_deps.iter() {
+                soft_deps.remove(h);
+            }
+            Ok((hard_deps, soft_deps.into_iter().collect::<Vec<_>>()))
+        }
     }
 }
 
-fn dep_features(dep: &Dependency, resolve_type: ResolveType) -> Vec<&'static str> {
-    use ResolveType::*;
-    match resolve_type {
-        CargoBinaryUpstream => {
-            let mut feats = dep
-                .features()
-                .iter()
-                .map(|x| x.as_str())
-                .collect::<Vec<_>>();
-            if dep.uses_default_features() {
-                feats.push("default")
-            }
-            feats
-        }
-        DebianBinaryUnstable => {
-            // debian source packages unconditionally build-depend on the default feature set;
-            // see super::prepare_debian_control
-            let mut feats = dep
-                .features()
-                .iter()
-                .map(|x| x.as_str())
-                .collect::<Vec<_>>();
-            feats.push("default");
-            feats
-        }
-        DebianSourceTesting => {
-            // debian source packages produce binary packages that represent all features.
-            // However instead of returning all features explicitly, we return @ here which
-            // is special-cased in get_build_deps; this avoids resolving lots of duplicates
-            vec!["@"]
-        }
+fn dep_features(dep: &Dependency) -> Vec<&'static str> {
+    let mut feats = dep
+        .features()
+        .iter()
+        .map(|x| x.as_str())
+        .collect::<Vec<_>>();
+    if dep.uses_default_features() {
+        feats.push("default")
     }
+    feats.push(""); // bare-bones library with no features
+    feats
 }
 
 fn insert_info(
@@ -78,6 +81,21 @@ fn insert_info(
     id
 }
 
+fn ensure_info(
+    package: &PackageId,
+    dependency: &Dependency,
+    infos: &mut BTreeMap<PackageId, (CrateInfo, CrateDepInfo)>,
+    cache: &mut HashMap<Dependency, PackageId>,
+) -> Result<PackageId> {
+    match cache.get(dependency) {
+        Some(id) => Ok(*id),
+        None => {
+            let info = CrateInfo::new_from_dependency(Some(*package), dependency, false)?;
+            Ok(insert_info(infos, info))
+        }
+    }
+}
+
 // FIXME: add the ability to apply our Cargo.toml patches that reduce the
 // build-dependency set. this could help prevent cycles.
 pub fn build_order(
@@ -86,25 +104,33 @@ pub fn build_order(
     resolve_type: ResolveType,
 ) -> Result<Vec<PackageId>> {
     let mut infos = BTreeMap::new();
+    let mut cache = HashMap::new();
     let seed = CrateInfo::new(crate_name, version)?;
     let seed_id = insert_info(&mut infos, seed);
 
-    let mut next = |idf: &PackageIdFeat| -> Result<Vec<PackageIdFeat>> {
+    let mut next = |idf: &PackageIdFeat| -> Result<(Vec<PackageIdFeat>, Vec<PackageIdFeat>)> {
         let crate_info = infos
             .get(&idf.0)
             .expect("build_order next called without crate info");
-        let mut deps = Vec::new();
-        for dep in get_build_deps(&crate_info.1, idf.1)? {
-            // we might end up resolving the same crate-version several times;
-            // this is expected, since different dependencies (with different
-            // version ranges) might resolve into the same crate-version
-            let info = CrateInfo::new_from_dependency(&dep, false)?;
-            let id = insert_info(&mut infos, info);
-            for f in dep_features(&dep, resolve_type) {
-                deps.push(PackageIdFeat(id, f));
+        let (hard, soft) = get_build_deps(&crate_info.1, idf, resolve_type)?;
+        // note: we might resolve the same crate-version several times;
+        // this is expected, since different dependencies (with different
+        // version ranges) might resolve into the same crate-version
+        let mut hard_p = Vec::new();
+        for dep in hard {
+            let id = ensure_info(&idf.0, &dep, &mut infos, &mut cache)?;
+            for f in dep_features(&dep) {
+                hard_p.push(PackageIdFeat(id, f));
             }
         }
-        Ok(deps)
+        let mut soft_p = Vec::new();
+        for dep in soft {
+            let id = ensure_info(&idf.0, &dep, &mut infos, &mut cache)?;
+            for f in dep_features(&dep) {
+                soft_p.push(PackageIdFeat(id, f));
+            }
+        }
+        Ok((hard_p, soft_p))
     };
     let mut i = 0;
     let mut log = |remaining: &VecDeque<_>, graph: &BTreeMap<_, _>| {
@@ -119,16 +145,8 @@ pub fn build_order(
         Ok(())
     };
 
-    use ResolveType::*;
-    let seed_idf = PackageIdFeat(
-        seed_id,
-        match resolve_type {
-            CargoBinaryUpstream => "",
-            DebianBinaryUnstable => "default",
-            DebianSourceTesting => "@",
-        },
-    );
-    let succ_with_features = util::graph_from_succ([seed_idf], &mut next, &mut log)?;
+    let succ_with_features =
+        util::graph_from_succ([PackageIdFeat(seed_id, "")], &mut next, &mut log)?;
     log::trace!("succ_with_features: {:#?}", succ_with_features);
 
     let succ = util::succ_proj(&succ_with_features, |x| x.0);
@@ -164,7 +182,7 @@ pub fn build_order(
         }
     }
     for (p, _) in infos {
-        log::info!(
+        log::error!(
             "leftover infos not used in build-order: {}, succ: {:#?}, pred: {:#?}",
             p,
             succ.get(&p)

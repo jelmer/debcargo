@@ -182,10 +182,14 @@ impl CrateInfo {
         update: bool,
     ) -> Result<CrateInfo> {
         let dep = crate_name_ver_to_dep(crate_name, version)?;
-        Self::new_from_dependency(&dep, update)
+        Self::new_from_dependency(None, &dep, update)
     }
 
-    pub fn new_from_dependency(dependency: &Dependency, update: bool) -> Result<CrateInfo> {
+    pub fn new_from_dependency(
+        dependant: Option<PackageId>,
+        dependency: &Dependency,
+        update: bool,
+    ) -> Result<CrateInfo> {
         let mut config = Config::default()?;
         if !update {
             // unfriendly API from cargo; we'll have to make do with it for
@@ -222,7 +226,7 @@ impl CrateInfo {
             let pkgid = pkgids.iter().max().ok_or_else(|| {
                 format_err!(
                     concat!(
-                        "Couldn't find any crate matching {} {}\n ",
+                        "Couldn't find any crate matching {} {}\n",
                         "Try `debcargo update` to update the crates.io index."
                     ),
                     dependency.package_name(),
@@ -232,6 +236,26 @@ impl CrateInfo {
             let pkgset = registry.get(pkgids.as_slice())?;
             let package = pkgset.get_one(*pkgid)?;
             let manifest = package.manifest();
+            for f in dependency.features() {
+                // apparently, if offline is set then cargo sometimes selects
+                // an offline-available version that doesn't satisfy the
+                // requested features. this is dumb. if it happens, then we
+                // retry with online allowed.
+                if !manifest.summary().features().contains_key(f) {
+                    let package_name = dependant.map(|x| x.to_string()).unwrap_or_default();
+                    debcargo_bail!(
+                        "resolve ({}) : ({} {}) -> ({}) failed to pick up required feature ({})\n\
+                        This can happen with very old or yanked crates. Try patching {} or one of \
+                        its ancestors, to drop or update the offending dependency.",
+                        package_name,
+                        dependency.package_name(),
+                        dependency.version_req(),
+                        pkgid,
+                        f,
+                        package_name,
+                    )
+                }
+            }
             let filename = format!("{}-{}.crate", pkgid.name(), pkgid.version());
             let crate_file = config
                 .registry_cache_path()

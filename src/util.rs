@@ -115,7 +115,7 @@ pub fn graph_from_succ<V, FV, FL, E>(
 ) -> Result<BTreeMap<V, BTreeSet<V>>, E>
 where
     V: Ord + Clone,
-    FV: FnMut(&V) -> Result<Vec<V>, E>,
+    FV: FnMut(&V) -> Result<(Vec<V>, Vec<V>), E>,
     FL: FnMut(&VecDeque<V>, &BTreeMap<V, BTreeSet<V>>) -> Result<(), E>,
 {
     let mut seen = BTreeSet::from_iter(seed);
@@ -123,14 +123,14 @@ where
     let mut remain = VecDeque::from_iter(seen.iter().cloned());
     while let Some(v) = remain.pop_front() {
         log(&remain, &graph)?;
-        let next = succ(&v)?;
-        for v_ in next.iter() {
+        let (hard, soft) = succ(&v)?;
+        for v_ in hard.iter().chain(soft.iter()) {
             if !seen.contains(v_) {
                 seen.insert(v_.clone());
                 remain.push_back(v_.clone());
             }
         }
-        graph.insert(v, BTreeSet::from_iter(next));
+        graph.insert(v, BTreeSet::from_iter(hard));
     }
     Ok(graph)
 }
