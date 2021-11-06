@@ -559,6 +559,10 @@ echo "debcargo testing: suppressing dh-cargo-built-using";;
     Ok(())
 }
 
+// TODO: add an option to get the dependencies of all binary packages (i.e. all
+// features not just the default). This would be useful for knowing what needs
+// to be packaged for Debian Testing, however it can potentially result in
+// dependency cycles, which a topological-sort needs to special-case handle.
 pub fn get_build_deps(crate_info: &CrateInfo) -> Result<Vec<Dependency>> {
     // note: please keep this in sync with prepare_debian_control
     let features_with_deps = crate_info.all_dependencies_and_features();
