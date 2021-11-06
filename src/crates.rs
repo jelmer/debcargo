@@ -200,7 +200,7 @@ impl CrateInfo {
             source_id.url().host_str().unwrap_or(""),
             hash(&source_id).swap_bytes()
         );
-        let (package, manifest, crate_file) = {
+        let get_package_info = |config: &Config| -> Result<_> {
             let lock = config.acquire_package_cache_lock()?;
             let mut registry = PackageRegistry::new(&config)?;
             registry.lock_patches();
@@ -228,8 +228,12 @@ impl CrateInfo {
                 .registry_cache_path()
                 .join(&registry_name)
                 .open_ro(&filename, &config, &filename)?;
-            (package.clone(), manifest.clone(), crate_file)
+            Ok((package.clone(), manifest.clone(), crate_file))
         };
+        // if update is false but the user never downloaded the crate then the
+        // first call will error; re-try with online in that case
+        let (package, manifest, crate_file) =
+            get_package_info(&config).or_else(|_| get_package_info(&Config::default()?))?;
 
         Ok(CrateInfo {
             package,
