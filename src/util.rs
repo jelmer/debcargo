@@ -1,24 +1,66 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::ffi::OsStr;
 use std::fs;
-use std::io::Error;
+use std::io::{BufRead, BufReader, Error};
 use std::iter::Iterator;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::symlink;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use walkdir;
+use walkdir::WalkDir;
 
 pub const HINT_SUFFIX: &str = ".debcargo.hint";
 
-pub fn is_hint_file(file: &Path) -> bool {
+pub fn hint_file_for(file: &Path) -> Option<&Path> {
     let file = file.as_os_str().as_bytes();
-    file.len() >= HINT_SUFFIX.len()
+    if file.len() >= HINT_SUFFIX.len()
         && &file[file.len() - HINT_SUFFIX.len()..] == HINT_SUFFIX.as_bytes()
+    {
+        Some(Path::new(OsStr::from_bytes(
+            &file[..file.len() - HINT_SUFFIX.len()],
+        )))
+    } else {
+        None
+    }
+}
+
+pub fn lookup_fixmes(srcdir: &Path) -> Result<BTreeSet<PathBuf>, Error> {
+    let mut fixmes = BTreeSet::new();
+    for entry in WalkDir::new(srcdir) {
+        let entry = entry?;
+        if entry.file_type().is_file() {
+            let file = fs::File::open(entry.path())?;
+            let reader = BufReader::new(file);
+            // If we find one FIXME we break the loop and check next file. Idea
+            // is only to find files with FIXME strings in it.
+            for line in reader.lines().flatten() {
+                if line.contains("FIXME") {
+                    fixmes.insert(entry.path().to_path_buf());
+                    break;
+                }
+            }
+        }
+    }
+
+    // ignore hint files whose non-hint partners exists and don't have a FIXME
+    let fixmes = fixmes
+        .iter()
+        .filter(|f| match hint_file_for(f) {
+            Some(ff) => fixmes.contains(ff) || !ff.exists(),
+            None => true,
+        })
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    Ok(fixmes)
+}
+
+pub fn rel_p<'a>(path: &'a Path, base: &'a Path) -> &'a str {
+    path.strip_prefix(base).unwrap_or(path).to_str().unwrap()
 }
 
 pub fn copy_tree(oldtree: &Path, newtree: &Path) -> Result<(), Error> {
-    for entry in walkdir::WalkDir::new(oldtree) {
+    for entry in WalkDir::new(oldtree) {
         let entry = entry?;
         if entry.depth() == 0 {
             continue;

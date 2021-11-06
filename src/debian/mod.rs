@@ -28,7 +28,6 @@ use self::control::{Description, Package, PkgTest, Source};
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
 
-pub mod build_order;
 pub mod changelog;
 pub mod control;
 pub mod copyright;
@@ -197,29 +196,25 @@ pub fn prepare_orig_tarball(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_debian_folder(
-    deb_info: &DebInfo,
+pub fn apply_overlay_and_patches(
     crate_info: &mut CrateInfo,
-    pkg_srcdir: &Path,
     config_path: Option<&Path>,
     config: &Config,
-    changelog_ready: bool,
-    copyright_guess_harder: bool,
-    overlay_write_back: bool,
-) -> Result<()> {
+    pkg_srcdir: &Path,
+) -> Result<tempfile::TempDir> {
     let tempdir = tempfile::Builder::new()
         .prefix("debcargo")
         .tempdir_in(".")?;
     let overlay = config.overlay_dir(config_path);
     if let Some(p) = overlay.as_ref() {
-        if p.to_str().unwrap() == "." {
-            debcargo_bail!(
-                "Aborting: refusing to recursively copy {} to {} \
-(overlay directory should not be .)",
-                p.to_str().unwrap(),
-                tempdir.path().to_str().unwrap()
-            );
+        for anc in tempdir.path().ancestors() {
+            if p.as_path() == anc {
+                debcargo_bail!(
+                    "Aborting: refusing to copy an ancestor {} into a descendant {}",
+                    p.as_path().display(),
+                    tempdir.path().display(),
+                );
+            }
         }
         copy_tree(p.as_path(), tempdir.path()).unwrap();
     }
@@ -248,7 +243,21 @@ it's a maintenance burden. Use debcargo.toml instead."
             "failed to unapply patches",
         );
     }
+    Ok(tempdir)
+}
 
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_debian_folder(
+    crate_info: &mut CrateInfo,
+    deb_info: &DebInfo,
+    config_path: Option<&Path>,
+    config: &Config,
+    pkg_srcdir: &Path,
+    tempdir: &tempfile::TempDir,
+    changelog_ready: bool,
+    copyright_guess_harder: bool,
+    overlay_write_back: bool,
+) -> Result<()> {
     let mut create = fs::OpenOptions::new();
     create.write(true).create_new(true);
 
@@ -540,6 +549,7 @@ echo "debcargo testing: suppressing dh-cargo-built-using";;
     }
 
     if overlay_write_back {
+        let overlay = config.overlay_dir(config_path);
         if let Some(p) = overlay.as_ref() {
             if !changelog_ready {
                 // Special-case d/changelog:

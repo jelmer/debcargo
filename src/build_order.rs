@@ -1,18 +1,32 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 use cargo::core::{Dependency, PackageId};
-use structopt::clap::arg_enum;
+use structopt::{clap::arg_enum, StructOpt};
 
-use crate::crates::{CrateDepInfo, CrateInfo};
+use crate::crates::{crate_name_ver_to_dep, transitive_deps, CrateDepInfo, CrateInfo};
 use crate::errors::Result;
 use crate::util;
 
 arg_enum! {
-    #[derive(Debug, Copy, Clone)]
+    #[derive(Debug, Clone, Copy)]
     pub enum ResolveType {
         BinaryForDebianUnstable,
         SourceForDebianTesting,
     }
+}
+
+#[derive(Debug, Clone, StructOpt)]
+pub struct BuildOrderArgs {
+    /// Name of the crate to package.
+    crate_name: String,
+    /// Version of the crate to package; may contain dependency operators.
+    version: Option<String>,
+    /// Resolution type, one of BinaryForDebianUnstable | SourceForDebianTesting
+    #[structopt(long, default_value = "BinaryForDebianUnstable")]
+    resolve_type: ResolveType,
+    /// Emulate resolution as if every package were built with --collapse-features.
+    #[structopt(long)]
+    emulate_collapse_features: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -33,7 +47,7 @@ fn get_build_deps(
         .cloned()
         .collect::<HashSet<_>>();
     let feature_deps: HashSet<Dependency> =
-        HashSet::from_iter(super::transitive_deps(crate_dep_info, package.1).1);
+        HashSet::from_iter(transitive_deps(crate_dep_info, package.1).1);
     // FIXME: read crate config, including Cargo.toml patches
     // note: please keep the below logic in sync with prepare_debian_control
     let additional_deps = if emulate_collapse_features {
@@ -42,7 +56,7 @@ fn get_build_deps(
     } else {
         // FIXME: if build_depends_features is an override, use that instead of "default"
         // TODO: also deprecate build_depends_excludes
-        HashSet::from_iter(super::transitive_deps(crate_dep_info, "default").1)
+        HashSet::from_iter(transitive_deps(crate_dep_info, "default").1)
     };
     let hard_deps = feature_deps
         .union(&additional_deps)
@@ -74,63 +88,61 @@ fn dep_features(dep: &Dependency) -> Vec<&'static str> {
     feats
 }
 
-fn insert_info(
-    infos: &mut BTreeMap<PackageId, (CrateInfo, CrateDepInfo)>,
-    info: CrateInfo,
-) -> PackageId {
-    let id = info.package_id();
-    let dep_info = info.all_dependencies_and_features();
-    infos.insert(id, (info, dep_info));
-    id
-}
-
 fn ensure_info(
-    package: &PackageId,
-    dependency: &Dependency,
     infos: &mut BTreeMap<PackageId, (CrateInfo, CrateDepInfo)>,
     cache: &mut HashMap<Dependency, PackageId>,
+    dependant: Option<PackageId>,
+    dependency: &Dependency,
+    update: bool,
 ) -> Result<PackageId> {
     match cache.get(dependency) {
         Some(id) => Ok(*id),
         None => {
-            let info = CrateInfo::new_from_dependency(Some(*package), dependency, false)?;
-            Ok(insert_info(infos, info))
+            // FIXME: use package::PackageProcess to read configs and patches
+            let info = CrateInfo::new_from_dependency(dependant, dependency, update)?;
+            let id = info.package_id();
+            let dep_info = info.all_dependencies_and_features();
+            infos.insert(id, (info, dep_info));
+            cache.insert(dependency.clone(), id);
+            Ok(id)
         }
     }
 }
 
 // FIXME: add the ability to apply our Cargo.toml patches that reduce the
 // build-dependency set. this could help prevent cycles.
-pub fn build_order(
-    crate_name: &str,
-    version: Option<&str>,
-    resolve_type: ResolveType,
-    emulate_collapse_features: bool,
-) -> Result<Vec<PackageId>> {
+pub fn build_order(args: BuildOrderArgs) -> Result<Vec<PackageId>> {
+    let crate_name = &args.crate_name;
+    let version = args.version.as_deref();
+
     let mut infos = BTreeMap::new();
     let mut cache = HashMap::new();
-    let seed = CrateInfo::new(crate_name, version)?;
-    let seed_id = insert_info(&mut infos, seed);
+    let seed_dep = crate_name_ver_to_dep(crate_name, version)?;
+    let seed_id = ensure_info(&mut infos, &mut cache, None, &seed_dep, true)?;
 
     let mut next = |idf: &PackageIdFeat| -> Result<(Vec<PackageIdFeat>, Vec<PackageIdFeat>)> {
         let crate_info = infos
             .get(&idf.0)
             .expect("build_order next called without crate info");
-        let (hard, soft) =
-            get_build_deps(&crate_info.1, idf, resolve_type, emulate_collapse_features)?;
+        let (hard, soft) = get_build_deps(
+            &crate_info.1,
+            idf,
+            args.resolve_type,
+            args.emulate_collapse_features,
+        )?;
         // note: we might resolve the same crate-version several times;
         // this is expected, since different dependencies (with different
         // version ranges) might resolve into the same crate-version
         let mut hard_p = Vec::new();
         for dep in hard {
-            let id = ensure_info(&idf.0, &dep, &mut infos, &mut cache)?;
+            let id = ensure_info(&mut infos, &mut cache, Some(idf.0), &dep, false)?;
             for f in dep_features(&dep) {
                 hard_p.push(PackageIdFeat(id, f));
             }
         }
         let mut soft_p = Vec::new();
         for dep in soft {
-            let id = ensure_info(&idf.0, &dep, &mut infos, &mut cache)?;
+            let id = ensure_info(&mut infos, &mut cache, Some(idf.0), &dep, false)?;
             for f in dep_features(&dep) {
                 soft_p.push(PackageIdFeat(id, f));
             }
