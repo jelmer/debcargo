@@ -123,9 +123,10 @@ where
     while let Some(v) = remain.pop_front() {
         log(&remain, &graph)?;
         let next = succ(&v)?;
-        for vv in next.iter() {
-            if !graph.contains_key(vv) {
-                remain.push_back(vv.clone());
+        for v_ in next.iter() {
+            if !graph.contains_key(v_) {
+                graph.insert(v_.clone(), BTreeSet::new());
+                remain.push_back(v_.clone());
             }
         }
         graph.insert(v, BTreeSet::from_iter(next));

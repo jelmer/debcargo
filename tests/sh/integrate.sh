@@ -175,7 +175,8 @@ build_source() {(
 cargo_tree_rec() {
 	local cache="$directory/z-cache_${*/\//_}"
 	if [ ! -f "$cache" ]; then
-		RUST_LOG=info "$debcargo" build-order "$@" > "$cache"
+		RUST_LOG=info "$debcargo" build-order "$@" > "$cache.tmp"
+		mv "$cache.tmp" "$cache"
 	fi
 	cat "$cache"
 }
