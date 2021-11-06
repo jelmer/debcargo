@@ -19,18 +19,7 @@ arg_enum! {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct PackageIdFeat(PackageId, &'static str);
 
-fn insert_info(
-    infos: &mut BTreeMap<PackageId, (CrateInfo, CrateDepInfo)>,
-    info: CrateInfo,
-) -> PackageId {
-    let id = info.package_id();
-    let dep_info = info.all_dependencies_and_features();
-    infos.insert(id, (info, dep_info));
-    id
-}
-
 fn get_build_deps(crate_dep_info: &CrateDepInfo, feature: &str) -> Result<Vec<Dependency>> {
-    // note: please keep this logic in sync with prepare_debian_control
     if feature == "@" {
         let deps = crate_dep_info
             .iter()
@@ -39,6 +28,7 @@ fn get_build_deps(crate_dep_info: &CrateDepInfo, feature: &str) -> Result<Vec<De
             .collect::<HashSet<_>>();
         Ok(deps.into_iter().cloned().collect::<Vec<_>>())
     } else {
+        // note: please keep this logic in sync with prepare_debian_control
         let (_, default_deps) = super::transitive_deps(crate_dep_info, feature);
         Ok(default_deps)
     }
@@ -78,8 +68,18 @@ fn dep_features(dep: &Dependency, resolve_type: ResolveType) -> Vec<&'static str
     }
 }
 
-// TODO: add the ability to apply our Cargo.toml patches that reduce the
-// build-dependency set
+fn insert_info(
+    infos: &mut BTreeMap<PackageId, (CrateInfo, CrateDepInfo)>,
+    info: CrateInfo,
+) -> PackageId {
+    let id = info.package_id();
+    let dep_info = info.all_dependencies_and_features();
+    infos.insert(id, (info, dep_info));
+    id
+}
+
+// FIXME: add the ability to apply our Cargo.toml patches that reduce the
+// build-dependency set. this could help prevent cycles.
 pub fn build_order(
     crate_name: &str,
     version: Option<&str>,
@@ -141,8 +141,7 @@ pub fn build_order(
     let build_order = match util::topo_sort(roots, pred.clone(), succ.clone()) {
         Ok(r) => r,
         Err(remain) => {
-            // FIXME: handle this gracefully. this can happen innocently
-            debcargo_bail!(
+            log::error!(
                 "topo_sort got cyclic graph: {:#?}",
                 remain
                     .into_iter()
@@ -151,6 +150,9 @@ pub fn build_order(
                         vv.into_iter().map(|v| v.to_string()).collect::<Vec<_>>()
                     ))
                     .collect::<Vec<_>>()
+            );
+            debcargo_bail!(
+                "topo_sort got cyclic graph; you'll need to patch the crate(s) to break the cycle."
             )
         }
     };
