@@ -214,15 +214,19 @@ pub fn prepare_debian_folder(
     let overlay = config.overlay_dir(config_path);
     if let Some(p) = overlay.as_ref() {
         if p.to_str().unwrap() == "." {
-            println!("Aborting: refusing to recursively copy {} to {} (overlay directory should not be .)", p.to_str().unwrap(), tempdir.path().to_str().unwrap());
-            std::process::exit(1);
+            debcargo_bail!(
+                "Aborting: refusing to recursively copy {} to {} \
+(overlay directory should not be .)",
+                p.to_str().unwrap(),
+                tempdir.path().to_str().unwrap()
+            );
         }
         copy_tree(p.as_path(), tempdir.path()).unwrap();
     }
     if tempdir.path().join("control").exists() {
         debcargo_warn!(
             "Most of the time you shouldn't overlay debian/control, \
-             it's a maintenance burden. Use debcargo.toml instead."
+it's a maintenance burden. Use debcargo.toml instead."
         )
     }
     if tempdir.path().join("patches").join("series").exists() {

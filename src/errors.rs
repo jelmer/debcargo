@@ -8,7 +8,7 @@ macro_rules! debcargo_info {
     ($e:expr) => {
         {
             use ansi_term::Colour::Green;
-            println!("{}", Green.paint($e));
+            eprintln!("{}", Green.paint($e));
         }
     };
 
@@ -16,7 +16,7 @@ macro_rules! debcargo_info {
         {
             use ansi_term::Colour::Green;
             let print_string = format!($fmt, $($arg)+);
-            println!("{}", Green.paint(print_string));
+            eprintln!("{}", Green.paint(print_string));
         }
     };
 }
@@ -26,7 +26,7 @@ macro_rules! debcargo_warn {
     ($e:expr) => {
         {
             use ansi_term::Colour::RGB;
-            println!("{}", RGB(255,165,0).bold().paint($e));
+            eprintln!("{}", RGB(255,165,0).bold().paint($e));
         }
     };
 
@@ -34,7 +34,7 @@ macro_rules! debcargo_warn {
         {
             use ansi_term::Colour::RGB;
             let print_string = RGB(255,165,0).bold().paint(format!($fmt, $($arg)+));
-            println!("{}", print_string);
+            eprintln!("{}", print_string);
         }
     };
 
