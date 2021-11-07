@@ -58,6 +58,8 @@ initial-upload-closes-no-bugs
 ## Not to be fixed, due to our test setup
 
 unused-override
+# lintian doesn't recognise our test "ruzt" prefix
+wrong-section-according-to-package-name
 
 # we don't finalise changelogs for this integration test
 bad-distribution-in-changes-file
