@@ -5,7 +5,7 @@ use std::cmp;
 use std::fmt;
 
 use crate::config::{force_for_testing, Config};
-use crate::debian;
+use crate::debian::{self, Package};
 use crate::errors::*;
 
 #[derive(Eq, Clone)]
@@ -295,7 +295,7 @@ pub fn deb_dep(config: &Config, dep: &Dependency) -> Result<Vec<String>> // resu
     let req = semver::VersionReq::parse(&dep.version_req().to_string()).unwrap();
     let mut deps = Vec::new();
     for suffix in suffixes {
-        let base = format!("librust-{}", dep_dashed);
+        let base = format!("{}-{}", Package::pkg_prefix(), dep_dashed);
         let mut vr = VRange::new();
         for p in &req.comparators {
             let op = coerce_unacceptable_predicate(dep, p, config.allow_prerelease_deps)?;

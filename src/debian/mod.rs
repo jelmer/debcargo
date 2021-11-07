@@ -77,8 +77,8 @@ impl DebInfo {
         };
         let debian_version = deb_version(crate_info.version());
         let debian_source = match name_suffix {
-            Some(ref suf) => format!("rust-{}{}", base_package_name, suf),
-            None => format!("rust-{}", base_package_name),
+            Some(ref suf) => format!("{}-{}{}", Source::pkg_prefix(), base_package_name, suf),
+            None => format!("{}-{}", Source::pkg_prefix(), base_package_name),
         };
         let package_source_dir = format!("{}-{}", debian_source, debian_version);
         let orig_tarball_path = format!("{}_{}.orig.tar.gz", debian_source, debian_version);

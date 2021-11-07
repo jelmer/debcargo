@@ -5,7 +5,7 @@ use anyhow::{format_err, Error};
 use semver::Version;
 use textwrap::fill;
 
-use crate::config::{package_field_for_feature, Config, PackageKey};
+use crate::config::{self, Config, PackageKey};
 use crate::errors::*;
 use crate::util::vec_opt_iter;
 
@@ -149,6 +149,15 @@ impl fmt::Display for PkgTest {
 }
 
 impl Source {
+    pub fn pkg_prefix() -> &'static str {
+        if config::force_for_testing() {
+            // avoid accidentally installing official packages during tests
+            "ruzt"
+        } else {
+            "rust"
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         basename: &str,
@@ -241,6 +250,15 @@ impl Source {
 }
 
 impl Package {
+    pub fn pkg_prefix() -> &'static str {
+        if config::force_for_testing() {
+            // avoid accidentally installing official packages during tests
+            "libruzt"
+        } else {
+            "librust"
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         basename: &str,
@@ -433,22 +451,22 @@ impl Package {
         self.description
             .apply_overrides(&config.description, config.package_description(key));
 
-        self.depends.extend(package_field_for_feature(
+        self.depends.extend(config::package_field_for_feature(
             &|x| config.package_depends(x),
             key,
             &f_provides,
         ));
-        self.recommends.extend(package_field_for_feature(
+        self.recommends.extend(config::package_field_for_feature(
             &|x| config.package_recommends(x),
             key,
             &f_provides,
         ));
-        self.suggests.extend(package_field_for_feature(
+        self.suggests.extend(config::package_field_for_feature(
             &|x| config.package_suggests(x),
             key,
             &f_provides,
         ));
-        self.provides.extend(package_field_for_feature(
+        self.provides.extend(config::package_field_for_feature(
             &|x| config.package_provides(x),
             key,
             &f_provides,
@@ -508,16 +526,17 @@ pub fn deb_version(v: &Version) -> String {
 }
 
 pub fn dsc_name(name: &str) -> String {
-    format!("rust-{}", name.replace('_', "-"))
+    format!("{}-{}", Source::pkg_prefix(), name.replace('_', "-"))
 }
 
 pub fn deb_name(name: &str) -> String {
-    format!("librust-{}-dev", name.replace('_', "-"))
+    format!("{}-{}-dev", Package::pkg_prefix(), name.replace('_', "-"))
 }
 
 pub fn deb_feature_name(name: &str, feature: &str) -> String {
     format!(
-        "librust-{}+{}-dev",
+        "{}-{}+{}-dev",
+        Package::pkg_prefix(),
         name.replace('_', "-"),
         feature.replace('_', "-").to_lowercase()
     )
