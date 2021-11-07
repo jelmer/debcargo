@@ -227,6 +227,7 @@ cargo build
 debcargo="$scriptdir/../../target/debug/debcargo"
 test -x $debcargo
 
+for i in "$@"; do run_x_or_deps "$i" true; done
 for i in "$@"; do run_x_or_deps "$i" build_source; done
 if $run_sbuild; then
 	if ! schroot -i -c "$CHROOT" >/dev/null; then
