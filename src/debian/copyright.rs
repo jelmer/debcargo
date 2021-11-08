@@ -1,4 +1,4 @@
-use cargo::core::{manifest, package};
+use cargo::core::manifest;
 use chrono::{DateTime, Datelike, NaiveDateTime, Utc};
 use git2::Repository;
 use regex;
@@ -334,9 +334,9 @@ fn copyright_fromgit(repo_url: &str) -> Result<String> {
 }
 
 pub fn debian_copyright(
-    package: &package::Package,
     srcdir: &Path,
     manifest: &manifest::Manifest,
+    manifest_path: &Path,
     maintainer: &str,
     uploaders: &[&str],
     year_range: (i32, i32),
@@ -364,7 +364,7 @@ pub fn debian_copyright(
     let mut crate_license: String = "".to_string();
 
     if let Some(ref license_file_name) = meta.license_file {
-        let license_file = package.manifest_path().with_file_name(license_file_name);
+        let license_file = manifest_path.with_file_name(license_file_name);
         let mut text = Vec::new();
         fs::File::open(license_file)?.read_to_end(&mut text)?;
         licenses.reserve(1);

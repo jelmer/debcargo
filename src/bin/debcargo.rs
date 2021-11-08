@@ -59,17 +59,12 @@ fn real_main() -> Result<()> {
             version,
         } => {
             let crate_info = CrateInfo::new_with_update(&crate_name, version.as_deref(), false)?;
-            let deb_info = DebInfo::new(
-                &crate_name,
-                &crate_info,
-                crate_version!(),
-                version.is_some(),
-            );
+            let deb_info = DebInfo::new(&crate_info, crate_version!(), version.is_some());
             println!("{}", deb_info.package_name());
             Ok(())
         }
         Extract { init, extract } => {
-            let mut process = PackageProcess::new(init)?;
+            let mut process = PackageProcess::init(init)?;
             process.extract(extract)?;
             Ok(())
         }
@@ -78,10 +73,10 @@ fn real_main() -> Result<()> {
             extract,
             finish,
         } => {
-            let mut process = PackageProcess::new(init)?;
+            let mut process = PackageProcess::init(init)?;
             process.extract(extract)?;
             process.apply_overrides()?;
-            process.finish(finish)?;
+            process.generate_package(finish)?;
             process.post_package_checks()
         }
         BuildOrder { args } => {

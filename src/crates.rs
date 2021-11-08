@@ -33,7 +33,9 @@ use crate::errors::*;
 use crate::util::vec_opt_iter;
 
 pub struct CrateInfo {
+    // only used for to_registry_toml in extract_crate. DO NOT USE ELSEWHERE
     package: Package,
+    // allows overriding package.manifest() e.g. via patches
     manifest: Manifest,
     crate_file: FileLock,
     config: Config,
@@ -279,8 +281,8 @@ impl CrateInfo {
         })
     }
 
-    pub fn package(&self) -> &Package {
-        &self.package
+    pub fn crate_name(&self) -> &'static str {
+        self.package_id().name().as_str()
     }
 
     pub fn version(&self) -> &Version {
@@ -309,6 +311,10 @@ impl CrateInfo {
 
     pub fn metadata(&self) -> &ManifestMetadata {
         self.manifest.metadata()
+    }
+
+    pub fn manifest_path(&self) -> &Path {
+        self.package.manifest_path()
     }
 
     pub fn targets(&self) -> &[Target] {
@@ -538,6 +544,7 @@ impl CrateInfo {
         (summary, description)
     }
 
+    /// To be called before extract_crate.
     pub fn set_includes_excludes(
         &mut self,
         excludes: Option<&Vec<String>>,
@@ -640,7 +647,7 @@ impl CrateInfo {
         // path dependencies, so can be built standalone (see #4030).
         let toml_path = path.join("Cargo.toml");
         let ws = Workspace::new(&toml_path.canonicalize()?, &self.config)?;
-        let registry_toml = self.package().to_registry_toml(&ws)?;
+        let registry_toml = self.package.to_registry_toml(&ws)?;
         let mut actual_toml = String::new();
         fs::File::open(&toml_path)?.read_to_string(&mut actual_toml)?;
 

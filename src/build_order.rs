@@ -95,17 +95,17 @@ fn ensure_info(
     dependency: &Dependency,
     update: bool,
 ) -> Result<PackageId> {
-    match cache.get(dependency) {
-        Some(id) => Ok(*id),
-        None => {
-            // FIXME: use package::PackageProcess to read configs and patches
-            let info = CrateInfo::new_from_dependency(dependant, dependency, update)?;
-            let id = info.package_id();
-            let dep_info = info.all_dependencies_and_features();
-            infos.insert(id, (info, dep_info));
-            cache.insert(dependency.clone(), id);
-            Ok(id)
-        }
+    if let Some(id) = cache.get(dependency) {
+        Ok(*id)
+    } else {
+        // FIXME: read config from some directory, then use PackageProcess::new
+        // then extract (to tempdir), then apply_overrides to apply patches
+        let info = CrateInfo::new_from_dependency(dependant, dependency, update)?;
+        let id = info.package_id();
+        let dep_info = info.all_dependencies_and_features();
+        infos.insert(id, (info, dep_info));
+        cache.insert(dependency.clone(), id);
+        Ok(id)
     }
 }
 

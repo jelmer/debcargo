@@ -174,6 +174,7 @@ where
         }
         graph.insert(v, BTreeSet::from_iter(hard));
     }
+    // TODO: if there is an error then pass the graph to an error handler
     Ok(graph)
 }
 

@@ -315,7 +315,8 @@ impl Package {
             provides.extend(f_provides.iter().map(|f| deb_feature2(&p, f)));
         }
         let provides_self = deb_feature(feature.unwrap_or(""));
-        // TODO: can use remove_item() when that is stabilised
+        // rust dropped Vec::remove_item for annoying reasons, the below is
+        // an unofficial recommended replacement from the RFC #40062
         let i = provides.iter().position(|x| *x == *provides_self);
         i.map(|i| provides.remove(i));
 
@@ -515,9 +516,10 @@ impl PkgTest {
     }
 }
 
-/// Translates a semver into a Debian version. Omits the build metadata, and uses a ~ before the
-/// prerelease version so it compares earlier than the subsequent release.
-pub fn deb_version(v: &Version) -> String {
+/// Translates a semver into a Debian-format upstream version.
+/// Omits the build metadata, and uses a ~ before the prerelease version so it
+/// compares earlier than the subsequent release.
+pub fn deb_upstream_version(v: &Version) -> String {
     let mut s = format!("{}.{}.{}", v.major, v.minor, v.patch);
     if !v.pre.is_empty() {
         write!(s, "~{}", v.pre.as_str()).unwrap();

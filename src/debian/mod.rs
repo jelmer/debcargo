@@ -23,7 +23,7 @@ use crate::util::{
 };
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
-use self::control::deb_version;
+use self::control::deb_upstream_version;
 use self::control::{Description, Package, PkgTest, Source};
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
@@ -35,25 +35,24 @@ mod dependency;
 
 pub struct DebInfo {
     upstream_name: String,
+    /// Debian package name without rust- prefix or any semver suffix
     base_package_name: String,
-    name_suffix: Option<String>, // Some implies semver_suffix, i.e. Some("") is different from None
+    /// Package name suffix after the base package name.
+    /// Some implies semver_suffix, i.e. Some("") is different from None
+    name_suffix: Option<String>,
     uscan_version_pattern: Option<String>,
+    /// Debian package name without rust- prefix
     package_name: String,
-    debian_version: String,
+    deb_upstream_version: String,
     debcargo_version: String,
     package_source_dir: String,
     orig_tarball_path: String,
 }
 
 impl DebInfo {
-    pub fn new(
-        name: &str,
-        crate_info: &CrateInfo,
-        debcargo_version: &str,
-        semver_suffix: bool,
-    ) -> Self {
-        let upstream = name.to_string();
-        let name_dashed = upstream.replace('_', "-");
+    pub fn new(crate_info: &CrateInfo, debcargo_version: &str, semver_suffix: bool) -> Self {
+        let upstream_name = crate_info.package_id().name().to_string();
+        let name_dashed = upstream_name.replace('_', "-");
         let base_package_name = name_dashed.to_lowercase();
         let (name_suffix, uscan_version_pattern, package_name) = if semver_suffix {
             let semver = crate_info.semver();
@@ -75,21 +74,27 @@ impl DebInfo {
         } else {
             (None, None, base_package_name.clone())
         };
-        let debian_version = deb_version(crate_info.version());
-        let debian_source = match name_suffix {
-            Some(ref suf) => format!("{}-{}{}", Source::pkg_prefix(), base_package_name, suf),
-            None => format!("{}-{}", Source::pkg_prefix(), base_package_name),
-        };
-        let package_source_dir = format!("{}-{}", debian_source, debian_version);
-        let orig_tarball_path = format!("{}_{}.orig.tar.gz", debian_source, debian_version);
+        let deb_upstream_version = deb_upstream_version(crate_info.version());
+        let package_source_dir = format!(
+            "{}-{}-{}",
+            Source::pkg_prefix(),
+            package_name,
+            deb_upstream_version
+        );
+        let orig_tarball_path = format!(
+            "{}-{}_{}.orig.tar.gz",
+            Source::pkg_prefix(),
+            package_name,
+            deb_upstream_version
+        );
 
         DebInfo {
-            upstream_name: upstream,
+            upstream_name,
             base_package_name,
             name_suffix,
             uscan_version_pattern,
             package_name,
-            debian_version,
+            deb_upstream_version,
             debcargo_version: debcargo_version.to_string(),
             package_source_dir,
             orig_tarball_path,
@@ -112,8 +117,8 @@ impl DebInfo {
         self.package_name.as_str()
     }
 
-    pub fn debian_version(&self) -> &str {
-        self.debian_version.as_str()
+    pub fn deb_upstream_version(&self) -> &str {
+        self.deb_upstream_version.as_str()
     }
 
     pub fn debcargo_version(&self) -> &str {
@@ -133,7 +138,7 @@ pub fn prepare_orig_tarball(
     crate_info: &CrateInfo,
     tarball: &Path,
     src_modified: bool,
-    pkg_srcdir: &Path,
+    output_dir: &Path,
 ) -> Result<()> {
     let crate_file = crate_info.crate_file();
     let tempdir = tempfile::Builder::new()
@@ -161,7 +166,7 @@ pub fn prepare_orig_tarball(
                 // Put the rewritten and original Cargo.toml back into the orig tarball
                 let mut new_archive_append = |name: &str| {
                     let mut header = entry.header().clone();
-                    let srcpath = pkg_srcdir.join(name);
+                    let srcpath = output_dir.join(name);
                     header.set_path(path.parent().unwrap().join(name))?;
                     header.set_size(fs::metadata(&srcpath)?.len());
                     header.set_cksum();
@@ -200,7 +205,7 @@ pub fn apply_overlay_and_patches(
     crate_info: &mut CrateInfo,
     config_path: Option<&Path>,
     config: &Config,
-    pkg_srcdir: &Path,
+    output_dir: &Path,
 ) -> Result<tempfile::TempDir> {
     let tempdir = tempfile::Builder::new()
         .prefix("debcargo")
@@ -226,18 +231,18 @@ it's a maintenance burden. Use debcargo.toml instead."
     }
     if tempdir.path().join("patches").join("series").exists() {
         // apply patches to Cargo.toml in case they exist, and re-read it
-        let pkg_srcdir = &fs::canonicalize(&pkg_srcdir)?;
+        let output_dir = &fs::canonicalize(&output_dir)?;
         expect_success(
             Command::new("quilt")
-                .current_dir(&pkg_srcdir)
+                .current_dir(&output_dir)
                 .env("QUILT_PATCHES", tempdir.path().join("patches"))
                 .args(&["push", "--quiltrc=-", "-a"]),
             "failed to apply patches",
         );
-        crate_info.replace_manifest(&pkg_srcdir.join("Cargo.toml"))?;
+        crate_info.replace_manifest(&output_dir.join("Cargo.toml"))?;
         expect_success(
             Command::new("quilt")
-                .current_dir(&pkg_srcdir)
+                .current_dir(&output_dir)
                 .env("QUILT_PATCHES", tempdir.path().join("patches"))
                 .args(&["pop", "--quiltrc=-", "-a"]),
             "failed to unapply patches",
@@ -252,7 +257,7 @@ pub fn prepare_debian_folder(
     deb_info: &DebInfo,
     config_path: Option<&Path>,
     config: &Config,
-    pkg_srcdir: &Path,
+    output_dir: &Path,
     tempdir: &tempfile::TempDir,
     changelog_ready: bool,
     copyright_guess_harder: bool,
@@ -323,9 +328,9 @@ pub fn prepare_debian_folder(
             }
         };
         let dep5_copyright = debian_copyright(
-            crate_info.package(),
-            pkg_srcdir,
+            output_dir,
             crate_info.manifest(),
+            crate_info.manifest_path(),
             maintainer,
             &uploaders,
             year_range,
@@ -473,7 +478,7 @@ echo "debcargo testing: suppressing dh-cargo-built-using";;
                 Ok(match e {
                     Some(x) => {
                         let e = ChangelogEntry::from_str(x)?;
-                        if e.version_parts().0 == deb_info.debian_version() {
+                        if e.version_parts().0 == deb_info.deb_upstream_version() {
                             Some(e.deb_version_suffix_bump())
                         } else {
                             None
@@ -515,7 +520,7 @@ echo "debcargo testing: suppressing dh-cargo-built-using";;
 
         let source_deb_version = format!(
             "{}-{}",
-            deb_info.debian_version(),
+            deb_info.deb_upstream_version(),
             &deb_version_suffix.unwrap_or_else(|| "1".to_string())
         );
         if !uploaders.contains(&author.as_str()) {
@@ -565,7 +570,7 @@ echo "debcargo testing: suppressing dh-cargo-built-using";;
         }
     }
 
-    fs::rename(tempdir.path(), pkg_srcdir.join("debian"))?;
+    fs::rename(tempdir.path(), output_dir.join("debian"))?;
     Ok(())
 }
 
@@ -575,29 +580,28 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     config: &Config,
     mut file: F,
 ) -> Result<(Source, bool, bool)> {
+    let crate_name = crate_info.crate_name();
+    let deb_upstream_version = deb_info.deb_upstream_version();
+    let base_pkgname = deb_info.base_package_name();
+    let name_suffix = deb_info.name_suffix();
+
     let lib = crate_info.is_lib();
     let mut bins = crate_info.get_binary_targets();
     if lib && !bins.is_empty() && !config.build_bin_package() {
         bins.clear();
     }
-    let default_bin_name = crate_info.package().name().to_string().replace('_', "-");
     let bin_name = if config.bin_name.eq(&Config::default().bin_name) {
+        let default_bin_name = deb_info.base_package_name();
         if !bins.is_empty() {
             debcargo_info!(
                 "Generate binary crate with default name '{}', set bin_name to override or bin = false to disable.",
                 &default_bin_name
             );
         }
-        &default_bin_name
+        default_bin_name
     } else {
-        &config.bin_name
+        config.bin_name.as_str()
     };
-
-    let crate_name = crate_info.package_id().name();
-    let debian_version = deb_info.debian_version();
-    let base_pkgname = deb_info.base_package_name();
-    let name_suffix = deb_info.name_suffix();
-    let upstream_name = deb_info.upstream_name();
 
     let maintainer = config.maintainer();
     let requires_root = config.requires_root();
@@ -607,13 +611,13 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
     let features_with_deps = crate_info.all_dependencies_and_features();
     let dev_depends = deb_deps(config, &crate_info.dev_dependencies())?;
-    /*debcargo_info!(
+    log::trace!(
         "features_with_deps: {:?}",
         features_with_deps
             .iter()
             .map(|(&f, &(ref ff, ref dd))| { (f, (ff, deb_deps(config, dd).unwrap())) })
             .collect::<Vec<_>>()
-    );*/
+    );
     let meta = crate_info.metadata();
 
     // debian/tests/control, preparation
@@ -662,7 +666,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     let mut source = Source::new(
         base_pkgname,
         name_suffix,
-        upstream_name,
+        crate_name,
         if let Some(ref home) = meta.homepage {
             home
         } else {
@@ -687,7 +691,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
     // Summary and description generated from Cargo.toml
     let (crate_summary, crate_description) = crate_info.get_summary_description();
-    let summary_prefix = crate_summary.unwrap_or(format!("Rust crate \"{}\"", upstream_name));
+    let summary_prefix = crate_summary.unwrap_or(format!("Rust crate \"{}\"", crate_name));
     let description_prefix = {
         let tmp = crate_description.unwrap_or_else(|| "".to_string());
         if tmp.is_empty() {
@@ -717,9 +721,9 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             "{}",
             PkgTest::new(
                 source.name(),
-                &crate_name,
+                crate_name,
                 "@",
-                debian_version,
+                deb_upstream_version,
                 vec!["--all-features"],
                 &all_features_test_depends,
                 if all_features_test_broken {
@@ -824,7 +828,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                     "This package contains the source for the \
                      Rust {} crate, packaged by debcargo for use \
                      with cargo and dh-cargo.",
-                    upstream_name
+                    crate_name
                 )
             } else {
                 format!(
@@ -832,7 +836,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                      Rust {} crate, by pulling in any additional \
                      dependencies needed by that feature.{}",
                     feature,
-                    upstream_name,
+                    crate_name,
                     match f_provides.len() {
                         0 => "".to_string(),
                         1 => format!(
@@ -937,9 +941,9 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                     .collect::<Vec<_>>();
                 let pkgtest = PkgTest::new(
                     package.name(),
-                    &crate_name,
+                    crate_name,
                     f,
-                    debian_version,
+                    deb_upstream_version,
                     args,
                     &test_depends,
                     if test_is_broken(f)? {
@@ -960,7 +964,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         let summary_suffix = "".to_string();
         let description_suffix = format!(
             "This package contains the following binaries built from the Rust crate\n\"{}\":\n - {}",
-            upstream_name,
+            crate_name,
             bins.join("\n - ")
         );
 

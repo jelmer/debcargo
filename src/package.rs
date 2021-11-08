@@ -15,10 +15,12 @@ pub struct PackageProcess {
     pub config_path: Option<PathBuf>,
     pub config: Config,
     // below state is filled in during the process
-    pub pkg_srcdir: Option<PathBuf>,
+    /// Output directory as specified by the user.
+    pub output_dir: Option<PathBuf>,
     pub source_modified: Option<bool>,
-    pub tempdir: Option<tempfile::TempDir>,
-    pub orig_tar_gz: Option<PathBuf>,
+    /// Tempdir that contains a working copy of the eventual output.
+    pub temp_output_dir: Option<tempfile::TempDir>,
+    pub orig_tarball: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, StructOpt)]
@@ -34,7 +36,8 @@ pub struct PackageInitArgs {
 
 #[derive(Debug, Clone, StructOpt)]
 pub struct PackageExtractArgs {
-    /// Output directory.
+    /// Output directory for the package. The orig tarball is named according
+    /// to Debian conventions in the parent directory of this directory.
     #[structopt(long)]
     pub directory: Option<String>,
 }
@@ -53,7 +56,28 @@ pub struct PackageFinishArgs {
 }
 
 impl PackageProcess {
-    pub fn new(init_args: PackageInitArgs) -> Result<Self> {
+    /// More fine-grained access. For normal usage see `Self::init` instead.
+    pub fn new(
+        mut crate_info: CrateInfo,
+        config_path: Option<PathBuf>,
+        config: Config,
+    ) -> Result<Self> {
+        crate_info.set_includes_excludes(config.orig_tar_excludes(), config.orig_tar_whitelist());
+        let deb_info = DebInfo::new(&crate_info, crate_version!(), config.semver_suffix);
+
+        Ok(Self {
+            crate_info,
+            deb_info,
+            config_path,
+            config,
+            output_dir: None,
+            source_modified: None,
+            temp_output_dir: None,
+            orig_tarball: None,
+        })
+    }
+
+    pub fn init(init_args: PackageInitArgs) -> Result<Self> {
         let crate_name = &init_args.crate_name;
         let version = init_args.version.as_deref();
         let config = init_args.config.as_deref();
@@ -66,35 +90,19 @@ impl PackageProcess {
             }
             None => (None, Config::default()),
         };
-        let crate_path = config.crate_src_path(config_path.as_deref());
 
         log::info!("preparing crate info");
-        let mut crate_info = match crate_path {
+        let crate_path = config.crate_src_path(config_path.as_deref());
+        let crate_info = match crate_path {
             Some(p) => CrateInfo::new_with_local_crate(crate_name, version, &p)?,
             None => CrateInfo::new(crate_name, version)?,
         };
-        crate_info.set_includes_excludes(config.orig_tar_excludes(), config.orig_tar_whitelist());
-        let deb_info = DebInfo::new(
-            crate_name,
-            &crate_info,
-            crate_version!(),
-            config.semver_suffix,
-        );
 
-        Ok(Self {
-            crate_info,
-            deb_info,
-            config_path,
-            config,
-            pkg_srcdir: None,
-            source_modified: None,
-            tempdir: None,
-            orig_tar_gz: None,
-        })
+        Self::new(crate_info, config_path, config)
     }
 
     pub fn extract(&mut self, extract: PackageExtractArgs) -> Result<()> {
-        assert!(self.pkg_srcdir.is_none());
+        assert!(self.output_dir.is_none());
         assert!(self.source_modified.is_none());
         let Self {
             crate_info,
@@ -103,7 +111,7 @@ impl PackageProcess {
         } = self;
         // vars read; begin stage
 
-        let pkg_srcdir = Path::new(
+        let output_dir = Path::new(
             extract
                 .directory
                 .as_deref()
@@ -111,63 +119,63 @@ impl PackageProcess {
         )
         .to_path_buf();
 
-        log::info!("extracting crate");
-        let source_modified = crate_info.extract_crate(&pkg_srcdir)?;
+        log::info!("extracting crate to output directory");
+        let source_modified = crate_info.extract_crate(&output_dir)?;
 
         // stage finished; set vars
-        self.pkg_srcdir = Some(pkg_srcdir);
+        self.output_dir = Some(output_dir);
         self.source_modified = Some(source_modified);
         Ok(())
     }
 
     pub fn apply_overrides(&mut self) -> Result<()> {
-        assert!(self.tempdir.is_none());
+        assert!(self.temp_output_dir.is_none());
         let Self {
             crate_info,
             config_path,
             config,
-            pkg_srcdir,
+            output_dir,
             ..
         } = self;
-        let pkg_srcdir = pkg_srcdir.as_ref().unwrap();
+        let output_dir = output_dir.as_ref().unwrap();
         // vars read; begin stage
 
         log::info!("applying overlay and patches");
-        let tempdir = debian::apply_overlay_and_patches(
+        let temp_output_dir = debian::apply_overlay_and_patches(
             crate_info,
             config_path.as_deref(),
             config,
-            pkg_srcdir,
+            output_dir,
         )?;
 
         // stage finished; set vars
-        self.tempdir = Some(tempdir);
+        self.temp_output_dir = Some(temp_output_dir);
         Ok(())
     }
 
-    pub fn finish(&mut self, finish_args: PackageFinishArgs) -> Result<()> {
-        assert!(self.orig_tar_gz.is_none());
+    pub fn generate_package(&mut self, finish_args: PackageFinishArgs) -> Result<()> {
+        assert!(self.orig_tarball.is_none());
         let Self {
             crate_info,
             deb_info,
             config_path,
             config,
-            pkg_srcdir,
+            output_dir,
             source_modified,
-            tempdir,
+            temp_output_dir,
             ..
         } = self;
-        let pkg_srcdir = pkg_srcdir.as_ref().unwrap();
+        let output_dir = output_dir.as_ref().unwrap();
         let source_modified = source_modified.as_ref().unwrap();
-        let tempdir = tempdir.as_ref().unwrap();
+        let temp_output_dir = temp_output_dir.as_ref().unwrap();
         // vars read; begin stage
 
         log::info!("preparing orig tarball");
-        let orig_tar_gz = pkg_srcdir
+        let orig_tarball = output_dir
             .parent()
             .unwrap()
             .join(deb_info.orig_tarball_path());
-        debian::prepare_orig_tarball(crate_info, &orig_tar_gz, *source_modified, pkg_srcdir)?;
+        debian::prepare_orig_tarball(crate_info, &orig_tarball, *source_modified, output_dir)?;
 
         log::info!("preparing debian folder");
         debian::prepare_debian_folder(
@@ -175,15 +183,15 @@ impl PackageProcess {
             deb_info,
             config_path.as_deref(),
             config,
-            pkg_srcdir,
-            tempdir,
+            output_dir,
+            temp_output_dir,
             finish_args.changelog_ready,
             finish_args.copyright_guess_harder,
             !finish_args.no_overlay_write_back,
         )?;
 
         // stage finished; set vars
-        self.orig_tar_gz = Some(orig_tar_gz);
+        self.orig_tarball = Some(orig_tarball);
         Ok(())
     }
 
@@ -191,20 +199,20 @@ impl PackageProcess {
         let Self {
             config_path,
             config,
-            pkg_srcdir,
-            orig_tar_gz,
+            output_dir,
+            orig_tarball,
             ..
         } = self;
-        let pkg_srcdir = pkg_srcdir.as_ref().unwrap();
-        let orig_tar_gz = orig_tar_gz.as_ref().unwrap();
+        let output_dir = output_dir.as_ref().unwrap();
+        let orig_tarball = orig_tarball.as_ref().unwrap();
 
         let curdir = std::env::current_dir()?;
         debcargo_info!(
             concat!("Package Source: {}\n", "Original Tarball for package: {}\n"),
-            util::rel_p(pkg_srcdir, &curdir),
-            util::rel_p(orig_tar_gz, &curdir)
+            util::rel_p(output_dir, &curdir),
+            util::rel_p(orig_tarball, &curdir)
         );
-        let fixmes = util::lookup_fixmes(pkg_srcdir.join("debian").as_path())?;
+        let fixmes = util::lookup_fixmes(output_dir.join("debian").as_path())?;
         if !fixmes.is_empty() {
             debcargo_warn!("FIXME found in the following files.");
             for f in fixmes {
