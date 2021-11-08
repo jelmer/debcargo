@@ -4,6 +4,7 @@ use std::fmt;
 use cargo::core::{Dependency, PackageId};
 use structopt::{clap::arg_enum, StructOpt};
 
+use crate::config::Config;
 use crate::crates::{crate_name_ver_to_dep, show_dep, transitive_deps, CrateDepInfo, CrateInfo};
 use crate::errors::Result;
 use crate::util;
@@ -42,11 +43,12 @@ impl fmt::Display for PackageIdFeat {
 // First result: if somebody build-depends on us, what do they first need to build?
 // Second result: what other packages need to go into Debian Testing before us?
 fn get_build_deps(
-    crate_dep_info: &CrateDepInfo,
+    crate_details: &(CrateInfo, CrateDepInfo, Config),
     package: &PackageIdFeat,
     resolve_type: ResolveType,
     emulate_collapse_features: bool,
 ) -> Result<(Vec<Dependency>, Vec<Dependency>)> {
+    let (_, crate_dep_info, config) = crate_details;
     let all_deps = crate_dep_info
         .iter()
         .map(|(_, v)| v.1.iter())
@@ -55,13 +57,10 @@ fn get_build_deps(
         .collect::<HashSet<_>>();
     let feature_deps: HashSet<Dependency> =
         HashSet::from_iter(transitive_deps(crate_dep_info, package.1).1);
-    // FIXME: read crate config, including Cargo.toml patches
-    // note: please keep the below logic in sync with prepare_debian_control
-    let additional_deps = if emulate_collapse_features {
-        // FIXME: if crate config collapse_features is on, also branch here
+    let additional_deps = if emulate_collapse_features || config.collapse_features {
         all_deps.clone()
     } else {
-        // FIXME: if build_depends_features is an override, use that instead of "default"
+        // TODO: if build_depends_features is an override, use that instead of "default"
         // TODO: also deprecate build_depends_excludes
         HashSet::from_iter(transitive_deps(crate_dep_info, "default").1)
     };
@@ -96,7 +95,7 @@ fn dep_features(dep: &Dependency) -> Vec<&'static str> {
 }
 
 fn ensure_info(
-    infos: &mut BTreeMap<PackageId, (CrateInfo, CrateDepInfo)>,
+    infos: &mut BTreeMap<PackageId, (CrateInfo, CrateDepInfo, Config)>,
     cache: &mut HashMap<Dependency, PackageId>,
     dependency: &Dependency,
     update: bool,
@@ -104,19 +103,17 @@ fn ensure_info(
     if let Some(id) = cache.get(dependency) {
         Ok(*id)
     } else {
-        // FIXME: read config from some directory, then use PackageProcess::new
-        // then extract (to tempdir), then apply_overrides to apply patches
         let info = CrateInfo::new_from_dependency(dependency, update)?;
         let id = info.package_id();
+        // FIXME: read config from some directory according to the package id,
+        // then PackageProcess::new, extract(tempdir), apply_overrides
         let dep_info = info.all_dependencies_and_features();
-        infos.insert(id, (info, dep_info));
+        infos.insert(id, (info, dep_info, Config::default()));
         cache.insert(dependency.clone(), id);
         Ok(id)
     }
 }
 
-// FIXME: add the ability to apply our Cargo.toml patches that reduce the
-// build-dependency set. this could help prevent cycles.
 pub fn build_order(args: BuildOrderArgs) -> Result<Vec<PackageId>> {
     let crate_name = &args.crate_name;
     let version = args.version.as_deref();
@@ -127,11 +124,10 @@ pub fn build_order(args: BuildOrderArgs) -> Result<Vec<PackageId>> {
     let seed_id = ensure_info(&mut infos, &mut cache, &seed_dep, true)?;
 
     let mut next = |idf: &PackageIdFeat| -> Result<(Vec<PackageIdFeat>, Vec<PackageIdFeat>)> {
-        let crate_info = infos
-            .get(&idf.0)
-            .expect("build_order next called without crate info");
         let (hard, soft) = get_build_deps(
-            &crate_info.1,
+            infos
+                .get(&idf.0)
+                .expect("build_order next called without crate info"),
             idf,
             args.resolve_type,
             args.emulate_collapse_features,
