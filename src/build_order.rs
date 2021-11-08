@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use std::fmt;
 
 use cargo::core::{Dependency, PackageId};
 use structopt::{clap::arg_enum, StructOpt};
 
-use crate::crates::{crate_name_ver_to_dep, transitive_deps, CrateDepInfo, CrateInfo};
+use crate::crates::{crate_name_ver_to_dep, show_dep, transitive_deps, CrateDepInfo, CrateInfo};
 use crate::errors::Result;
 use crate::util;
 
@@ -31,6 +32,12 @@ pub struct BuildOrderArgs {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct PackageIdFeat(PackageId, &'static str);
+
+impl fmt::Display for PackageIdFeat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}@{}/{}", self.0.name(), self.0.version(), self.1)
+    }
+}
 
 // First result: if somebody build-depends on us, what do they first need to build?
 // Second result: what other packages need to go into Debian Testing before us?
@@ -91,7 +98,6 @@ fn dep_features(dep: &Dependency) -> Vec<&'static str> {
 fn ensure_info(
     infos: &mut BTreeMap<PackageId, (CrateInfo, CrateDepInfo)>,
     cache: &mut HashMap<Dependency, PackageId>,
-    dependant: Option<PackageId>,
     dependency: &Dependency,
     update: bool,
 ) -> Result<PackageId> {
@@ -100,7 +106,7 @@ fn ensure_info(
     } else {
         // FIXME: read config from some directory, then use PackageProcess::new
         // then extract (to tempdir), then apply_overrides to apply patches
-        let info = CrateInfo::new_from_dependency(dependant, dependency, update)?;
+        let info = CrateInfo::new_from_dependency(dependency, update)?;
         let id = info.package_id();
         let dep_info = info.all_dependencies_and_features();
         infos.insert(id, (info, dep_info));
@@ -118,7 +124,7 @@ pub fn build_order(args: BuildOrderArgs) -> Result<Vec<PackageId>> {
     let mut infos = BTreeMap::new();
     let mut cache = HashMap::new();
     let seed_dep = crate_name_ver_to_dep(crate_name, version)?;
-    let seed_id = ensure_info(&mut infos, &mut cache, None, &seed_dep, true)?;
+    let seed_id = ensure_info(&mut infos, &mut cache, &seed_dep, true)?;
 
     let mut next = |idf: &PackageIdFeat| -> Result<(Vec<PackageIdFeat>, Vec<PackageIdFeat>)> {
         let crate_info = infos
@@ -130,22 +136,30 @@ pub fn build_order(args: BuildOrderArgs) -> Result<Vec<PackageId>> {
             args.resolve_type,
             args.emulate_collapse_features,
         )?;
+        log::trace!("{} hard-dep: {}", idf, util::show_vec_with(&hard, show_dep));
+        if !soft.is_empty() {
+            log::trace!("{} soft-dep: {}", idf, util::show_vec_with(&soft, show_dep));
+        }
         // note: we might resolve the same crate-version several times;
         // this is expected, since different dependencies (with different
         // version ranges) might resolve into the same crate-version
         let mut hard_p = Vec::new();
         for dep in hard {
-            let id = ensure_info(&mut infos, &mut cache, Some(idf.0), &dep, false)?;
+            let id = ensure_info(&mut infos, &mut cache, &dep, false)?;
             for f in dep_features(&dep) {
                 hard_p.push(PackageIdFeat(id, f));
             }
         }
         let mut soft_p = Vec::new();
         for dep in soft {
-            let id = ensure_info(&mut infos, &mut cache, Some(idf.0), &dep, false)?;
+            let id = ensure_info(&mut infos, &mut cache, &dep, false)?;
             for f in dep_features(&dep) {
                 soft_p.push(PackageIdFeat(id, f));
             }
+        }
+        log::trace!("{} hard-dep resolve: {}", idf, util::show_vec(&hard_p));
+        if !soft_p.is_empty() {
+            log::trace!("{} soft-dep resolve: {}", idf, util::show_vec(&soft_p));
         }
         Ok((hard_p, soft_p))
     };
@@ -154,7 +168,7 @@ pub fn build_order(args: BuildOrderArgs) -> Result<Vec<PackageId>> {
         i += 1;
         if i % 16 == 0 {
             debcargo_info!(
-                "build-order: done: {}, todo: {}",
+                "debcargo build-order: resolving dependencies: done: {}, todo: {}",
                 graph.len(),
                 remaining.len()
             );
@@ -182,9 +196,11 @@ pub fn build_order(args: BuildOrderArgs) -> Result<Vec<PackageId>> {
                     .into_iter()
                     .map(|(k, vv)| (
                         k.to_string(),
-                        vv.into_iter().map(|v| v.to_string()).collect::<Vec<_>>()
+                        vv.into_iter()
+                            .map(|v| v.to_string())
+                            .collect::<BTreeSet<_>>()
                     ))
-                    .collect::<Vec<_>>()
+                    .collect::<BTreeMap<_, _>>()
             );
             debcargo_bail!(
                 "topo_sort got cyclic graph; you'll need to patch the crate(s) to break the cycle."
@@ -200,20 +216,10 @@ pub fn build_order(args: BuildOrderArgs) -> Result<Vec<PackageId>> {
     }
     for (p, _) in infos {
         log::error!(
-            "leftover infos not used in build-order: {}, succ: {:#?}, pred: {:#?}",
+            "leftover infos not used in build-order: {}, succ: {}, pred: {}",
             p,
-            succ.get(&p)
-                .map(|x| x.iter())
-                .into_iter()
-                .flatten()
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>(),
-            pred.get(&p)
-                .map(|x| x.iter())
-                .into_iter()
-                .flatten()
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>(),
+            util::show_vec(succ.get(&p).into_iter().flatten()),
+            util::show_vec(pred.get(&p).into_iter().flatten()),
         );
     }
 

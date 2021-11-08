@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::ffi::OsStr;
+use std::fmt;
 use std::fs;
 use std::io::{BufRead, BufReader, Error};
 use std::iter::Iterator;
@@ -8,6 +9,7 @@ use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use itertools::Itertools;
 use walkdir::WalkDir;
 
 pub const HINT_SUFFIX: &str = ".debcargo.hint";
@@ -81,6 +83,21 @@ pub fn copy_tree(oldtree: &Path, newtree: &Path) -> Result<(), Error> {
 
 pub fn vec_opt_iter<'a, T>(option: Option<&'a Vec<T>>) -> impl Iterator<Item = &T> + 'a {
     option.into_iter().flat_map(|v| v.iter())
+}
+
+pub fn show_vec_with<'a, T, F>(it: impl IntoIterator<Item = &'a T>, f: F) -> String
+where
+    T: 'a,
+    F: FnMut(&T) -> String,
+{
+    Itertools::intersperse(it.into_iter().map(f), ", ".to_string()).collect::<String>()
+}
+
+pub fn show_vec<'a, T>(it: impl IntoIterator<Item = &'a T>) -> String
+where
+    T: fmt::Display + 'a,
+{
+    show_vec_with(it, std::string::ToString::to_string)
 }
 
 pub fn expect_success(cmd: &mut Command, err: &str) {
@@ -174,7 +191,6 @@ where
         }
         graph.insert(v, BTreeSet::from_iter(hard));
     }
-    // TODO: if there is an error then pass the graph to an error handler
     Ok(graph)
 }
 
