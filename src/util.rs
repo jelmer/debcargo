@@ -81,10 +81,6 @@ pub fn copy_tree(oldtree: &Path, newtree: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn vec_opt_iter<'a, T>(option: Option<&'a Vec<T>>) -> impl Iterator<Item = &T> + 'a {
-    option.into_iter().flat_map(|v| v.iter())
-}
-
 pub fn show_vec_with<'a, T, F>(it: impl IntoIterator<Item = &'a T>, f: F) -> String
 where
     T: 'a,
@@ -147,7 +143,7 @@ pub(crate) fn get_transitive_val<
         Ok(here)
     } else {
         let mut candidates = Vec::new();
-        for par in vec_opt_iter(getparents(key)) {
+        for par in getparents(key).into_iter().flatten() {
             if let Some(v) = get_transitive_val(getparents, f, *par)? {
                 candidates.push((*par, v))
             }

@@ -2,7 +2,6 @@ use serde::Deserialize;
 use toml;
 
 use crate::errors::*;
-use crate::util::vec_opt_iter;
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -218,7 +217,7 @@ pub fn package_field_for_feature<'a>(
     Some(feature)
         .into_iter()
         .chain(f_provides.iter().map(|s| PackageKey::feature(s)))
-        .map(move |f| vec_opt_iter(get_field(f)))
+        .map(move |f| get_field(f).into_iter().flatten())
         .flatten()
         .map(|s| s.to_string())
         .collect()

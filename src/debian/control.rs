@@ -7,7 +7,6 @@ use textwrap::fill;
 
 use crate::config::{self, Config, PackageKey};
 use crate::errors::*;
-use crate::util::vec_opt_iter;
 
 pub struct Source {
     name: String,
@@ -223,8 +222,13 @@ impl Source {
             self.standards = policy.to_string();
         }
 
-        self.build_deps
-            .extend(vec_opt_iter(config.build_depends()).map(String::to_string));
+        self.build_deps.extend(
+            config
+                .build_depends()
+                .into_iter()
+                .flatten()
+                .map(String::to_string),
+        );
         let bdeps_ex = config
             .build_depends_excludes()
             .map(Vec::as_slice)
@@ -473,8 +477,13 @@ impl Package {
             &f_provides,
         ));
 
-        self.extra_lines
-            .extend(vec_opt_iter(config.package_extra_lines(key)).map(|s| s.to_string()));
+        self.extra_lines.extend(
+            config
+                .package_extra_lines(key)
+                .into_iter()
+                .flatten()
+                .map(|s| s.to_string()),
+        );
     }
 }
 

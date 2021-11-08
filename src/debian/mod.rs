@@ -18,9 +18,7 @@ use tempfile;
 use crate::config::{force_for_testing, package_field_for_feature, Config, PackageKey};
 use crate::crates::{transitive_deps, CrateDepInfo, CrateInfo};
 use crate::errors::*;
-use crate::util::{
-    self, copy_tree, expect_success, get_transitive_val, traverse_depth, vec_opt_iter,
-};
+use crate::util::{self, copy_tree, expect_success, get_transitive_val, traverse_depth};
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
 use self::control::deb_upstream_version;
@@ -271,7 +269,10 @@ pub fn prepare_debian_folder(
     let upstream_name = deb_info.upstream_name();
 
     let maintainer = config.maintainer();
-    let uploaders: Vec<&str> = vec_opt_iter(config.uploaders())
+    let uploaders: Vec<&str> = config
+        .uploaders()
+        .into_iter()
+        .flatten()
         .map(String::as_str)
         .collect();
 
@@ -605,7 +606,10 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
     let maintainer = config.maintainer();
     let requires_root = config.requires_root();
-    let uploaders: Vec<&str> = vec_opt_iter(config.uploaders())
+    let uploaders: Vec<&str> = config
+        .uploaders()
+        .into_iter()
+        .flatten()
         .map(String::as_str)
         .collect();
 
@@ -710,7 +714,12 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         let all_features_test_depends = Some(&"@")
             .into_iter()
             .chain(features_with_deps.keys())
-            .map(|f| vec_opt_iter(config.package_test_depends(PackageKey::feature(f))))
+            .map(|f| {
+                config
+                    .package_test_depends(PackageKey::feature(f))
+                    .into_iter()
+                    .flatten()
+            })
             .flatten()
             .map(|s| s.to_string())
             .chain(dev_depends.clone())
@@ -934,7 +943,12 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 let test_depends = Some(f)
                     .into_iter()
                     .chain(feature_deps)
-                    .map(|f| vec_opt_iter(config.package_test_depends(PackageKey::feature(f))))
+                    .map(|f| {
+                        config
+                            .package_test_depends(PackageKey::feature(f))
+                            .into_iter()
+                            .flatten()
+                    })
                     .flatten()
                     .map(|s| s.to_string())
                     .chain(dev_depends.clone())

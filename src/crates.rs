@@ -30,7 +30,6 @@ use std::path::Path;
 
 use crate::config::force_for_testing;
 use crate::errors::*;
-use crate::util::vec_opt_iter;
 
 pub struct CrateInfo {
     // only used for to_registry_toml in extract_crate. DO NOT USE ELSEWHERE
@@ -546,10 +545,14 @@ impl CrateInfo {
         excludes: Option<&Vec<String>>,
         includes: Option<&Vec<String>>,
     ) {
-        self.excludes = vec_opt_iter(excludes)
+        self.excludes = excludes
+            .into_iter()
+            .flatten()
             .map(|x| Pattern::new(&("*/".to_owned() + x)).unwrap())
             .collect::<Vec<_>>();
-        self.includes = vec_opt_iter(includes)
+        self.includes = includes
+            .into_iter()
+            .flatten()
             .map(|x| Pattern::new(&("*/".to_owned() + x)).unwrap())
             .collect::<Vec<_>>();
     }
