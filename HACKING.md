@@ -23,6 +23,26 @@ $ cargo outdated -R
 
 ## Testing
 
+Whenever you make a major change, you should run:
+
+  tests/sh/integrate.sh -kbr debcargo exa fd-find ripgrep
+
+in order to test it over a few hundred crates. Fix any build errors and
+important lintian errors that crop up.
+
+If you make a change that has wide-reaching implications, such as messing with
+the dependency logic, do a more thorough test:
+
+  tests/sh/integrate.sh -kbR debcargo exa fd-find ripgrep mdbook sccache
+
+This will run it over a few thousand crates. -R will run the test over all the
+transitive dependencies of all the binary packages, which is needed for entry
+into Debian Testing. This is wider than -r, which runs the test over all the
+transitive build-dependencies of the source package, which is needed for entry
+into Debian Unstable.
+
+### Details
+
 To test the `debcargo` produced packages, you can run the following script.
 
 ```shell

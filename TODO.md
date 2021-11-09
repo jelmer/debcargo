@@ -1,11 +1,6 @@
 See https://salsa.debian.org/groups/rust-team/-/issues
 
-Whenever you make a major change, you can run:
-
-  tests/sh/integrate.sh -krb debcargo mdbook ripgrep exa sccache
-
-in order to test it over a few hundred crates. Fix any build errors and
-important lintian errors that crop up.
+See HACKING.md for development and testing instructions.
 
 ## Lower-priority tasks
 

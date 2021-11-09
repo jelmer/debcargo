@@ -16,8 +16,8 @@ use crate::util;
 arg_enum! {
     #[derive(Debug, Clone, Copy)]
     pub enum ResolveType {
-        BinaryForDebianUnstable,
-        SourceForDebianTesting,
+        SourceForDebianUnstable,
+        BinaryAllForDebianTesting,
     }
 }
 
@@ -34,8 +34,8 @@ pub struct BuildOrderArgs {
     /// subpath of the looked-up subdirectory.
     #[structopt(long)]
     config_dir: Option<PathBuf>,
-    /// Resolution type, one of BinaryForDebianUnstable | SourceForDebianTesting
-    #[structopt(long, default_value = "BinaryForDebianUnstable")]
+    /// Resolution type, one of SourceForDebianUnstable | BinaryAllForDebianTesting
+    #[structopt(long, default_value = "SourceForDebianUnstable")]
     resolve_type: ResolveType,
     /// Emulate resolution as if every package were built with --collapse-features.
     #[structopt(long)]
@@ -81,8 +81,8 @@ fn get_build_deps(
         .collect::<Vec<_>>();
     use ResolveType::*;
     match resolve_type {
-        BinaryForDebianUnstable => Ok((hard_deps, vec![])),
-        SourceForDebianTesting => {
+        SourceForDebianUnstable => Ok((hard_deps, vec![])),
+        BinaryAllForDebianTesting => {
             let mut soft_deps = all_deps;
             for h in hard_deps.iter() {
                 soft_deps.remove(h);

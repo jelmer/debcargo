@@ -14,7 +14,7 @@ config_dir="$scriptdir/../configs"
 run_lintian=true
 run_sbuild=false
 keepfiles=false
-recursive=false
+resolve=
 extraargs=
 
 export DEBCARGO_TESTING_IGNORE_DEBIAN_POLICY_VIOLATION=1
@@ -22,7 +22,7 @@ export DEBCARGO_TESTING_RUZT=1
 
 DEB_HOST_ARCH=${DEB_HOST_ARCH:-$(dpkg-architecture -qDEB_HOST_ARCH)}
 
-while getopts 'd:f:a:l:c:bkrux:zh?' o; do
+while getopts 'd:f:a:l:c:bkrRux:zh?' o; do
 	case $o in
 	d ) directory=$OPTARG;;
 	f ) failures_file=$OPTARG;;
@@ -32,7 +32,8 @@ while getopts 'd:f:a:l:c:bkrux:zh?' o; do
 
 	b ) run_sbuild=true;;
 	k ) keepfiles=true;;
-	r ) recursive=true;;
+	r ) resolve=SourceForDebianUnstable;;
+	R ) resolve=BinaryAllForDebianTesting;;
 	x ) extraargs="$extraargs $OPTARG";;
 	h|\? ) cat >&2 <<eof
 Usage: $0 [-ru] (<crate name>|<path/to/crate>) [..]
@@ -56,7 +57,10 @@ Options to control running:
   -b            Run sbuild on the resulting dsc package.
   -k            Don't wipe the output directory at the start of the test, and
                 don't rebuild a crate if its directory already exists.
-  -r            Operate on all transitive dependencies.
+  -r            Operate on all transitive build-dependencies of the source
+                package, needed for entry into Debian Unstable.
+  -R            Operate on all transitive dependencies of the binary packages,
+                needed for entry into Debian Testing.
   -x ARG        Give ARG as an extra argument to debcargo, e.g. like
                 -x--copyright-guess-harder.
 eof
@@ -181,9 +185,12 @@ build_source() {(
 )}
 
 cargo_tree_rec() {
-	local cache="$directory/z-cache_${*/\//_}"
+	local resolve="$1"
+	shift
+	local cache="$directory/z.${*/\//_}.$resolve.list"
 	if [ ! -f "$cache" ]; then
-		RUST_LOG=info "$debcargo" build-order --config-dir "${config_dir}" "$@" > "$cache.tmp"
+		"$debcargo" build-order --resolve-type "$resolve" \
+		  --config-dir "${config_dir}" "$@" > "$cache.tmp"
 		mv "$cache.tmp" "$cache"
 	fi
 	cat "$cache"
@@ -202,9 +209,9 @@ run_x_or_deps() {
 		tree_args="$x"
 		;;
 	esac
-	if $recursive; then
+	if [ -n "$resolve" ]; then
 		set -o pipefail
-		cargo_tree_rec $tree_args | head -n-1 | while read pkg ver extra; do
+		cargo_tree_rec "$resolve" $tree_args | head -n-1 | while read pkg ver extra; do
 			"$@" "$pkg" "${ver#v}"
 		done
 		set +o pipefail
