@@ -1,0 +1,21 @@
+Crate authors like to put dev-dependencies in dependencies due to
+https://github.com/rust-lang/cargo/issues/1596
+
+Then due to lack of maintenance this pollutes the dependency set with old
+crates that no longer compile.
+
+Here, quickcheck 0.4 eventually depends on simd which no longer compiles.
+
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -76,10 +76,6 @@
+ version = ">=0.3.0, <0.5.0"
+ optional = true
+ 
+-[dependencies.quickcheck]
+-version = "0.4"
+-optional = true
+-
+ [dependencies.r2d2]
+ version = ">= 0.8, < 0.9"
+ optional = true

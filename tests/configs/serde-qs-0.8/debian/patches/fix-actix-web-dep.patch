@@ -1,0 +1,30 @@
+actix-web eventually depends on actix-connect 1.0.2
+actix-connect 1.0.2 depends on prerelease trust-dns-resolver 0.18.0-alpha.2,
+which declares broken deps on trust-dns-proto "0.18.0" - should be "=0.18.0-alpha.2"
+
+debcargo doesn't support prerelease versions because semver compatibility
+doesn't apply. So patching trust-dns-resolver to fix their bug is not an
+option for us here. So just disable actix-web 2 here.
+
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -30,12 +30,6 @@
+ default-features = false
+ package = "actix-web"
+ 
+-[dependencies.actix-web2]
+-version = "2.0"
+-optional = true
+-default-features = false
+-package = "actix-web"
+-
+ [dependencies.futures]
+ version = "0.3"
+ optional = true
+@@ -75,6 +69,5 @@
+ 
+ [features]
+ actix = ["actix-web", "futures"]
+-actix2 = ["actix-web2", "futures"]
+ default = []
+ warp = ["futures", "tracing", "warp-framework"]

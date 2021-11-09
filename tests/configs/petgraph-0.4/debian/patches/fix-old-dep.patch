@@ -1,0 +1,40 @@
+Crate authors like to put dev-dependencies in dependencies due to
+https://github.com/rust-lang/cargo/issues/1596
+
+Then due to lack of maintenance this pollutes the dependency set with old
+crates that no longer compile.
+
+Here, quickcheck 0.4 eventually depends on simd which no longer compiles.
+
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -21,7 +21,7 @@
+ license = "MIT/Apache-2.0"
+ repository = "https://github.com/bluss/petgraph"
+ [package.metadata.docs.rs]
+-features = ["serde-1", "quickcheck"]
++features = ["serde-1"]
+ 
+ [package.metadata.release]
+ no-dev-version = true
+@@ -40,11 +40,6 @@
+ version = "0.3.0"
+ optional = true
+ 
+-[dependencies.quickcheck]
+-version = "0.4"
+-optional = true
+-default-features = false
+-
+ [dependencies.serde]
+ version = "1.0"
+ optional = true
+@@ -66,7 +61,7 @@
+ version = "0.3"
+ 
+ [features]
+-all = ["unstable", "quickcheck", "stable_graph", "graphmap"]
++all = ["unstable", "stable_graph", "graphmap"]
+ default = ["graphmap", "stable_graph"]
+ generate = []
+ graphmap = ["ordermap"]
