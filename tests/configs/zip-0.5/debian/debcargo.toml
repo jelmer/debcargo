@@ -1,2 +1,3 @@
+semver_suffix = true
 # tests purposefully contain invalid data that debian tools try to process
 excludes = ["tests/**"]
