@@ -28,7 +28,7 @@ use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
 use std::path::Path;
 
-use crate::config::force_for_testing;
+use crate::config::testing_ignore_debpolv;
 use crate::errors::*;
 
 pub struct CrateInfo {
@@ -615,7 +615,7 @@ impl CrateInfo {
             for e in err {
                 debcargo_warn!("{}", e);
             }
-            if !force_for_testing() {
+            if !testing_ignore_debpolv() {
                 debcargo_bail!(
                     "Suspicious files detected, aborting. Ask on #debian-rust if you are stuck."
                 )

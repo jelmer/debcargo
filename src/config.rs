@@ -250,6 +250,10 @@ fn package_key_string(key: PackageKey) -> String {
     }
 }
 
-pub fn force_for_testing() -> bool {
-    std::env::var("DEBCARGO_FORCE_FOR_TESTING") == Ok("1".to_string())
+pub fn testing_ignore_debpolv() -> bool {
+    std::env::var("DEBCARGO_TESTING_IGNORE_DEBIAN_POLICY_VIOLATION") == Ok("1".to_string())
+}
+
+pub fn testing_ruzt() -> bool {
+    std::env::var("DEBCARGO_TESTING_RUZT") == Ok("1".to_string())
 }

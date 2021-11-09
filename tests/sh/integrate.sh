@@ -17,7 +17,8 @@ keepfiles=false
 recursive=false
 extraargs=
 
-export DEBCARGO_FORCE_FOR_TESTING=1
+export DEBCARGO_TESTING_IGNORE_DEBIAN_POLICY_VIOLATION=1
+export DEBCARGO_TESTING_RUZT=1
 
 DEB_HOST_ARCH=${DEB_HOST_ARCH:-$(dpkg-architecture -qDEB_HOST_ARCH)}
 

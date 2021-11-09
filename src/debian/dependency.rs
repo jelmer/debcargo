@@ -4,7 +4,7 @@ use itertools::Itertools;
 use std::cmp;
 use std::fmt;
 
-use crate::config::{force_for_testing, Config};
+use crate::config::{testing_ignore_debpolv, Config};
 use crate::debian::{self, control::base_deb_name, Package};
 use crate::errors::*;
 
@@ -176,7 +176,7 @@ fn coerce_unacceptable_predicate<'a>(
     // handle pre-release crates. This might be OK most of the time,
     // coerce it to the non-pre-release version.
     if !p.pre.is_empty() {
-        if allow_prerelease_deps || force_for_testing() {
+        if allow_prerelease_deps || testing_ignore_debpolv() {
             debcargo_warn!(
                 "Coercing removal of prerelease part of dependency: {} {:?}",
                 dep.package_name(),

@@ -149,7 +149,7 @@ impl fmt::Display for PkgTest {
 
 impl Source {
     pub fn pkg_prefix() -> &'static str {
-        if config::force_for_testing() {
+        if config::testing_ruzt() {
             // avoid accidentally installing official packages during tests
             "ruzt"
         } else {
@@ -255,7 +255,7 @@ impl Source {
 
 impl Package {
     pub fn pkg_prefix() -> &'static str {
-        if config::force_for_testing() {
+        if config::testing_ruzt() {
             // avoid accidentally installing official packages during tests
             "libruzt"
         } else {

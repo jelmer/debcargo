@@ -15,7 +15,7 @@ use regex::Regex;
 use tar::{Archive, Builder};
 use tempfile;
 
-use crate::config::{force_for_testing, package_field_for_feature, Config, PackageKey};
+use crate::config::{package_field_for_feature, testing_ignore_debpolv, Config, PackageKey};
 use crate::crates::{transitive_deps, CrateDepInfo, CrateInfo};
 use crate::errors::*;
 use crate::util::{self, copy_tree, expect_success, get_transitive_val, traverse_depth};
@@ -392,7 +392,7 @@ pub fn prepare_debian_folder(
         prepare_debian_control(deb_info, crate_info, config, &mut file)?;
 
     // for testing only, debian/debcargo_testing_bin/env
-    if force_for_testing() {
+    if testing_ignore_debpolv() {
         fs::create_dir_all(tempdir.path().join("debcargo_testing_bin"))?;
         let mut env_hack = file("debcargo_testing_bin/env")?;
         env_hack.set_permissions(fs::Permissions::from_mode(0o777))?;
@@ -411,7 +411,7 @@ echo "debcargo testing: suppressing dh-cargo-built-using";;
     {
         let mut rules = file("rules")?;
         rules.set_permissions(fs::Permissions::from_mode(0o777))?;
-        if has_dev_depends || force_for_testing() {
+        if has_dev_depends || testing_ignore_debpolv() {
             // don't run any tests, we don't want extra B-D on dev-depends
             // this could potentially cause B-D cycles so we avoid it
             //
@@ -430,7 +430,7 @@ echo "debcargo testing: suppressing dh-cargo-built-using";;
             // some crates need nightly to compile, annoyingly. only do this in
             // testing; outside of testing the user should explicitly override
             // debian/rules to do this
-            if force_for_testing() {
+            if testing_ignore_debpolv() {
                 writeln!(rules, "export RUSTC_BOOTSTRAP := 1")?;
                 writeln!(
                     rules,
