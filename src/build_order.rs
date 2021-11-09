@@ -1,12 +1,16 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::fmt;
+use std::path::{Path, PathBuf};
 
+use anyhow::Context;
 use cargo::core::{Dependency, PackageId};
 use structopt::{clap::arg_enum, StructOpt};
 
 use crate::config::Config;
 use crate::crates::{crate_name_ver_to_dep, show_dep, transitive_deps, CrateDepInfo, CrateInfo};
+use crate::debian::control::base_deb_name;
 use crate::errors::Result;
+use crate::package::{PackageExtractArgs, PackageProcess};
 use crate::util;
 
 arg_enum! {
@@ -23,6 +27,13 @@ pub struct BuildOrderArgs {
     crate_name: String,
     /// Version of the crate to package; may contain dependency operators.
     version: Option<String>,
+    /// Directory for configs. The config subdirectory for a given crate is
+    /// looked up by their crate name and version, from more specific to less
+    /// specific, e.g. <crate>-1.2.3, then <crate>-1.2, then <crate>-1 and
+    /// finally <crate>. The config file is read from the debian/debcargo.toml
+    /// subpath of the looked-up subdirectory.
+    #[structopt(long)]
+    config_dir: Option<PathBuf>,
     /// Resolution type, one of BinaryForDebianUnstable | SourceForDebianTesting
     #[structopt(long, default_value = "BinaryForDebianUnstable")]
     resolve_type: ResolveType,
@@ -94,34 +105,88 @@ fn dep_features(dep: &Dependency) -> Vec<&'static str> {
     feats
 }
 
-fn ensure_info(
+fn find_config(config_dir: &Path, id: PackageId) -> Result<(Option<PathBuf>, Config)> {
+    let name = base_deb_name(&id.name());
+    let version = id.version();
+    let candidates = [
+        format!(
+            "{}-{}.{}.{}",
+            name, version.major, version.minor, version.patch
+        ),
+        format!("{}-{}.{}", name, version.major, version.minor),
+        format!("{}-{}", name, version.major),
+        name,
+    ];
+    for c in candidates {
+        let path = config_dir.join(c).join("debian").join("debcargo.toml");
+        if path.is_file() {
+            let config = Config::parse(&path).context("failed to parse debcargo.toml")?;
+            log::debug!("{} using config: {:?}", id, path);
+            return Ok((Some(path), config));
+        }
+    }
+    Ok((None, Config::default()))
+}
+
+fn resolve_info(
     infos: &mut BTreeMap<PackageId, (CrateInfo, CrateDepInfo, Config)>,
     cache: &mut HashMap<Dependency, PackageId>,
+    config_dir: Option<&Path>,
     dependency: &Dependency,
     update: bool,
 ) -> Result<PackageId> {
     if let Some(id) = cache.get(dependency) {
-        Ok(*id)
-    } else {
-        let info = CrateInfo::new_from_dependency(dependency, update)?;
-        let id = info.package_id();
-        // FIXME: read config from some directory according to the package id,
-        // then PackageProcess::new, extract(tempdir), apply_overrides
-        let dep_info = info.all_dependencies_and_features();
-        infos.insert(id, (info, dep_info, Config::default()));
-        cache.insert(dependency.clone(), id);
-        Ok(id)
+        return Ok(*id);
     }
+
+    // resolve dependency
+    let info = CrateInfo::new_from_dependency(dependency, update)?;
+    let id = info.package_id();
+    cache.insert(dependency.clone(), id);
+
+    // insert info if it's not already there
+    if let std::collections::btree_map::Entry::Vacant(e) = infos.entry(id) {
+        let id = *e.key();
+        let default_config = Config::default();
+        let (config_path, config) = match config_dir {
+            None => (None, default_config),
+            Some(config_dir) => {
+                let (config_path, config) = find_config(config_dir, id)?;
+                match config_path {
+                    None => (None, default_config),
+                    Some(_) => (config_path, config),
+                }
+            }
+        };
+        let (info, config) = match config_path {
+            None => (info, config),
+            Some(_) => {
+                let mut process = PackageProcess::new(info, config_path, config)?;
+                let tempdir = tempfile::Builder::new()
+                    .prefix("debcargo")
+                    .tempdir_in(".")?;
+                process.extract(PackageExtractArgs {
+                    directory: Some(tempdir.path().to_path_buf()),
+                })?;
+                process.apply_overrides()?;
+                (process.crate_info, process.config)
+            }
+        };
+        let dep_info = info.all_dependencies_and_features();
+        e.insert((info, dep_info, config));
+    };
+    Ok(id)
 }
 
 pub fn build_order(args: BuildOrderArgs) -> Result<Vec<PackageId>> {
     let crate_name = &args.crate_name;
     let version = args.version.as_deref();
+    let config_dir = args.config_dir.as_deref();
 
     let mut infos = BTreeMap::new();
     let mut cache = HashMap::new();
     let seed_dep = crate_name_ver_to_dep(crate_name, version)?;
-    let seed_id = ensure_info(&mut infos, &mut cache, &seed_dep, true)?;
+    let seed_id = resolve_info(&mut infos, &mut cache, config_dir, &seed_dep, true)?;
 
     let mut next = |idf: &PackageIdFeat| -> Result<(Vec<PackageIdFeat>, Vec<PackageIdFeat>)> {
         let (hard, soft) = get_build_deps(
@@ -141,14 +206,14 @@ pub fn build_order(args: BuildOrderArgs) -> Result<Vec<PackageId>> {
         // version ranges) might resolve into the same crate-version
         let mut hard_p = Vec::new();
         for dep in hard {
-            let id = ensure_info(&mut infos, &mut cache, &dep, false)?;
+            let id = resolve_info(&mut infos, &mut cache, config_dir, &dep, false)?;
             for f in dep_features(&dep) {
                 hard_p.push(PackageIdFeat(id, f));
             }
         }
         let mut soft_p = Vec::new();
         for dep in soft {
-            let id = ensure_info(&mut infos, &mut cache, &dep, false)?;
+            let id = resolve_info(&mut infos, &mut cache, config_dir, &dep, false)?;
             for f in dep_features(&dep) {
                 soft_p.push(PackageIdFeat(id, f));
             }

@@ -82,6 +82,14 @@ impl Default for Config {
 }
 
 impl Config {
+    pub fn parse(src: &Path) -> Result<Config> {
+        let mut config_file = File::open(src)?;
+        let mut content = String::new();
+        config_file.read_to_string(&mut content)?;
+
+        Ok(toml::from_str(&content)?)
+    }
+
     pub fn build_bin_package(&self) -> bool {
         match self.bin {
             None => !self.semver_suffix,
@@ -199,14 +207,6 @@ impl Config {
     pub fn package_test_depends(&self, key: PackageKey) -> Option<&Vec<String>> {
         self.with_package(key, |pkg| pkg.test_depends.as_ref())
     }
-}
-
-pub fn parse_config(src: &Path) -> Result<Config> {
-    let mut config_file = File::open(src)?;
-    let mut content = String::new();
-    config_file.read_to_string(&mut content)?;
-
-    Ok(toml::from_str(&content)?)
 }
 
 pub fn package_field_for_feature<'a>(

@@ -188,7 +188,7 @@ impl Source {
             pkgbase
         );
 
-        let cargo_crate = if upstream_name != upstream_name.replace('_', "-") {
+        let cargo_crate = if upstream_name != base_deb_name(upstream_name) {
             upstream_name.to_string()
         } else {
             "".to_string()
@@ -536,20 +536,24 @@ pub fn deb_upstream_version(v: &Version) -> String {
     s
 }
 
+pub fn base_deb_name(crate_name: &str) -> String {
+    crate_name.replace('_', "-").to_lowercase()
+}
+
 pub fn dsc_name(name: &str) -> String {
-    format!("{}-{}", Source::pkg_prefix(), name.replace('_', "-"))
+    format!("{}-{}", Source::pkg_prefix(), base_deb_name(name))
 }
 
 pub fn deb_name(name: &str) -> String {
-    format!("{}-{}-dev", Package::pkg_prefix(), name.replace('_', "-"))
+    format!("{}-{}-dev", Package::pkg_prefix(), base_deb_name(name))
 }
 
 pub fn deb_feature_name(name: &str, feature: &str) -> String {
     format!(
         "{}-{}+{}-dev",
         Package::pkg_prefix(),
-        name.replace('_', "-"),
-        feature.replace('_', "-").to_lowercase()
+        base_deb_name(name),
+        base_deb_name(feature)
     )
 }
 

@@ -1,8 +1,9 @@
+use std::path::PathBuf;
+
 use anyhow::Context;
-use std::path::{Path, PathBuf};
 use structopt::{clap::crate_version, StructOpt};
 
-use crate::config::{parse_config, Config};
+use crate::config::Config;
 use crate::crates::CrateInfo;
 use crate::debian::{self, DebInfo};
 use crate::errors::Result;
@@ -81,13 +82,12 @@ impl PackageProcess {
     pub fn init(init_args: PackageInitArgs) -> Result<Self> {
         let crate_name = &init_args.crate_name;
         let version = init_args.version.as_deref();
-        let config = init_args.config.as_deref();
+        let config = init_args.config;
 
         let (config_path, config) = match config {
-            Some(p) => {
-                let path = Path::new(p);
-                let config = parse_config(path).context("failed to parse debcargo.toml")?;
-                (Some(path.to_path_buf()), config)
+            Some(path) => {
+                let config = Config::parse(&path).context("failed to parse debcargo.toml")?;
+                (Some(path), config)
             }
             None => (None, Config::default()),
         };

@@ -1,13 +1,13 @@
 extern crate debcargo;
 
-use debcargo::config::{parse_config, PackageKey};
+use debcargo::config::{Config, PackageKey};
 use std::path::Path;
 
 #[test]
 fn source_package_override() {
     let filepath = Path::new("tests/clap_override.toml");
 
-    let config = parse_config(filepath);
+    let config = Config::parse(filepath);
     assert!(config.is_ok());
 
     let config = config.unwrap();
@@ -27,7 +27,7 @@ fn source_package_override() {
     assert!(config.build_depends().is_none());
 
     let filepath = Path::new("tests/debcargo_override.toml");
-    let config = parse_config(filepath);
+    let config = Config::parse(filepath);
     assert!(config.is_ok());
 
     let config = config.unwrap();
@@ -65,7 +65,7 @@ Debian Rust team.
 #[test]
 fn sd_top_level() {
     let filepath = Path::new("tests/debcargo_override_top_level.toml");
-    let config = parse_config(filepath);
+    let config = Config::parse(filepath);
     assert!(config.is_ok());
 
     let config = config.unwrap();

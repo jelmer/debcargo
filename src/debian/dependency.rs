@@ -5,7 +5,7 @@ use std::cmp;
 use std::fmt;
 
 use crate::config::{force_for_testing, Config};
-use crate::debian::{self, Package};
+use crate::debian::{self, control::base_deb_name, Package};
 use crate::errors::*;
 
 #[derive(Eq, Clone)]
@@ -281,13 +281,13 @@ fn generate_version_constraints(
 /// Translates a Cargo dependency into a Debian package dependency.
 pub fn deb_dep(config: &Config, dep: &Dependency) -> Result<Vec<String>> // result is a AND-clause
 {
-    let dep_dashed = dep.package_name().replace('_', "-").to_lowercase();
+    let dep_dashed = base_deb_name(&dep.package_name());
     let mut suffixes = Vec::new();
     if dep.uses_default_features() {
         suffixes.push("+default-dev".to_string());
     }
     for feature in dep.features() {
-        suffixes.push(format!("+{}-dev", feature.replace('_', "-").to_lowercase()));
+        suffixes.push(format!("+{}-dev", base_deb_name(feature)));
     }
     if suffixes.is_empty() {
         suffixes.push("-dev".to_string());

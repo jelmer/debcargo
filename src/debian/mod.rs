@@ -21,7 +21,7 @@ use crate::errors::*;
 use crate::util::{self, copy_tree, expect_success, get_transitive_val, traverse_depth};
 
 use self::changelog::{ChangelogEntry, ChangelogIterator};
-use self::control::deb_upstream_version;
+use self::control::{base_deb_name, deb_upstream_version};
 use self::control::{Description, Package, PkgTest, Source};
 use self::copyright::debian_copyright;
 pub use self::dependency::{deb_dep_add_nocheck, deb_deps};
@@ -50,7 +50,7 @@ pub struct DebInfo {
 impl DebInfo {
     pub fn new(crate_info: &CrateInfo, debcargo_version: &str, semver_suffix: bool) -> Self {
         let upstream_name = crate_info.package_id().name().to_string();
-        let name_dashed = upstream_name.replace('_', "-");
+        let name_dashed = base_deb_name(&upstream_name);
         let base_package_name = name_dashed.to_lowercase();
         let (name_suffix, uscan_version_pattern, package_name) = if semver_suffix {
             let semver = crate_info.semver();
@@ -230,8 +230,16 @@ it's a maintenance burden. Use debcargo.toml instead."
     if tempdir.path().join("patches").join("series").exists() {
         // apply patches to Cargo.toml in case they exist, and re-read it
         let output_dir = &fs::canonicalize(&output_dir)?;
+        let stderr = || {
+            // create a new owned handle to stderr
+            fs::OpenOptions::new()
+                .append(true)
+                .open("/dev/stderr")
+                .unwrap()
+        };
         expect_success(
             Command::new("quilt")
+                .stdout(stderr())
                 .current_dir(&output_dir)
                 .env("QUILT_PATCHES", tempdir.path().join("patches"))
                 .args(&["push", "--quiltrc=-", "-a"]),
@@ -240,6 +248,7 @@ it's a maintenance burden. Use debcargo.toml instead."
         crate_info.replace_manifest(&output_dir.join("Cargo.toml"))?;
         expect_success(
             Command::new("quilt")
+                .stdout(stderr())
                 .current_dir(&output_dir)
                 .env("QUILT_PATCHES", tempdir.path().join("patches"))
                 .args(&["pop", "--quiltrc=-", "-a"]),
