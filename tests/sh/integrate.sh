@@ -109,6 +109,7 @@ if [ -z "$CHROOT" ]; then
 		CHROOT=${CHROOT:-unstable-"$DEB_HOST_ARCH"-sbuild}
 	fi
 fi
+GPG_KEY_ID="Debcargo Integration Test"
 run_sbuild() {(
 	local crate="$1"
 	local version="$2"
@@ -126,6 +127,17 @@ run_sbuild() {(
 		return 0
 	fi
 
+	if [ ! -f "signing-key.gpg" ]; then
+		mkdir -p "$PWD/gpg"
+		chmod 700 "$PWD/gpg"
+		GNUPGHOME="$PWD/gpg" gpg --batch --pinentry-mode=loopback --passphrase "" --quick-gen-key "$GPG_KEY_ID"
+		GNUPGHOME="$PWD/gpg" gpg --batch --export "$GPG_KEY_ID" > signing-key.gpg
+	fi
+
+	# Update the local repo
+	apt-ftparchive packages . > Packages
+	apt-ftparchive release . > Release
+	GNUPGHOME="$PWD/gpg" gpg --batch -a --detach-sign --default-key "$GPG_KEY_ID" -o Release.gpg --yes Release
 	# We use --build-dep-resolver=aspcud as both apt/aptitude fail to resolve
 	# certain complex dependency situations e.g. bytes-0.4. For our official
 	# Debian rust packages we patch those crates to have simpler dependencies;
@@ -135,7 +147,8 @@ run_sbuild() {(
 	echo >&2 "sbuild $dsc logging to $build"
 	sbuild --arch-all --arch-any --no-run-lintian --build-dep-resolver=aspcud \
 	  --aspcud-criteria="-removed,-changed,-new,+count(solution,APT-Release:=/o=sbuild-build-depends-archive/),-count(solution,APT-Release:=/o=Debian/)" \
-	  -c "$CHROOT" -d unstable --extra-package=. $SBUILD_EXTRA_ARGS "$dsc"
+	  --extra-repository="deb file:$(readlink -f "$directory") ./" --extra-repository-key="$PWD/signing-key.gpg" \
+	  -c "$CHROOT" -d unstable $SBUILD_EXTRA_ARGS "$dsc"
 )}
 
 build_source() {(
@@ -241,6 +254,7 @@ test -x $debcargo
 
 for i in "$@"; do run_x_or_deps "$i" true; done
 for i in "$@"; do run_x_or_deps "$i" build_source; done
+# sudo schroot -c source:debcargo-unstable-amd64-sbuild -- sh -c 'echo "deb [allow-insecure=yes] file:/home/infinity0/var/lib/rust/debcargo-tmp ./" > /etc/apt/sources.list.d/local-debcargo-integration-test.list'
 if $run_sbuild; then
 	if ! schroot -i -c "$CHROOT" >/dev/null; then
 		echo >&2 "create the $CHROOT schroot by running e.g.:"
