@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
 use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
 
@@ -43,8 +43,8 @@ pub struct DebInfo {
     package_name: String,
     deb_upstream_version: String,
     debcargo_version: String,
-    package_source_dir: String,
-    orig_tarball_path: String,
+    package_source_dir: PathBuf,
+    orig_tarball_path: PathBuf,
 }
 
 impl DebInfo {
@@ -73,18 +73,18 @@ impl DebInfo {
             (None, None, base_package_name.clone())
         };
         let deb_upstream_version = deb_upstream_version(crate_info.version());
-        let package_source_dir = format!(
+        let package_source_dir = PathBuf::from(format!(
             "{}-{}-{}",
             Source::pkg_prefix(),
             package_name,
             deb_upstream_version
-        );
-        let orig_tarball_path = format!(
+        ));
+        let orig_tarball_path = PathBuf::from(format!(
             "{}-{}_{}.orig.tar.gz",
             Source::pkg_prefix(),
             package_name,
             deb_upstream_version
-        );
+        ));
 
         DebInfo {
             upstream_name,
@@ -123,12 +123,12 @@ impl DebInfo {
         self.debcargo_version.as_str()
     }
 
-    pub fn package_source_dir(&self) -> &str {
-        self.package_source_dir.as_str()
+    pub fn package_source_dir(&self) -> &Path {
+        self.package_source_dir.as_ref()
     }
 
-    pub fn orig_tarball_path(&self) -> &str {
-        self.orig_tarball_path.as_str()
+    pub fn orig_tarball_path(&self) -> &Path {
+        self.orig_tarball_path.as_ref()
     }
 }
 

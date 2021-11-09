@@ -28,10 +28,11 @@ pub struct PackageInitArgs {
     /// Name of the crate to package.
     pub crate_name: String,
     /// Version of the crate to package; may contain dependency operators.
+    /// If empty string or omitted, resolves to the latest version.
     pub version: Option<String>,
     /// TOML file providing package-specific options.
     #[structopt(long)]
-    pub config: Option<String>,
+    pub config: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, StructOpt)]
@@ -39,7 +40,7 @@ pub struct PackageExtractArgs {
     /// Output directory for the package. The orig tarball is named according
     /// to Debian conventions in the parent directory of this directory.
     #[structopt(long)]
-    pub directory: Option<String>,
+    pub directory: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, StructOpt)]
@@ -111,13 +112,9 @@ impl PackageProcess {
         } = self;
         // vars read; begin stage
 
-        let output_dir = Path::new(
-            extract
-                .directory
-                .as_deref()
-                .unwrap_or_else(|| deb_info.package_source_dir()),
-        )
-        .to_path_buf();
+        let output_dir = extract
+            .directory
+            .unwrap_or_else(|| deb_info.package_source_dir().to_path_buf());
 
         log::info!("extracting crate to output directory");
         let source_modified = crate_info.extract_crate(&output_dir)?;

@@ -20,8 +20,9 @@ enum Opt {
         /// Name of the crate to package.
         crate_name: String,
         /// Version of the crate to package; may contain dependency operators.
-        /// If given here, then deb-src-name prints the package name as if the
-        /// config option semver_suffix was set to true.
+        /// If empty string, resolves to the latest version. If given here,
+        /// i.e. not omitted then print the package name as if the config
+        /// option semver_suffix was set to true.
         version: Option<String>,
     },
     /// Extract only a crate, without any other transformations.
