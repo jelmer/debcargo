@@ -56,9 +56,9 @@ fn check_debian_copyright_authors() {
         let package = build_package_with_authors(input);
         let srcdir = tempfile::tempdir().unwrap();
         let copyright = debian_copyright(
-            &package,
             srcdir.path(),
             package.manifest(),
+            package.manifest_path(),
             "Jordan Doe",
             &[],
             (2000, 2020),
