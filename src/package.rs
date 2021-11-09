@@ -45,7 +45,7 @@ pub struct PackageExtractArgs {
 }
 
 #[derive(Debug, Clone, StructOpt)]
-pub struct PackageFinishArgs {
+pub struct PackageExecuteArgs {
     /// Assume the changelog is already bumped, and leave it alone.
     #[structopt(long)]
     pub changelog_ready: bool,
@@ -92,7 +92,6 @@ impl PackageProcess {
             None => (None, Config::default()),
         };
 
-        log::info!("preparing crate info");
         let crate_path = config.crate_src_path(config_path.as_deref());
         let crate_info = match crate_path {
             Some(p) => CrateInfo::new_with_local_crate(crate_name, version, &p)?,
@@ -116,7 +115,6 @@ impl PackageProcess {
             .directory
             .unwrap_or_else(|| deb_info.package_source_dir().to_path_buf());
 
-        log::info!("extracting crate to output directory");
         let source_modified = crate_info.extract_crate(&output_dir)?;
 
         // stage finished; set vars
@@ -137,7 +135,6 @@ impl PackageProcess {
         let output_dir = output_dir.as_ref().unwrap();
         // vars read; begin stage
 
-        log::info!("applying overlay and patches");
         let temp_output_dir = debian::apply_overlay_and_patches(
             crate_info,
             config_path.as_deref(),
@@ -150,31 +147,44 @@ impl PackageProcess {
         Ok(())
     }
 
-    pub fn generate_package(&mut self, finish_args: PackageFinishArgs) -> Result<()> {
+    pub fn prepare_orig_tarball(&mut self) -> Result<()> {
         assert!(self.orig_tarball.is_none());
         let Self {
             crate_info,
             deb_info,
-            config_path,
-            config,
             output_dir,
             source_modified,
-            temp_output_dir,
             ..
         } = self;
         let output_dir = output_dir.as_ref().unwrap();
         let source_modified = source_modified.as_ref().unwrap();
-        let temp_output_dir = temp_output_dir.as_ref().unwrap();
         // vars read; begin stage
 
-        log::info!("preparing orig tarball");
         let orig_tarball = output_dir
             .parent()
             .unwrap()
             .join(deb_info.orig_tarball_path());
         debian::prepare_orig_tarball(crate_info, &orig_tarball, *source_modified, output_dir)?;
 
-        log::info!("preparing debian folder");
+        // stage finished; set vars
+        self.orig_tarball = Some(orig_tarball);
+        Ok(())
+    }
+
+    pub fn prepare_debian_folder(&mut self, args: PackageExecuteArgs) -> Result<()> {
+        let Self {
+            crate_info,
+            deb_info,
+            config_path,
+            config,
+            output_dir,
+            temp_output_dir,
+            ..
+        } = self;
+        let output_dir = output_dir.as_ref().unwrap();
+        let temp_output_dir = temp_output_dir.as_ref().unwrap();
+        // vars read; begin stage
+
         debian::prepare_debian_folder(
             crate_info,
             deb_info,
@@ -182,13 +192,12 @@ impl PackageProcess {
             config,
             output_dir,
             temp_output_dir,
-            finish_args.changelog_ready,
-            finish_args.copyright_guess_harder,
-            !finish_args.no_overlay_write_back,
+            args.changelog_ready,
+            args.copyright_guess_harder,
+            !args.no_overlay_write_back,
         )?;
 
         // stage finished; set vars
-        self.orig_tarball = Some(orig_tarball);
         Ok(())
     }
 

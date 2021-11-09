@@ -39,7 +39,7 @@ enum Opt {
         #[structopt(flatten)]
         extract: PackageExtractArgs,
         #[structopt(flatten)]
-        finish: PackageFinishArgs,
+        finish: PackageExecuteArgs,
     },
     /// Print the transitive dependencies of a package in topological order.
     BuildOrder {
@@ -65,7 +65,9 @@ fn real_main() -> Result<()> {
             Ok(())
         }
         Extract { init, extract } => {
+            log::info!("preparing crate info");
             let mut process = PackageProcess::init(init)?;
+            log::info!("extracting crate");
             process.extract(extract)?;
             Ok(())
         }
@@ -74,10 +76,16 @@ fn real_main() -> Result<()> {
             extract,
             finish,
         } => {
+            log::info!("preparing crate info");
             let mut process = PackageProcess::init(init)?;
+            log::info!("extracting crate");
             process.extract(extract)?;
+            log::info!("applying overlay and patches");
             process.apply_overrides()?;
-            process.generate_package(finish)?;
+            log::info!("preparing orig tarball");
+            process.prepare_orig_tarball()?;
+            log::info!("preparing debian folder");
+            process.prepare_debian_folder(finish)?;
             process.post_package_checks()
         }
         BuildOrder { args } => {

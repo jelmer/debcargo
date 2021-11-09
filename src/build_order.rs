@@ -121,7 +121,7 @@ fn find_config(config_dir: &Path, id: PackageId) -> Result<(Option<PathBuf>, Con
         let path = config_dir.join(c).join("debian").join("debcargo.toml");
         if path.is_file() {
             let config = Config::parse(&path).context("failed to parse debcargo.toml")?;
-            log::debug!("{} using config: {:?}", id, path);
+            log::debug!("using config for {}: {:?}", id, path);
             return Ok((Some(path), config));
         }
     }
