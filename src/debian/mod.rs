@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
 use std::os::unix::fs::PermissionsExt;
@@ -743,6 +743,40 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             )?
         )?;
 
+        // begin transforming dependencies
+        let working_features_with_deps = features_with_deps.clone();
+        let working_features_with_deps = {
+            let mut working_features_with_deps = working_features_with_deps;
+            // Detect corner case with feature naming regarding _ vs -.
+            // Debian does not support _ in package names. Cargo automatically
+            // converts - in crate names to _, but features (including optional
+            // dependencies) can have both _ and -.
+            let potential_corner_case = working_features_with_deps
+                .keys()
+                .filter(|x| base_deb_name(x).as_str() != **x)
+                .cloned()
+                .collect::<Vec<_>>();
+            for f in potential_corner_case {
+                let f_ = base_deb_name(f);
+                if let Some((df1, dd1)) = working_features_with_deps.remove(f_.as_str()) {
+                    debcargo_warn!("Merging features {} and {}. If this breaks the package, manually patch it instead.", f, f_);
+                    working_features_with_deps
+                        .entry(f)
+                        .and_modify(|(df0, dd0)| {
+                            let mut df = BTreeSet::from_iter(df0.drain(..));
+                            df.extend(df1);
+                            df.remove(f_.as_str());
+                            df.remove(f);
+                            let mut dd: HashSet<cargo::core::Dependency> =
+                                HashSet::from_iter(dd0.drain(..));
+                            dd.extend(dd1);
+                            df0.extend(df);
+                            dd0.extend(dd);
+                        });
+                }
+            }
+            working_features_with_deps
+        };
         let (mut provides, reduced_features_with_deps) = if config.collapse_features {
             debcargo_warn!(
                 "You are using the collapse_features work-around, which makes the resulting"
@@ -800,12 +834,20 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 "cargo; but if collapse_features is used then package A+AX+AY would cyclicly"
             );
             debcargo_warn!("depend on package B+BX+BY.");
-            collapse_features(&features_with_deps)
+            collapse_features(working_features_with_deps)
         } else {
-            reduce_provides(&features_with_deps)
+            reduce_provides(working_features_with_deps)
         };
+        log::trace!(
+            "reduced_features_with_deps: {:?}",
+            reduced_features_with_deps
+                .iter()
+                .map(|(&f, &(ref ff, ref dd))| { (f, (ff, deb_deps(config, dd).unwrap())) })
+                .collect::<Vec<_>>()
+        );
+        // end transforming dependencies
 
-        //debcargo_info!("provides: {:?}", provides);
+        log::trace!("provides: {:?}", provides);
         let mut recommends = vec![];
         let mut suggests = vec![];
         for (&feature, features) in provides.iter() {
@@ -1010,7 +1052,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 }
 
 fn collapse_features(
-    orig_features_with_deps: &CrateDepInfo,
+    orig_features_with_deps: CrateDepInfo,
 ) -> (BTreeMap<&'static str, Vec<&'static str>>, CrateDepInfo) {
     let (provides, deps) = orig_features_with_deps.iter().fold(
         (Vec::new(), Vec::new()),
@@ -1042,10 +1084,8 @@ fn collapse_features(
 /// into
 ///   f4 provides f1, f2, f3
 fn reduce_provides(
-    orig_features_with_deps: &CrateDepInfo,
+    mut features_with_deps: CrateDepInfo,
 ) -> (BTreeMap<&'static str, Vec<&'static str>>, CrateDepInfo) {
-    let mut features_with_deps = orig_features_with_deps.clone();
-
     // If any features have duplicate dependencies, deduplicate them by
     // making all of the subsequent ones depend on the first one.
     let mut features_rev_deps = HashMap::new();
