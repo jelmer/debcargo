@@ -137,7 +137,7 @@ run_sbuild() {(
 	# Update the local repo
 	apt-ftparchive packages . > Packages
 	apt-ftparchive release . > Release
-	GNUPGHOME="$PWD/gpg" gpg --batch -a --detach-sign --default-key "$GPG_KEY_ID" -o Release.gpg --yes Release
+	GNUPGHOME="$PWD/gpg" gpg --batch -a --detach-sign -u "$GPG_KEY_ID" -o Release.gpg --yes Release
 	# We use --build-dep-resolver=aspcud as both apt/aptitude fail to resolve
 	# certain complex dependency situations e.g. bytes-0.4. For our official
 	# Debian rust packages we patch those crates to have simpler dependencies;
