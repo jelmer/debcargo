@@ -35,7 +35,7 @@ the dependency logic, do a more thorough test:
 
   tests/sh/integrate.sh -kbR debcargo exa fd-find ripgrep mdbook sccache
 
-This will run it over a few thousand crates. -R will run the test over all the
+This will run the test over around a thousand crates. -R runs it over all the
 transitive dependencies of all the binary packages, which is needed for entry
 into Debian Testing. This is wider than -r, which runs the test over all the
 transitive build-dependencies of the source package, which is needed for entry
