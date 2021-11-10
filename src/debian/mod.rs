@@ -16,7 +16,7 @@ use tar::{Archive, Builder};
 use tempfile;
 
 use crate::config::{package_field_for_feature, testing_ignore_debpolv, Config, PackageKey};
-use crate::crates::{transitive_deps, CrateDepInfo, CrateInfo};
+use crate::crates::{show_dep, transitive_deps, CrateDepInfo, CrateInfo};
 use crate::errors::*;
 use crate::util::{self, copy_tree, expect_success, get_transitive_val, traverse_depth};
 
@@ -619,7 +619,9 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         "features_with_deps: {:?}",
         features_with_deps
             .iter()
-            .map(|(&f, &(ref ff, ref dd))| { (f, (ff, deb_deps(config, dd).unwrap())) })
+            .map(|(&f, &(ref ff, ref dd))| {
+                (f, (ff, dd.iter().map(show_dep).collect::<Vec<_>>()))
+            })
             .collect::<Vec<_>>()
     );
     let meta = crate_info.metadata();
@@ -759,7 +761,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             for f in potential_corner_case {
                 let f_ = base_deb_name(f);
                 if let Some((df1, dd1)) = working_features_with_deps.remove(f_.as_str()) {
-                    debcargo_warn!("Merging features {} and {}. If this breaks the package, manually patch it instead.", f, f_);
+                    // merge dependencies of f_ and f
                     working_features_with_deps
                         .entry(f)
                         .and_modify(|(df0, dd0)| {
@@ -773,10 +775,44 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                             df0.extend(df);
                             dd0.extend(dd);
                         });
+                    // go through other feature deps and change f_ to f
+                    for (_, (df, _)) in working_features_with_deps.iter_mut() {
+                        for feat in df.iter_mut() {
+                            if *feat == f_.as_str() {
+                                *feat = f;
+                            }
+                        }
+                    }
+                    // check we didn't create a cycle in features
+                    let dep_feats = traverse_depth(
+                        &|k: &&'static str| working_features_with_deps.get(k).map(|x| &x.0),
+                        f,
+                    );
+                    if dep_feats.contains(f) {
+                        log::debug!("transitive deps of feature {}: {:?}", f, dep_feats);
+                        debcargo_bail!(
+                            "Tried to merge features {} and {} as they are not representable separately\n\
+                             in Debian, but this resulted in a feature cycle. You need to manually patch the package.", f, f_);
+                    } else {
+                        debcargo_warn!(
+                            "Merged features {} and {} as they are not representable separately in Debian.\n\
+                             We checked that this does not break the package in an obvious way (feature cycle), however\n\
+                             if there is a more sophisticated breakage, you'll have to manually patch those \
+                             features instead.", f, f_);
+                    }
                 }
             }
             working_features_with_deps
         };
+        log::trace!(
+            "working_features_with_deps: {:?}",
+            working_features_with_deps
+                .iter()
+                .map(|(&f, &(ref ff, ref dd))| {
+                    (f, (ff, dd.iter().map(show_dep).collect::<Vec<_>>()))
+                })
+                .collect::<Vec<_>>()
+        );
         let (mut provides, reduced_features_with_deps) = if config.collapse_features {
             debcargo_warn!(
                 "You are using the collapse_features work-around, which makes the resulting"
@@ -842,7 +878,9 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             "reduced_features_with_deps: {:?}",
             reduced_features_with_deps
                 .iter()
-                .map(|(&f, &(ref ff, ref dd))| { (f, (ff, deb_deps(config, dd).unwrap())) })
+                .map(|(&f, &(ref ff, ref dd))| {
+                    (f, (ff, dd.iter().map(show_dep).collect::<Vec<_>>()))
+                })
                 .collect::<Vec<_>>()
         );
         // end transforming dependencies
@@ -1134,9 +1172,12 @@ fn reduce_provides(
     let provides = features_with_deps
         .keys()
         .map(|k| {
-            let mut pp = traverse_depth(&provides, k);
-            pp.sort_unstable();
-            (*k, pp)
+            (
+                *k,
+                traverse_depth(&|k: &&'static str| provides.get(k), k)
+                    .into_iter()
+                    .collect::<Vec<_>>(),
+            )
         })
         .collect::<BTreeMap<_, _>>();
 

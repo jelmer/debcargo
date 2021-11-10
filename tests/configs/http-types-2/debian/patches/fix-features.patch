@@ -1,0 +1,11 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -83,7 +83,7 @@
+ version = "0.2.0"
+ 
+ [features]
+-async_std = ["fs"]
++async_std = ["async-std"] # replaces fs with deps of fs
+ cookie-secure = ["cookies", "cookie/secure"]
+ cookies = ["cookie"]
+ default = ["fs", "cookie-secure"]

@@ -569,6 +569,9 @@ impl CrateInfo {
             if self.includes.iter().any(|p| p.matches_path(path)) {
                 debcargo_info!("Suspicious file, on whitelist so ignored: {:?}", path);
                 Ok(false)
+            } else if testing_ignore_debpolv() {
+                debcargo_warn!("Suspicious file, ignoring as per override: {:?}", path);
+                Ok(false)
             } else {
                 Err(format!(
                     "Suspicious file, should probably be excluded: {:?}",
@@ -615,11 +618,9 @@ impl CrateInfo {
             for e in err {
                 debcargo_warn!("{}", e);
             }
-            if !testing_ignore_debpolv() {
-                debcargo_bail!(
-                    "Suspicious files detected, aborting. Ask on #debian-rust if you are stuck."
-                )
-            }
+            debcargo_bail!(
+                "Suspicious files detected, aborting. Ask on #debian-rust if you are stuck."
+            )
         }
 
         let entries = tempdir.path().read_dir()?.collect::<io::Result<Vec<_>>>()?;

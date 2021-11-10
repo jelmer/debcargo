@@ -20,7 +20,7 @@ extraargs=
 export DEBCARGO_TESTING_IGNORE_DEBIAN_POLICY_VIOLATION=1
 export DEBCARGO_TESTING_RUZT=1
 
-DEB_HOST_ARCH=${DEB_HOST_ARCH:-$(dpkg-architecture -qDEB_HOST_ARCH)}
+export DEB_HOST_ARCH=${DEB_HOST_ARCH:-$(dpkg-architecture -qDEB_HOST_ARCH)}
 
 while getopts 'd:f:a:l:c:bkrRux:zh?' o; do
 	case $o in
@@ -93,7 +93,9 @@ run_lintian() {(
 
 	allow_fail "$crate" $version && return 0
 
-	base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
+	# dpkg-parsechangelog is really slow when dealing with hundreds of crates
+	#base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
+	base="$(cd "$cratedir" && head -n1 debian/changelog | sed -nre 's/^(\S*) \((\S*)\).*/\1_\2/gp')"
 	echo >&2 "running lintian for ${base}"
 	changes="${base}_source.changes"
 	lintian --suppress-tags-from-file "$lintian_suppress_tags" -EIL +pedantic "$changes" || true
@@ -101,7 +103,6 @@ run_lintian() {(
 	lintian --suppress-tags-from-file "$lintian_suppress_tags" -EIL +pedantic "$changes" || true
 )}
 
-DEB_HOST_ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
 if [ -z "$CHROOT" ]; then
 	if schroot -i -c "debcargo-unstable-${DEB_HOST_ARCH}-sbuild" >/dev/null 2>&1; then
 		CHROOT="debcargo-unstable-${DEB_HOST_ARCH}-sbuild"
@@ -117,7 +118,9 @@ run_sbuild() {(
 	cd "$directory"
 
 	allow_fail "$crate" $version && return 0
-	base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
+	# dpkg-parsechangelog is really slow when dealing with hundreds of crates
+	#base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
+	base="$(cd "$cratedir" && head -n1 debian/changelog | sed -nre 's/^(\S*) \((\S*)\).*/\1_\2/gp')"
 	dsc="${base}.dsc"
 	build="${base}_${DEB_HOST_ARCH}.build"
 	changes="${base}_${DEB_HOST_ARCH}.changes"
@@ -158,8 +161,12 @@ build_source() {(
 	cd "$directory"
 
 	if [ -d "$cratedir" ]; then
-		echo >&2 "skipping already-built ${cratedir}"
-		return 0
+		if [ -f "$cratedir/debian/changelog" ]; then
+			echo >&2 "skipping already-built ${cratedir}"
+			return 0
+		else
+			rm -rf "$cratedir"
+		fi
 	fi
 
 	local deb_src_name="$($debcargo deb-src-name "$crate" "$version")"

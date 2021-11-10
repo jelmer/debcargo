@@ -109,18 +109,22 @@ pub fn expect_success(cmd: &mut Command, err: &str) {
     }
 }
 
-pub(crate) fn traverse_depth<'a>(
-    map: &BTreeMap<&'a str, Vec<&'a str>>,
-    key: &'a str,
-) -> Vec<&'a str> {
-    let mut x = Vec::new();
-    if let Some(pp) = (*map).get(key) {
-        x.extend(pp);
-        for p in pp {
-            x.extend(traverse_depth(map, p));
+pub(crate) fn traverse_depth<'a, V, F>(succ: &'a F, key: V) -> BTreeSet<V>
+where
+    V: Ord + Copy + 'a,
+    F: Fn(&V) -> Option<&'a Vec<V>>,
+{
+    let mut remain = VecDeque::from_iter([key]);
+    let mut seen = BTreeSet::new();
+    while let Some(v) = remain.pop_front() {
+        for v_ in succ(&v).into_iter().flatten() {
+            if !seen.contains(v_) {
+                seen.insert(*v_);
+                remain.push_back(*v_);
+            }
         }
     }
-    x
+    seen
 }
 
 /// Get a value that might be set at a key or any of its ancestor keys,
