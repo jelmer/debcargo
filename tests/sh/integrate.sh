@@ -253,7 +253,7 @@ run_x_or_deps() {
 	esac
 	if [ -n "$resolve" ]; then
 		set -o pipefail
-		cargo_tree_rec "$resolve" $tree_args | head -n-1 | while read pkg ver extra; do
+		cargo_tree_rec "$resolve" $tree_args | while read pkg ver extra; do
 			"$@" "$pkg" "${ver#v}"
 		done
 		set +o pipefail
