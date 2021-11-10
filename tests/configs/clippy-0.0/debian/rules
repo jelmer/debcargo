@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+include /usr/share/rustc/architecture.mk
+%:
+	dh $@ --buildsystem cargo
+
+# clippy upstream now errors on purpose with the message "clippy is no longer
+# available on crates.io". Many old crates depend on clippy even though it is
+# a dev-dependency because of [3] and there are far too many to patch. So just
+# make the build of clippy "succeed"; it does not actually get used in the
+# build of a reverse-dependency anyway.
+#
+# [1] https://github.com/rust-lang/cargo/issues/1596
+
+override_dh_auto_test:
+	dh_auto_test || true
+
+override_dh_auto_install:
+	dh_auto_install || true

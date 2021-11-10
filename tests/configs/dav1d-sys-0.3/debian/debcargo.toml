@@ -1,0 +1,4 @@
+semver_suffix = true
+
+[packages.lib]
+depends = ["libdav1d-dev"]

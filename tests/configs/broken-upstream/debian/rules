@@ -1,0 +1,28 @@
+#!/usr/bin/make -f
+include /usr/share/rustc/architecture.mk
+%:
+	dh $@ --buildsystem cargo
+
+# code uses old rust feature that causes compiler error.
+override_dh_auto_test:
+	dh_auto_test || true
+
+# This crate is actually broken; however there are several cases why this
+# override is OK and necessary for Debian:
+#
+# 1. The other crate depends on this broken crate in an architecture-specific
+#    way i.e. with [target.$arch.*] in Cargo.toml
+#
+#    cargo does not yet support omitting these dependencies on other arches [1]
+#    and so we are forced to include it also in debcargo [2]
+#
+#    [1] https://github.com/rust-lang/cargo/issues/5896
+#    [2] https://salsa.debian.org/rust-team/debcargo/-/issues/14
+#
+# 2. The other crate depends on this broken crate only via one of its optional
+#    features that most users of that crate, don't need. You generally run into
+#    this situation when resolving via --resolve-type BinaryAllForDebianTesting
+#
+# If your situation does not fit into one of the above situations, you should
+# re-consider the override. If your override is incorrect, the build failure
+# will crop up again later, in the crate that depends on this broken crate.

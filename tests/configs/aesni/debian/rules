@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+include /usr/share/rustc/architecture.mk
+%:
+	dh $@ --buildsystem cargo
+
+# crate requires builder to set custom RUSTFLAGS
+# we can't do that in Debian due to architecture baselines
+override_dh_auto_test:
+	dh_auto_test || true

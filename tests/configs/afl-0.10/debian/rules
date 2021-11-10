@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+%:
+	dh $@ --buildsystem cargo
+export RUSTC_BOOTSTRAP := 1
+export PATH := $(CURDIR)/debian/debcargo_testing_bin:$(PATH)
+
+# needed by build script
+export XDG_DATA_HOME := $(CURDIR)/debian/xdg-data-home
+export CXXFLAGS := -Wno-unused-command-line-argument
+export CFLAGS := -Wno-unused-command-line-argument
+
+override_dh_strip_nondeterminism:
+	# dh_strip_nondeterminism can't parse these files
+	rm -rf $(CURDIR)/debian/libruzt-afl-*-dev/usr/share/cargo/registry/afl-*/AFLplusplus/docs/vuln_samples
+	dh_strip_nondeterminism

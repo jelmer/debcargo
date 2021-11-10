@@ -1,8 +1,0 @@
-#!/usr/bin/make -f
-include /usr/share/rustc/architecture.mk
-%:
-	dh $@ --buildsystem cargo
-
-# code uses old rust feature that causes compiler error
-override_dh_auto_test:
-	dh_auto_test || true
