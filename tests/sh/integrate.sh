@@ -85,6 +85,20 @@ allow_fail() {
 	fi
 }
 
+shouldbuild() {
+	local dst="$1"
+	local src="$2"
+	test ! -e "$dst" -o "$src" -nt "$dst"
+}
+
+changelog_pkgname() {(
+	local cratedir="$1"
+	cd "$cratedir"
+	# dpkg-parsechangelog is really slow when dealing with hundreds of crates
+	#echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion)
+	head -n1 debian/changelog | sed -nre 's/^(\S*) \((\S*)\).*/\1_\2/gp'
+)}
+
 run_lintian() {(
 	local crate="$1"
 	local version="$2"
@@ -93,14 +107,22 @@ run_lintian() {(
 
 	allow_fail "$crate" $version && return 0
 
-	# dpkg-parsechangelog is really slow when dealing with hundreds of crates
-	#base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
-	base="$(cd "$cratedir" && head -n1 debian/changelog | sed -nre 's/^(\S*) \((\S*)\).*/\1_\2/gp')"
-	echo >&2 "running lintian for ${base}"
+	local base="$(changelog_pkgname "$cratedir")"
+	local out="${base}.lintian.out"
+
+	if ! ( shouldbuild "$out" "${base}_source.changes" \
+	    || shouldbuild "$out" "${base}_${DEB_HOST_ARCH}.changes" ); then
+		echo >&2 "skipping already-linted ${base}_*.changes in ${out}"
+		return 0
+	fi
+
+	echo >&2 "running lintian for ${base} into ${out}"
+	rm -f "$out" "${out}.tmp"
 	changes="${base}_source.changes"
-	lintian --suppress-tags-from-file "$lintian_suppress_tags" -EIL +pedantic "$changes" || true
+	lintian --suppress-tags-from-file "$lintian_suppress_tags" -EIL +pedantic "$changes" | tee -a "${out}.tmp"
 	changes="${base}_${DEB_HOST_ARCH}.changes"
-	lintian --suppress-tags-from-file "$lintian_suppress_tags" -EIL +pedantic "$changes" || true
+	lintian --suppress-tags-from-file "$lintian_suppress_tags" -EIL +pedantic "$changes" | tee -a "${out}.tmp"
+	mv "${out}.tmp" "$out"
 )}
 
 if [ -z "$CHROOT" ]; then
@@ -118,15 +140,13 @@ run_sbuild() {(
 	cd "$directory"
 
 	allow_fail "$crate" $version && return 0
-	# dpkg-parsechangelog is really slow when dealing with hundreds of crates
-	#base="$(cd "$cratedir" && echo $(dpkg-parsechangelog -SSource)_$(dpkg-parsechangelog -SVersion))"
-	base="$(cd "$cratedir" && head -n1 debian/changelog | sed -nre 's/^(\S*) \((\S*)\).*/\1_\2/gp')"
-	dsc="${base}.dsc"
-	build="${base}_${DEB_HOST_ARCH}.build"
-	changes="${base}_${DEB_HOST_ARCH}.changes"
+	local base="$(changelog_pkgname "$cratedir")"
+	local dsc="${base}.dsc"
+	local build="${base}_${DEB_HOST_ARCH}.build"
+	local changes="${base}_${DEB_HOST_ARCH}.changes"
 
-	if [ -f "$changes" ]; then
-		echo >&2 "skipping already-built ${dsc}"
+	if ! shouldbuild "$changes" "$dsc"; then
+		echo >&2 "skipping already-built ${dsc} in ${changes}"
 		return 0
 	fi
 
@@ -162,11 +182,13 @@ build_source() {(
 
 	if [ -d "$cratedir" ]; then
 		if [ -f "$cratedir/debian/changelog" ]; then
-			echo >&2 "skipping already-built ${cratedir}"
-			return 0
-		else
-			rm -rf "$cratedir"
+			local base="$(changelog_pkgname "$cratedir")"
+			if ! shouldbuild "${base}_source.buildinfo" "$cratedir/debian/changelog"; then
+				echo >&2 "skipping already-built ${cratedir}"
+				return 0
+			fi
 		fi
+		rm -rf "$cratedir"
 	fi
 
 	local deb_src_name="$($debcargo deb-src-name "$crate" "$version")"
