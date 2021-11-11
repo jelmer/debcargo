@@ -19,7 +19,7 @@ pub struct Source {
     vcs_git: String,
     vcs_browser: String,
     homepage: String,
-    x_cargo: String,
+    crate_name: String,
     requires_root: String,
 }
 
@@ -70,9 +70,13 @@ impl fmt::Display for Source {
             writeln!(f, "Homepage: {}", self.homepage)?;
         }
 
-        if !self.x_cargo.is_empty() {
-            writeln!(f, "X-Cargo-Crate: {}", self.x_cargo)?;
-        }
+        // We used to set this conditionally, however it's best to do it
+        // unconditionally as some crates' names have a number suffix e.g.
+        // "utf-8". Without setting X-Cargo-Crate, we cannot distinguish:
+        //   a) "utf" crate at version 8 with semver_suffix = true
+        //   b) "utf-8" crate at version latest with semver_suffix = false.
+        // dh-cargo assumes (a) which is wrong for the "utf-8" crate
+        writeln!(f, "X-Cargo-Crate: {}", self.crate_name)?;
         writeln!(f, "Rules-Requires-Root: {}", self.requires_root)?;
 
         Ok(())
@@ -161,7 +165,7 @@ impl Source {
     pub fn new(
         basename: &str,
         name_suffix: Option<&str>,
-        upstream_name: &str,
+        crate_name: &str,
         home: &str,
         lib: bool,
         maintainer: String,
@@ -187,12 +191,6 @@ impl Source {
             "https://salsa.debian.org/rust-team/debcargo-conf.git [src/{}]",
             pkgbase
         );
-
-        let cargo_crate = if upstream_name != base_deb_name(upstream_name) {
-            upstream_name.to_string()
-        } else {
-            "".to_string()
-        };
         Ok(Source {
             name: dsc_name(&pkgbase),
             section: section.to_string(),
@@ -204,7 +202,7 @@ impl Source {
             vcs_git,
             vcs_browser,
             homepage: home.to_string(),
-            x_cargo: cargo_crate,
+            crate_name: crate_name.to_string(),
             requires_root: "no".to_string(),
         })
     }
