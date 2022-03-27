@@ -200,11 +200,16 @@ fn gen_files(debsrcdir: &Path) -> Result<Vec<Files>> {
     // Here we specifically use "." to avoid absolute paths. If we use
     // current_dir then we end up having absolute path from user home directory,
     // which again messes debian/copyright.
-    // Use of . creates paths in format ./src/ which is acceptable.
+    // Use of . creates paths in format ./src/, so we strip the leading "./"
     for entry in walkdir::WalkDir::new(".").sort_by(|a, b| a.file_name().cmp(b.file_name())) {
         let entry = entry?;
         if entry.file_type().is_file() {
-            let copyright_file = entry.path().to_str().unwrap().to_string();
+            let copyright_file = entry
+                .path()
+                .strip_prefix("./")?
+                .to_str()
+                .unwrap()
+                .to_string();
             let file = fs::File::open(entry.path())?;
             let reader = BufReader::new(file);
             for line in reader.lines() {
