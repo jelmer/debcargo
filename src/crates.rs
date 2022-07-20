@@ -477,14 +477,11 @@ impl CrateInfo {
             features_with_deps.insert(feature.as_str(), (feature_deps, other_deps));
         }
 
-        // calculate dependencies of this crate's "optional dependencies", since they are also features
+        // calculate required dependencies for implicit no-default-features
         let mut deps_required: Vec<Dependency> = Vec::new();
         for deps in deps_by_name.values() {
             for &dep in deps {
-                if dep.is_optional() {
-                    features_with_deps
-                        .insert(dep.name_in_toml().as_str(), (vec![""], vec![dep.clone()]));
-                } else {
+                if !dep.is_optional() {
                     deps_required.push(dep.clone())
                 }
             }
