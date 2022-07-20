@@ -9,7 +9,7 @@ use cargo::{
     },
     ops,
     ops::{PackageOpts, Packages},
-    sources::registry::RegistrySource,
+    sources::RegistrySource,
     util::{interning::InternedString, toml::read_manifest, FileLock},
     Config,
 };
@@ -60,18 +60,25 @@ fn hash<H: Hash>(hashable: &H) -> u64 {
 }
 
 fn fetch_candidates(registry: &mut PackageRegistry, dep: &Dependency) -> Result<Vec<Summary>> {
-    let mut summaries = registry.query_vec(dep, false)?;
+    let mut summaries = match registry.query_vec(dep, false) {
+        std::task::Poll::Ready(res) => res?,
+        std::task::Poll::Pending => {
+            registry.block_until_ready()?;
+            return fetch_candidates(registry, dep);
+        }
+    };
     summaries.sort_by(|a, b| b.package_id().partial_cmp(&a.package_id()).unwrap());
     Ok(summaries)
 }
 
-pub fn update_crates_io() -> Result<()> {
+pub fn invalidate_crates_io_cache() -> Result<()> {
     let config = Config::default()?;
     let _lock = config.acquire_package_cache_lock()?;
     let source_id = SourceId::crates_io(&config)?;
     let yanked_whitelist = HashSet::new();
-    let mut r = RegistrySource::remote(source_id, &yanked_whitelist, &config);
-    r.update()
+    let mut r = RegistrySource::remote(source_id, &yanked_whitelist, &config)?;
+    r.invalidate_cache();
+    Ok(())
 }
 
 pub fn crate_name_ver_to_dep(crate_name: &str, version: Option<&str>) -> Result<Dependency> {
@@ -112,13 +119,22 @@ impl CrateInfo {
             let yanked_whitelist = HashSet::new();
 
             let mut source = source_id.load(&config, &yanked_whitelist)?;
-            source.update()?;
 
             let package_id = match version {
                 None | Some("") => {
                     let dep = Dependency::parse(crate_name, None, source_id)?;
                     let mut package_id: Option<PackageId> = None;
-                    source.query(&dep, &mut |p| package_id = Some(p.package_id()))?;
+                    loop {
+                        match source.query(&dep, &mut |p| package_id = Some(p.package_id())) {
+                            std::task::Poll::Ready(res) => {
+                                res?;
+                                break;
+                            }
+                            std::task::Poll::Pending => {
+                                source.block_until_ready()?;
+                            }
+                        }
+                    }
                     package_id.unwrap()
                 }
                 Some(version) => PackageId::new(crate_name, version, source_id)?,
@@ -147,6 +163,7 @@ impl CrateInfo {
                     jobs: None,
                     targets: Vec::new(),
                     to_package: Packages::Default,
+                    keep_going: false,
                 };
 
                 // as of cargo 0.41 this returns a FileLock with a temp path, instead of the one
