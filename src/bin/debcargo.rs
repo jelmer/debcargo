@@ -1,8 +1,5 @@
 use ansi_term::Colour::Red;
-use structopt::{
-    clap::{crate_version, AppSettings},
-    StructOpt,
-};
+use clap::{crate_version, AppSettings, StructOpt};
 
 use debcargo::crates::CrateInfo;
 use debcargo::debian::DebInfo;
@@ -49,6 +46,12 @@ enum Opt {
         #[structopt(flatten)]
         args: BuildOrderArgs,
     },
+}
+
+#[test]
+fn verify_app() {
+    use clap::IntoApp;
+    Opt::into_app().debug_assert()
 }
 
 fn real_main() -> Result<()> {

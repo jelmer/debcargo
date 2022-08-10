@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use cargo::core::{Dependency, PackageId};
-use structopt::{clap::arg_enum, StructOpt};
+use clap::{StructOpt, ValueEnum};
 
 use crate::config::Config;
 use crate::crates::{crate_name_ver_to_dep, show_dep, transitive_deps, CrateDepInfo, CrateInfo};
@@ -13,12 +13,11 @@ use crate::errors::Result;
 use crate::package::{PackageExtractArgs, PackageProcess};
 use crate::util;
 
-arg_enum! {
-    #[derive(Debug, Clone, Copy)]
-    pub enum ResolveType {
-        SourceForDebianUnstable,
-        BinaryAllForDebianTesting,
-    }
+#[derive(Debug, Clone, Copy, ValueEnum)]
+#[clap(rename_all = "verbatim")]
+pub enum ResolveType {
+    SourceForDebianUnstable,
+    BinaryAllForDebianTesting,
 }
 
 #[derive(Debug, Clone, StructOpt)]
@@ -32,13 +31,13 @@ pub struct BuildOrderArgs {
     /// specific, e.g. <crate>-1.2.3, then <crate>-1.2, then <crate>-1 and
     /// finally <crate>. The config file is read from the debian/debcargo.toml
     /// subpath of the looked-up subdirectory.
-    #[structopt(long)]
+    #[clap(long)]
     config_dir: Option<PathBuf>,
-    /// Resolution type, one of SourceForDebianUnstable | BinaryAllForDebianTesting
-    #[structopt(long, default_value = "SourceForDebianUnstable")]
+    /// Resolution type
+    #[clap(value_enum, long, default_value = "SourceForDebianUnstable")]
     resolve_type: ResolveType,
     /// Emulate resolution as if every package were built with --collapse-features.
-    #[structopt(long)]
+    #[clap(long)]
     emulate_collapse_features: bool,
 }
 
