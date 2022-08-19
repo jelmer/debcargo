@@ -56,6 +56,7 @@ fn verify_app() {
 
 fn real_main() -> Result<()> {
     let m = Opt::clap()
+        .version(crate_version!())
         .global_setting(AppSettings::ColoredHelp)
         .get_matches();
     use Opt::*;
