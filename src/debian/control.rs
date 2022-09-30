@@ -131,25 +131,24 @@ impl fmt::Display for PkgTest {
         // must be installed, which makes it harder to actually run the tests
         let cargo_bug_fixed = false;
         let default_deps = if cargo_bug_fixed { &self.name } else { "@" };
-        if self.depends.is_empty() {
-            writeln!(f, "Depends: dh-cargo (>= 18), {}", default_deps)?;
+
+        let depends = if self.depends.is_empty() {
+            "".into()
         } else {
-            writeln!(
-                f,
-                "Depends: dh-cargo (>= 18), {}, {}",
-                self.depends.join(", "),
-                default_deps
-            )?;
-        }
-        if self.extra_restricts.is_empty() {
-            writeln!(f, "Restrictions: allow-stderr, skip-not-installable")?;
+            format!(", {}", self.depends.join(", "))
+        };
+        writeln!(f, "Depends: dh-cargo (>= 18){}, {}", depends, default_deps)?;
+
+        let restricts = if self.extra_restricts.is_empty() {
+            "".into()
         } else {
-            writeln!(
-                f,
-                "Restrictions: allow-stderr, skip-not-installable, {}",
-                self.extra_restricts.join(", ")
-            )?;
-        }
+            format!(", {}", self.extra_restricts.join(", "))
+        };
+        writeln!(
+            f,
+            "Restrictions: allow-stderr, skip-not-installable{}",
+            restricts,
+        )?;
         Ok(())
     }
 }
