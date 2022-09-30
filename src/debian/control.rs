@@ -115,12 +115,15 @@ impl fmt::Display for Package {
 
 impl fmt::Display for PkgTest {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let extra_args = if self.extra_test_args.is_empty() {
+            "".into()
+        } else {
+            format!(" {}", self.extra_test_args.join(" "))
+        };
         writeln!(
             f,
-            "Test-Command: /usr/share/cargo/bin/cargo-auto-test {} {} --all-targets {}",
-            self.crate_name,
-            self.version,
-            self.extra_test_args.join(" ")
+            "Test-Command: /usr/share/cargo/bin/cargo-auto-test {} {} --all-targets{}",
+            self.crate_name, self.version, extra_args,
         )?;
         writeln!(f, "Features: test-name={}:{}", &self.name, &self.feature)?;
         // TODO: drop the below workaround when rust-lang/cargo#5133 is fixed.
