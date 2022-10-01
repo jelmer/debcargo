@@ -585,3 +585,6 @@ pub fn get_deb_author() -> Result<String> {
     })?;
     Ok(format!("{} <{}>", name, email))
 }
+
+#[cfg(test)]
+mod tests;
