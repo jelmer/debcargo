@@ -234,7 +234,7 @@ it's a maintenance burden. Use debcargo.toml instead."
                 .current_dir(&output_dir)
                 .env("QUILT_PATCHES", tempdir.path().join("patches"))
                 .args(&["push", "--quiltrc=-", "-a"]),
-            "failed to apply patches",
+            "failed to apply patches using quilt",
         );
         crate_info.replace_manifest(&output_dir.join("Cargo.toml"))?;
         expect_success(

@@ -104,7 +104,7 @@ pub fn expect_success(cmd: &mut Command, err: &str) {
             }
         }
         Err(e) => {
-            panic!("{}", e);
+            panic!("{}\n{}", err, e);
         }
     }
 }
