@@ -420,7 +420,10 @@ impl CrateInfo {
                         Some(dd) => {
                             for &dep in dd {
                                 let mut dep = dep.clone();
-                                dep.set_features(vec![InternedString::new(dep_feature)]);
+                                let mut features: Vec<InternedString> =
+                                    vec![InternedString::new(dep_feature)];
+                                features.extend(dep.features());
+                                dep.set_features(features);
                                 dep.set_default_features(false);
                                 other_deps.push(dep);
                             }
