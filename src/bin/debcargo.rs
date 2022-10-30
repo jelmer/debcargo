@@ -1,14 +1,14 @@
 use ansi_term::Colour::Red;
-use structopt::{
-    clap::{crate_version, AppSettings},
-    StructOpt,
-};
+use clap::{crate_version, AppSettings, StructOpt};
 
-use debcargo::build_order::{build_order, BuildOrderArgs};
-use debcargo::crates::{update_crates_io, CrateInfo};
+use debcargo::crates::CrateInfo;
 use debcargo::debian::DebInfo;
 use debcargo::errors::Result;
 use debcargo::package::*;
+use debcargo::{
+    build_order::{build_order, BuildOrderArgs},
+    crates::invalidate_crates_io_cache,
+};
 
 #[derive(Debug, Clone, StructOpt)]
 #[structopt(name = "debcargo", about = "Package Rust crates for Debian.")]
@@ -48,13 +48,20 @@ enum Opt {
     },
 }
 
+#[test]
+fn verify_app() {
+    use clap::IntoApp;
+    Opt::into_app().debug_assert()
+}
+
 fn real_main() -> Result<()> {
     let m = Opt::clap()
+        .version(crate_version!())
         .global_setting(AppSettings::ColoredHelp)
         .get_matches();
     use Opt::*;
     match Opt::from_clap(&m) {
-        Update => update_crates_io(),
+        Update => invalidate_crates_io_cache(),
         DebSrcName {
             crate_name,
             version,

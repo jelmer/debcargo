@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use structopt::{clap::crate_version, StructOpt};
+
+use clap::{crate_version, StructOpt};
 
 use crate::config::Config;
 use crate::crates::CrateInfo;
