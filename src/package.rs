@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 
-use clap::{crate_version, StructOpt};
+use clap::{crate_version, Parser};
 
 use crate::config::Config;
 use crate::crates::CrateInfo;
@@ -25,7 +25,7 @@ pub struct PackageProcess {
     pub orig_tarball: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, Parser)]
 pub struct PackageInitArgs {
     /// Name of the crate to package.
     pub crate_name: String,
@@ -33,28 +33,28 @@ pub struct PackageInitArgs {
     /// If empty string or omitted, resolves to the latest version.
     pub version: Option<String>,
     /// TOML file providing package-specific options.
-    #[structopt(long)]
+    #[clap(long)]
     pub config: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, Parser)]
 pub struct PackageExtractArgs {
     /// Output directory for the package. The orig tarball is named according
     /// to Debian conventions in the parent directory of this directory.
-    #[structopt(long)]
+    #[clap(long)]
     pub directory: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, Parser)]
 pub struct PackageExecuteArgs {
     /// Assume the changelog is already bumped, and leave it alone.
-    #[structopt(long)]
+    #[clap(long)]
     pub changelog_ready: bool,
     /// Guess extra values for d/copyright. Might be slow.
-    #[structopt(long)]
+    #[clap(long)]
     pub copyright_guess_harder: bool,
     /// Don't write back hint files or d/changelog to the source overlay directory.
-    #[structopt(long)]
+    #[clap(long)]
     pub no_overlay_write_back: bool,
 }
 

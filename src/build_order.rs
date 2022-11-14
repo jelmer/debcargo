@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use cargo::core::{Dependency, PackageId};
-use clap::{StructOpt, ValueEnum};
+use clap::{Parser, ValueEnum};
 
 use crate::config::Config;
 use crate::crates::{crate_name_ver_to_dep, show_dep, transitive_deps, CrateDepInfo, CrateInfo};
@@ -20,7 +20,7 @@ pub enum ResolveType {
     BinaryAllForDebianTesting,
 }
 
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, Parser)]
 pub struct BuildOrderArgs {
     /// Name of the crate to package.
     crate_name: String,

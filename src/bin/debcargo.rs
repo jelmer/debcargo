@@ -1,5 +1,5 @@
 use ansi_term::Colour::Red;
-use clap::{crate_version, AppSettings, StructOpt};
+use clap::{crate_version, AppSettings, Parser};
 
 use debcargo::crates::CrateInfo;
 use debcargo::debian::DebInfo;
@@ -10,8 +10,8 @@ use debcargo::{
     crates::invalidate_crates_io_cache,
 };
 
-#[derive(Debug, Clone, StructOpt)]
-#[structopt(name = "debcargo", about = "Package Rust crates for Debian.")]
+#[derive(Debug, Clone, Parser)]
+#[clap(name = "debcargo", about = "Package Rust crates for Debian.")]
 enum Opt {
     /// Update the user's default crates.io index, outside of a workspace.
     Update,
@@ -27,23 +27,23 @@ enum Opt {
     },
     /// Extract only a crate, without any other transformations.
     Extract {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         init: PackageInitArgs,
-        #[structopt(flatten)]
+        #[clap(flatten)]
         extract: PackageExtractArgs,
     },
     /// Package a Rust crate for Debian.
     Package {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         init: PackageInitArgs,
-        #[structopt(flatten)]
+        #[clap(flatten)]
         extract: PackageExtractArgs,
-        #[structopt(flatten)]
+        #[clap(flatten)]
         finish: PackageExecuteArgs,
     },
     /// Print the transitive dependencies of a package in topological order.
     BuildOrder {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         args: BuildOrderArgs,
     },
 }
