@@ -22,6 +22,9 @@ policy](https://wiki.debian.org/Teams/RustPackaging/Policy).
    all policy-conforming Debian packages, such as:
    * binaries for [10+ architectures](https://www.debian.org/ports/) are made
      available directly to users, via `apt-get`
+   * debugging symbols are placed in a separate binary package, integrating
+     with the standard Debian [distribution system for debugging
+     symbols](https://wiki.debian.org/HowToGetABacktrace)
    * full system integration with non-Rust software, including cross-language
      dependency resolution
    * cross-compilation support, including automatic resolution and installation
