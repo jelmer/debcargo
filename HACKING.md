@@ -7,7 +7,6 @@ For testing:
 
 ```shell
 # Install dependencies for building (see README.md), then:
-$ cargo install cargo-tree # use https://github.com/infinity0/cargo-tree
 $ apt-get install dh-cargo lintian
 ```
 
@@ -15,8 +14,7 @@ For development:
 
 ```shell
 # As above, then:
-$ cargo install rustfmt cargo-graph cargo-outdated
-$ cargo graph | dot -T png > graph.png
+$ cargo install cargo-outdated
 $ cargo outdated -R
 ```
 
@@ -25,7 +23,9 @@ $ cargo outdated -R
 
 Whenever you make a major change, you should run:
 
-  tests/sh/integrate.sh -kbr debcargo exa fd-find ripgrep
+```shell
+$ tests/sh/integrate.sh -kbr debcargo exa fd-find ripgrep
+```
 
 in order to test it over a few hundred crates. Fix any build errors and
 important lintian errors that crop up.
@@ -33,7 +33,9 @@ important lintian errors that crop up.
 If you make a change that has wide-reaching implications, such as messing with
 the dependency logic, do a more thorough test:
 
-  tests/sh/integrate.sh -kbR debcargo exa fd-find ripgrep mdbook sccache
+```shell
+$ tests/sh/integrate.sh -kbR debcargo exa fd-find ripgrep mdbook sccache
+```
 
 This will run the test over around a thousand crates. -R runs it over all the
 transitive dependencies of all the binary packages, which is needed for entry

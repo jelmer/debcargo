@@ -22,7 +22,5 @@ Features for later
       is already in archive and display information.
 - [ ] Display first level dependency with equivalent Debian names at the end
       which are not yet packaged in Debian as a information to maintainer.
-- [ ] A `dependency` sub-command to print all the dependencies including first
-      level and recursive using `cargo` API.
 - [ ] Employ `licensecheck` tool to look for license and copyright information.
       Currently we use regex to grep through sources.
