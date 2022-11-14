@@ -319,13 +319,15 @@ fn copyright_fromgit(repo_url: &str) -> Result<String> {
     let latest_commit = repo.find_commit(latest_id)?;
 
     let first_year = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp(first_commit.time().seconds(), 0),
+        NaiveDateTime::from_timestamp_opt(first_commit.time().seconds(), 0)
+            .ok_or(anyhow::Error::msg("lo"))?,
         Utc,
     )
     .year();
 
     let latest_year = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp(latest_commit.time().seconds(), 0),
+        NaiveDateTime::from_timestamp_opt(latest_commit.time().seconds(), 0)
+            .ok_or(anyhow::Error::msg("lo"))?,
         Utc,
     )
     .year();
