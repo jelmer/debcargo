@@ -93,31 +93,16 @@
 # in debian/changelog; this is done automatically by debcargo.
 uploaders = [ "foo bar <foo@debian.org>" ]
 
-# Collapse Features
-#
-# Rust and Debian have a two different levels of abstraction when handling
-# dependencies and the relationship between them. In rust the lowest level is a
-# feature, and in Debian it's the binary package.
-
-# This means that the following dependency chain is not a problem in rust:
-
-#    crate A with feature AX depends on crate B with feature BY
-#    crate B with feature BX depends on crate A with feature AY
-
-# This is a perfectly valid situation in the rust+cargo ecosystem. Notice that
-# there is no dependency cycle on the per-feature level, and this is enforced
-# by cargo; but if collapse_features is used then package A+AX+AY would
-# cyclicly depend on package B+BX+BY.
-
-# This is reflected in the Debian packages by producing Provides lines for all
-# combinations of features, and this can become a quite large section.
-
-# Setting collapse_features = true removes this behaviour and is recommended,
-# but it can lead to dependency cycles of debian packages, if that happens
-# those must be broken up by having some or all of the packages set this
-# feature to false.
-#
-# collapse_features = true
+# This is a temporary work-around in order to address situations where certain
+# Debian infrastructure people claim (without supplying concrete evidence) that
+# rust crate metadata is "too large". This flag addresses this, effectively by
+# forcing all crate features together into a single feature. This increases the
+# dependency footprint of the generated packages and therefore should not be
+# enabled unless absolutely necessary. It can also cause cyclic dependencies in
+# some cases, and in these cases it simply cannot be enabled, as packages in
+# the cycle become uninstallable. Most crates should not need this, and you
+# should not enable this just because "somebody told you so".
+#collapse_features = false
 
 [source]
 
