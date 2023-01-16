@@ -83,7 +83,7 @@
 # vcs_* in [source] should also be overridden, otherwise they point the Rust
 # Team's salsa project.
 #
-#maintainer= "PLACEHOLDER"
+#maintainer = "PLACEHOLDER"
 
 # Uploaders. This affects the Uploaders: field in debian/control as well as the
 # additional maintainers listed in debian/copyright. The naming is historical;
@@ -103,6 +103,10 @@ uploaders = [ "foo bar <foo@debian.org>" ]
 # the cycle become uninstallable. Most crates should not need this, and you
 # should not enable this just because "somebody told you so".
 #collapse_features = false
+
+# Set the Rules-Requires-Root field in debian/control; by default, this is set
+# to "no"
+#requires_root = "yes"
 
 [source]
 
