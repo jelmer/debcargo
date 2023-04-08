@@ -329,6 +329,10 @@ impl CrateInfo {
         self.package.manifest_path()
     }
 
+    pub fn rust_version(&self) -> Option<&str> {
+        self.manifest.rust_version()
+    }
+
     pub fn targets(&self) -> &[Target] {
         self.manifest.targets()
     }
