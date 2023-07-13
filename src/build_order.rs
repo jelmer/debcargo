@@ -65,13 +65,13 @@ fn get_build_deps(
         .cloned()
         .collect::<HashSet<_>>();
     let feature_deps: HashSet<Dependency> =
-        HashSet::from_iter(transitive_deps(crate_dep_info, package.1).1);
+        HashSet::from_iter(transitive_deps(crate_dep_info, package.1)?.1);
     let additional_deps = if emulate_collapse_features || config.collapse_features {
         all_deps.clone()
     } else {
         // TODO: if build_depends_features is an override, use that instead of "default"
         // TODO: also deprecate build_depends_excludes
-        HashSet::from_iter(transitive_deps(crate_dep_info, "default").1)
+        HashSet::from_iter(transitive_deps(crate_dep_info, "default")?.1)
     };
     let hard_deps = feature_deps
         .union(&additional_deps)
@@ -187,6 +187,7 @@ pub fn build_order(args: BuildOrderArgs) -> Result<Vec<PackageId>> {
     let seed_id = resolve_info(&mut infos, &mut cache, config_dir, &seed_dep, true)?;
 
     let mut next = |idf: &PackageIdFeat| -> Result<(Vec<PackageIdFeat>, Vec<PackageIdFeat>)> {
+        log::trace!("{} getting build deps..", idf);
         let (hard, soft) = get_build_deps(
             infos
                 .get(&idf.0)
