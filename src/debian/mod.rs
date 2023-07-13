@@ -655,9 +655,9 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             PackageKey::feature("default"),
             &default_features,
         );
-        let build_deps_extra = ["cargo:native", "rustc:native", "libstd-rust-dev"]
-            .iter()
-            .map(|s| s.to_string())
+        let rustc = rustc_dep(&crate_info.rust_version());
+        let build_deps_extra = ["cargo:native".into(), rustc, "libstd-rust-dev".into()]
+            .into_iter()
             .chain(deb_deps(config, &default_deps)?)
             .chain(extra_override_deps);
         if !bins.is_empty() {
@@ -1182,6 +1182,29 @@ fn reduce_provides(
         .collect::<BTreeMap<_, _>>();
 
     (provides, features_with_deps)
+}
+
+fn rustc_dep(min_ver: &Option<&str>) -> String {
+    if let Some(min_ver) = min_ver {
+        format!("rustc:native (>= {})", min_ver)
+    } else {
+        "rustc:native".into()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::rustc_dep;
+
+    #[test]
+    fn rustc_dep_includes_minver() {
+        assert_eq!("rustc:native (>= 1.65)", rustc_dep(&Some(&"1.65")));
+    }
+
+    #[test]
+    fn rustc_dep_excludes_minver() {
+        assert_eq!("rustc:native", rustc_dep(&None));
+    }
 }
 
 fn changelog_or_new(tempdir: &Path) -> Result<(fs::File, String)> {

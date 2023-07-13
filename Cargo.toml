@@ -9,6 +9,7 @@ license = "MIT/Apache-2.0"
 repository = "https://salsa.debian.org/rust-team/debcargo"
 description = "Create a Debian package from a Cargo crate."
 edition = "2021"
+rust-version = "1.58"
 
 [dependencies]
 ansi_term = "0.12"
