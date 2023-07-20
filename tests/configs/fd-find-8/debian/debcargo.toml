@@ -1,2 +1,2 @@
-overlay = "."
 semver_suffix = true
+overlay = "."

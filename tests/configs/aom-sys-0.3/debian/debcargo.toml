@@ -1,4 +1,5 @@
 semver_suffix = true
+overlay = "."
 
 [packages.lib]
 depends = ["libaom-dev"]

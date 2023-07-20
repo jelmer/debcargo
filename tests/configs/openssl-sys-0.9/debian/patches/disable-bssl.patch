@@ -1,0 +1,24 @@
+Description: bssl-sys is a placeholder crate that doesn't actually compile as published on crates.io
+
+Index: openssl-sys-0.9.93/Cargo.toml
+===================================================================
+--- openssl-sys-0.9.93.orig/Cargo.toml
++++ openssl-sys-0.9.93/Cargo.toml
+@@ -31,10 +31,6 @@ repository = "https://github.com/sfackle
+ [package.metadata.pkg-config]
+ openssl = "1.0.1"
+ 
+-[dependencies.bssl-sys]
+-version = "0.1.0"
+-optional = true
+-
+ [dependencies.libc]
+ version = "0.2"
+ 
+@@ -58,5 +54,5 @@ version = "0.3.9"
+ version = "0.2.8"
+ 
+ [features]
+-unstable_boringssl = ["bssl-sys"]
++unstable_boringssl = []
+ vendored = ["openssl-src"]

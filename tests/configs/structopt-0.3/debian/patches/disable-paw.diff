@@ -1,0 +1,28 @@
+Index: structopt/Cargo.toml
+===================================================================
+--- structopt.orig/Cargo.toml
++++ structopt/Cargo.toml
+@@ -28,10 +28,10 @@
+ [dependencies.lazy_static]
+ version = "1.4.0"
+ 
+-[dependencies.paw_dep]
+-version = "1"
+-optional = true
+-package = "paw"
++#[dependencies.paw_dep]
++#version = "1"
++#optional = true
++#package = "paw"
+ 
+ [dependencies.structopt-derive]
+ version = "=0.4.18"
+@@ -53,7 +53,7 @@
+ doc = ["clap/doc"]
+ lints = ["clap/lints"]
+ no_cargo = ["clap/no_cargo"]
+-paw = ["structopt-derive/paw", "paw_dep"]
++#paw = ["structopt-derive/paw", "paw_dep"]
+ suggestions = ["clap/suggestions"]
+ wrap_help = ["clap/wrap_help"]
+ yaml = ["clap/yaml"]

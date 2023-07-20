@@ -1,0 +1,13 @@
+Index: structopt/Cargo.toml
+===================================================================
+--- structopt.orig/Cargo.toml
++++ structopt/Cargo.toml
+@@ -51,7 +51,7 @@ color = ["clap/color"]
+ debug = ["clap/debug"]
+ default = ["clap/default"]
+ doc = ["clap/doc"]
+-lints = ["clap/lints"]
++#lints = ["clap/lints"]
+ no_cargo = ["clap/no_cargo"]
+ #paw = ["structopt-derive/paw", "paw_dep"]
+ suggestions = ["clap/suggestions"]

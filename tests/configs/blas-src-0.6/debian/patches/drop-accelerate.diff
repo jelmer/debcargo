@@ -1,0 +1,22 @@
+Index: blas-src-0.6.1/Cargo.toml
+===================================================================
+--- blas-src-0.6.1.orig/Cargo.toml
++++ blas-src-0.6.1/Cargo.toml
+@@ -22,9 +22,6 @@ keywords = ["linear-algebra"]
+ categories = ["science"]
+ license = "Apache-2.0/MIT"
+ repository = "https://github.com/blas-lapack-rs/blas-src"
+-[dependencies.accelerate-src]
+-version = "0.3"
+-optional = true
+ 
+ [dependencies.intel-mkl-src]
+ version = "0.5"
+@@ -39,7 +36,6 @@ version = "0.9"
+ optional = true
+ 
+ [features]
+-accelerate = ["accelerate-src"]
+ intel-mkl = ["intel-mkl-src"]
+ netlib = ["netlib-src"]
+ openblas = ["openblas-src"]
