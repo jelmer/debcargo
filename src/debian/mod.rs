@@ -914,9 +914,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             };
             let description_suffix = if feature.is_empty() {
                 format!(
-                    "This package contains the source for the \
-                     Rust {} crate, packaged by debcargo for use \
-                     with cargo and dh-cargo.",
+                    "Rust crate {}",
                     crate_name
                 )
             } else {
