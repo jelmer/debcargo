@@ -137,7 +137,7 @@ impl fmt::Display for PkgTest {
         } else {
             format!(", {}", self.depends.join(", "))
         };
-        writeln!(f, "Depends: dh-cargo (>= 18){}, {}", depends, default_deps)?;
+        writeln!(f, "Depends: dh-cargo (>= 31){}, {}", depends, default_deps)?;
 
         let restricts = if self.extra_restricts.is_empty() {
             "".into()
@@ -413,7 +413,7 @@ impl Package {
             description,
             extra_lines: vec![
                 "Built-Using: ${cargo:Built-Using}".to_string(),
-                "XB-X-Cargo-Built-Using: ${cargo:X-Cargo-Built-Using}".to_string(),
+                "Static-Built-Using: ${cargo:Static-Built-Using}".to_string(),
             ],
         }
     }

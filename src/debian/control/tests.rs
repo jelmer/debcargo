@@ -18,7 +18,7 @@ fn pkgtest_fmt_has_no_extra_whitespace() {
             extra_restricts: Vec::new(),
             expected: r"Test-Command: /usr/share/cargo/bin/cargo-auto-test crate 1.0 --all-targets
 Features: test-name=librust-crate-dev:
-Depends: dh-cargo (>= 18), @
+Depends: dh-cargo (>= 31), @
 Restrictions: allow-stderr, skip-not-installable
 ",
         },
@@ -29,7 +29,7 @@ Restrictions: allow-stderr, skip-not-installable
             extra_restricts: vec!["flaky"],
             expected: r"Test-Command: /usr/share/cargo/bin/cargo-auto-test crate 1.0 --all-targets --no-default-features --features X
 Features: test-name=librust-crate-dev:X
-Depends: dh-cargo (>= 18), libfoo-dev, bar, @
+Depends: dh-cargo (>= 31), libfoo-dev, bar, @
 Restrictions: allow-stderr, skip-not-installable, flaky
 ",
         },
