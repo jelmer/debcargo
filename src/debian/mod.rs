@@ -640,6 +640,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         }
     };
 
+    let rustc = rustc_dep(&crate_info.rust_version());
     let build_deps = {
         let build_deps = ["debhelper (>= 12)", "dh-cargo (>= 25)"]
             .iter()
@@ -653,11 +654,14 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             PackageKey::feature("default"),
             &default_features,
         );
-        let rustc = rustc_dep(&crate_info.rust_version());
-        let build_deps_extra = ["cargo:native".into(), rustc, "libstd-rust-dev".into()]
-            .into_iter()
-            .chain(deb_deps(config, &default_deps)?)
-            .chain(extra_override_deps);
+        let build_deps_extra = [
+            "cargo:native".into(),
+            rustc.clone(),
+            "libstd-rust-dev".into(),
+        ]
+        .into_iter()
+        .chain(deb_deps(config, &default_deps)?)
+        .chain(extra_override_deps);
         if !bins.is_empty() {
             build_deps.chain(build_deps_extra).collect()
         } else {
@@ -713,18 +717,22 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 .keys()
                 .any(|f| test_is_marked_broken(f).unwrap_or(false)),
         };
-        let all_features_test_depends = Some(&"@")
-            .into_iter()
-            .chain(features_with_deps.keys())
-            .flat_map(|f| {
-                config
-                    .package_test_depends(PackageKey::feature(f))
-                    .into_iter()
-                    .flatten()
-            })
-            .map(|s| s.to_string())
-            .chain(dev_depends.clone())
-            .collect::<Vec<_>>();
+        let all_features_test_depends = {
+            let mut deps = Some(&"@")
+                .into_iter()
+                .chain(features_with_deps.keys())
+                .flat_map(|f| {
+                    config
+                        .package_test_depends(PackageKey::feature(f))
+                        .into_iter()
+                        .flatten()
+                })
+                .map(|s| s.to_string())
+                .chain(dev_depends.clone())
+                .collect::<Vec<_>>();
+            deps.push(rustc.clone());
+            deps
+        };
         let mut testctl = io::BufWriter::new(file("tests/control")?);
         write!(
             testctl,
@@ -1009,18 +1017,22 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 }
 
                 // deps
-                let test_depends = Some(f)
-                    .into_iter()
-                    .chain(feature_deps)
-                    .flat_map(|f| {
-                        config
-                            .package_test_depends(PackageKey::feature(f))
-                            .into_iter()
-                            .flatten()
-                    })
-                    .map(|s| s.to_string())
-                    .chain(dev_depends.clone())
-                    .collect::<Vec<_>>();
+                let test_depends = {
+                    let mut deps = Some(f)
+                        .into_iter()
+                        .chain(feature_deps)
+                        .flat_map(|f| {
+                            config
+                                .package_test_depends(PackageKey::feature(f))
+                                .into_iter()
+                                .flatten()
+                        })
+                        .map(|s| s.to_string())
+                        .chain(dev_depends.clone())
+                        .collect::<Vec<_>>();
+                    deps.push(rustc.clone());
+                    deps
+                };
                 let pkgtest = PkgTest::new(
                     package.name(),
                     crate_name,
