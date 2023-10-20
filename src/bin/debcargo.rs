@@ -1,5 +1,5 @@
 use ansi_term::Colour::Red;
-use clap::{crate_version, Parser, Subcommand};
+use clap::{builder::styling::AnsiColor, builder::Styles, crate_version, Parser, Subcommand};
 
 use debcargo::crates::CrateInfo;
 use debcargo::debian::DebInfo;
@@ -10,9 +10,16 @@ use debcargo::{
     crates::invalidate_crates_io_cache,
 };
 
+const CLI_STYLE: Styles = Styles::styled()
+    .header(AnsiColor::Yellow.on_default())
+    .usage(AnsiColor::Green.on_default())
+    .literal(AnsiColor::Green.on_default())
+    .placeholder(AnsiColor::Green.on_default());
+
 #[derive(Debug, Clone, Parser)]
 #[command(name = "debcargo", about = "Package Rust crates for Debian.")]
 #[command(version)]
+#[command(styles = CLI_STYLE)]
 struct Cli {
     #[command(subcommand)]
     command: Opt,
