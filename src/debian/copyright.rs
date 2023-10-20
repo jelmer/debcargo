@@ -384,7 +384,7 @@ pub fn debian_copyright(
         licenses = get_licenses(license).unwrap();
         crate_license = license
             .trim()
-            .replace("/", " or ")
+            .replace('/', " or ")
             .replace(" OR ", " or ")
             .replace(" AND ", " and ");
     } else {

@@ -186,7 +186,7 @@ pub fn prepare_orig_tarball(
         fs::copy(crate_file.path(), &temp_archive_path)?;
     }
 
-    fs::rename(temp_archive_path, &tarball)?;
+    fs::rename(temp_archive_path, tarball)?;
     Ok(())
 }
 
@@ -220,7 +220,7 @@ it's a maintenance burden. Use debcargo.toml instead."
     }
     if tempdir.path().join("patches").join("series").exists() {
         // apply patches to Cargo.toml in case they exist, and re-read it
-        let output_dir = &fs::canonicalize(&output_dir)?;
+        let output_dir = &fs::canonicalize(output_dir)?;
         let stderr = || {
             // create a new owned handle to stderr
             fs::OpenOptions::new()
@@ -231,18 +231,18 @@ it's a maintenance burden. Use debcargo.toml instead."
         expect_success(
             Command::new("quilt")
                 .stdout(stderr())
-                .current_dir(&output_dir)
+                .current_dir(output_dir)
                 .env("QUILT_PATCHES", tempdir.path().join("patches"))
-                .args(&["push", "--quiltrc=-", "-a"]),
+                .args(["push", "--quiltrc=-", "-a"]),
             "failed to apply patches using quilt",
         );
         crate_info.replace_manifest(&output_dir.join("Cargo.toml"))?;
         expect_success(
             Command::new("quilt")
                 .stdout(stderr())
-                .current_dir(&output_dir)
+                .current_dir(output_dir)
                 .env("QUILT_PATCHES", tempdir.path().join("patches"))
-                .args(&["pop", "--quiltrc=-", "-a"]),
+                .args(["pop", "--quiltrc=-", "-a"]),
             "failed to unapply patches",
         );
     }
@@ -550,7 +550,7 @@ echo "debcargo testing: suppressing dh-cargo-built-using";;
             write!(changelog, "{}\n{}", changelog_new_entry, changelog_old)?;
         }
         // the new file might be shorter, truncate it to the current cursor position
-        let pos = changelog.seek(io::SeekFrom::Current(0))?;
+        let pos = changelog.stream_position()?;
         changelog.set_len(pos)?;
     }
 
@@ -619,9 +619,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         "features_with_deps: {:?}",
         features_with_deps
             .iter()
-            .map(|(&f, &(ref ff, ref dd))| {
-                (f, (ff, dd.iter().map(show_dep).collect::<Vec<_>>()))
-            })
+            .map(|(&f, (ff, dd))| { (f, (ff, dd.iter().map(show_dep).collect::<Vec<_>>())) })
             .collect::<Vec<_>>()
     );
     let meta = crate_info.metadata();
@@ -716,13 +714,12 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
         let all_features_test_depends = Some(&"@")
             .into_iter()
             .chain(features_with_deps.keys())
-            .map(|f| {
+            .flat_map(|f| {
                 config
                     .package_test_depends(PackageKey::feature(f))
                     .into_iter()
                     .flatten()
             })
-            .flatten()
             .map(|s| s.to_string())
             .chain(dev_depends.clone())
             .collect::<Vec<_>>();
@@ -808,9 +805,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             "working_features_with_deps: {:?}",
             working_features_with_deps
                 .iter()
-                .map(|(&f, &(ref ff, ref dd))| {
-                    (f, (ff, dd.iter().map(show_dep).collect::<Vec<_>>()))
-                })
+                .map(|(&f, (ff, dd))| { (f, (ff, dd.iter().map(show_dep).collect::<Vec<_>>())) })
                 .collect::<Vec<_>>()
         );
         let (mut provides, reduced_features_with_deps) = if config.collapse_features {
@@ -878,9 +873,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             "reduced_features_with_deps: {:?}",
             reduced_features_with_deps
                 .iter()
-                .map(|(&f, &(ref ff, ref dd))| {
-                    (f, (ff, dd.iter().map(show_dep).collect::<Vec<_>>()))
-                })
+                .map(|(&f, (ff, dd))| { (f, (ff, dd.iter().map(show_dep).collect::<Vec<_>>())) })
                 .collect::<Vec<_>>()
         );
         // end transforming dependencies
@@ -913,10 +906,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 }
             };
             let description_suffix = if feature.is_empty() {
-                format!(
-                    "Rust crate {}",
-                    crate_name
-                )
+                format!("Rust crate {}", crate_name)
             } else {
                 format!(
                     "This metapackage enables feature \"{}\" for the \
@@ -974,8 +964,8 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             // If any overrides present for this package it will be taken care.
             package.apply_overrides(config, pk, f_provides);
 
-            match package.summary_check_len() {
-                Err(()) => writeln!(
+            if package.summary_check_len().is_err() {
+                writeln!(
                     control,
                     concat!(
                         "\n",
@@ -983,9 +973,8 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                         "auto-generated summary for {} is very long, consider overriding"
                     ),
                     package.name(),
-                )?,
-                Ok(()) => {}
-            };
+                )?;
+            }
 
             write!(control, "\n{}", package)?;
 
@@ -1021,13 +1010,12 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 let test_depends = Some(f)
                     .into_iter()
                     .chain(feature_deps)
-                    .map(|f| {
+                    .flat_map(|f| {
                         config
                             .package_test_depends(PackageKey::feature(f))
                             .into_iter()
                             .flatten()
                     })
-                    .flatten()
                     .map(|s| s.to_string())
                     .chain(dev_depends.clone())
                     .collect::<Vec<_>>();
@@ -1224,14 +1212,14 @@ fn changelog_first_last(tempdir: &Path) -> Result<(i32, i32)> {
     let mut first = None;
     for x in ChangelogIterator::from(&changelog_data) {
         let e = ChangelogEntry::from_str(x)?;
-        if None == last {
+        if last.is_none() {
             last = Some(e.date.year());
         }
         first = Some(e.date.year());
     }
-    if None == last {
-        Err(format_err!("changelog had no entries"))
+    if let Some(last) = last {
+        Ok((first.unwrap(), last))
     } else {
-        Ok((first.unwrap(), last.unwrap()))
+        Err(format_err!("changelog had no entries"))
     }
 }
