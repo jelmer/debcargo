@@ -68,7 +68,7 @@ pub fn copy_tree(oldtree: &Path, newtree: &Path) -> Result<(), Error> {
             continue;
         }
         let oldpath = entry.path();
-        let newpath = newtree.join(oldpath.strip_prefix(&oldtree).unwrap());
+        let newpath = newtree.join(oldpath.strip_prefix(oldtree).unwrap());
         let ftype = entry.file_type();
         if ftype.is_dir() {
             fs::create_dir(newpath)?;

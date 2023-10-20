@@ -61,8 +61,7 @@ fn get_build_deps(
     let (_, crate_dep_info, config) = crate_details;
     let all_deps = crate_dep_info
         .iter()
-        .map(|(_, v)| v.1.iter())
-        .flatten()
+        .flat_map(|(_, v)| v.1.iter())
         .cloned()
         .collect::<HashSet<_>>();
     let feature_deps: HashSet<Dependency> =

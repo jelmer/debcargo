@@ -88,7 +88,7 @@ pub fn crate_name_ver_to_dep(crate_name: &str, version: Option<&str>) -> Result<
     let version = version.and_then(|v| {
         if v.is_empty() {
             None
-        } else if v.starts_with(|c: char| c.is_digit(10)) {
+        } else if v.starts_with(|c: char| c.is_ascii_digit()) {
             Some(["=", v].concat())
         } else {
             Some(v.to_string())
@@ -175,11 +175,11 @@ impl CrateInfo {
                         crate_path.display()
                     ));
                 }
-                let filename = format!("{}-{}.crate", crate_name, package_id.version().to_string());
+                let filename = format!("{}-{}.crate", crate_name, package_id.version());
                 workspace
                     .target_dir()
                     .join("package")
-                    .open_rw(&filename, &config, "crate file")?
+                    .open_rw(filename, &config, "crate file")?
             };
 
             (package, crate_file)
@@ -511,8 +511,8 @@ impl CrateInfo {
             // wrapping in crate descriptions, boo. \n\n is a real line break.
             let mut description = description
                 .replace("\n\n", "\r")
-                .replace("\n", " ")
-                .replace("\r", "\n")
+                .replace('\n', " ")
+                .replace('\r', "\n")
                 .trim()
                 .to_string();
             // Trim off common prefixes
@@ -541,7 +541,7 @@ impl CrateInfo {
             // Use the first sentence or first line, whichever comes first, as the summary.
             let p1 = description.find('\n');
             let p2 = description.find(". ");
-            match p1.into_iter().chain(p2.into_iter()).min() {
+            match p1.into_iter().chain(p2).min() {
                 Some(p) => {
                     let s = description[..p].trim_end_matches('.').to_string();
                     let d = description[p + 1..].trim();
@@ -654,7 +654,7 @@ impl CrateInfo {
             );
         }
 
-        if let Err(e) = fs::rename(entries[0].path(), &path) {
+        if let Err(e) = fs::rename(entries[0].path(), path) {
             return Err(Error::from(e).context(format!(
                 concat!(
                     "Could not create source directory {0}\n",
@@ -709,7 +709,7 @@ pub fn transitive_deps<'a>(
 ) -> (Vec<&'a str>, Vec<Dependency>) {
     let mut all_features = Vec::new();
     let mut all_deps = Vec::new();
-    let &(ref ff, ref dd) = features_with_deps.get(feature).unwrap();
+    let (ff, dd) = features_with_deps.get(feature).unwrap();
     all_features.extend(ff.clone());
     all_deps.extend(dd.clone());
     for f in ff {
