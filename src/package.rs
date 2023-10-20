@@ -33,7 +33,7 @@ pub struct PackageInitArgs {
     /// If empty string or omitted, resolves to the latest version.
     pub version: Option<String>,
     /// TOML file providing package-specific options.
-    #[clap(long)]
+    #[arg(long)]
     pub config: Option<PathBuf>,
 }
 
@@ -41,20 +41,20 @@ pub struct PackageInitArgs {
 pub struct PackageExtractArgs {
     /// Output directory for the package. The orig tarball is named according
     /// to Debian conventions in the parent directory of this directory.
-    #[clap(long)]
+    #[arg(long)]
     pub directory: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Parser)]
 pub struct PackageExecuteArgs {
     /// Assume the changelog is already bumped, and leave it alone.
-    #[clap(long)]
+    #[arg(long)]
     pub changelog_ready: bool,
     /// Guess extra values for d/copyright. Might be slow.
-    #[clap(long)]
+    #[arg(long)]
     pub copyright_guess_harder: bool,
     /// Don't write back hint files or d/changelog to the source overlay directory.
-    #[clap(long)]
+    #[arg(long)]
     pub no_overlay_write_back: bool,
 }
 

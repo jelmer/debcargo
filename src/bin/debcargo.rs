@@ -1,5 +1,5 @@
 use ansi_term::Colour::Red;
-use clap::{crate_version, AppSettings, Parser};
+use clap::{crate_version, Parser, Subcommand};
 
 use debcargo::crates::CrateInfo;
 use debcargo::debian::DebInfo;
@@ -11,7 +11,14 @@ use debcargo::{
 };
 
 #[derive(Debug, Clone, Parser)]
-#[clap(name = "debcargo", about = "Package Rust crates for Debian.")]
+#[command(name = "debcargo", about = "Package Rust crates for Debian.")]
+#[command(version)]
+struct Cli {
+    #[command(subcommand)]
+    command: Opt,
+}
+
+#[derive(Debug, Clone, Subcommand)]
 enum Opt {
     /// Update the user's default crates.io index, outside of a workspace.
     Update,
@@ -27,40 +34,37 @@ enum Opt {
     },
     /// Extract only a crate, without any other transformations.
     Extract {
-        #[clap(flatten)]
+        #[command(flatten)]
         init: PackageInitArgs,
-        #[clap(flatten)]
+        #[command(flatten)]
         extract: PackageExtractArgs,
     },
     /// Package a Rust crate for Debian.
     Package {
-        #[clap(flatten)]
+        #[command(flatten)]
         init: PackageInitArgs,
-        #[clap(flatten)]
+        #[command(flatten)]
         extract: PackageExtractArgs,
-        #[clap(flatten)]
+        #[command(flatten)]
         finish: PackageExecuteArgs,
     },
     /// Print the transitive dependencies of a package in topological order.
     BuildOrder {
-        #[clap(flatten)]
+        #[command(flatten)]
         args: BuildOrderArgs,
     },
 }
 
 #[test]
 fn verify_app() {
-    use clap::IntoApp;
-    Opt::into_app().debug_assert()
+    use clap::CommandFactory;
+    Cli::command().debug_assert()
 }
 
 fn real_main() -> Result<()> {
-    let m = Opt::clap()
-        .version(crate_version!())
-        .global_setting(AppSettings::ColoredHelp)
-        .get_matches();
+    let m = Cli::parse();
     use Opt::*;
-    match Opt::from_clap(&m) {
+    match m.command {
         Update => invalidate_crates_io_cache(),
         DebSrcName {
             crate_name,
