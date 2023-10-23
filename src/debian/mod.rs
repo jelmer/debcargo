@@ -697,7 +697,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
     let (crate_summary, crate_description) = crate_info.get_summary_description();
     let summary_prefix = crate_summary.unwrap_or(format!("Rust crate \"{}\"", crate_name));
     let description_prefix = {
-        let tmp = crate_description.unwrap_or_else(|| "".to_string());
+        let tmp = crate_description.unwrap_or_default();
         if tmp.is_empty() {
             tmp
         } else {
