@@ -14,7 +14,7 @@ use crate::package::{PackageExtractArgs, PackageProcess};
 use crate::util;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
-#[clap(rename_all = "verbatim")]
+#[value(rename_all = "verbatim")]
 pub enum ResolveType {
     SourceForDebianUnstable,
     BinaryAllForDebianTesting,
@@ -31,13 +31,13 @@ pub struct BuildOrderArgs {
     /// specific, e.g. <crate>-1.2.3, then <crate>-1.2, then <crate>-1 and
     /// finally <crate>. The config file is read from the debian/debcargo.toml
     /// subpath of the looked-up subdirectory.
-    #[clap(long)]
+    #[arg(long)]
     config_dir: Option<PathBuf>,
     /// Resolution type
-    #[clap(value_enum, long, default_value = "SourceForDebianUnstable")]
+    #[arg(value_enum, long, default_value = "SourceForDebianUnstable")]
     resolve_type: ResolveType,
     /// Emulate resolution as if every package were built with --collapse-features.
-    #[clap(long)]
+    #[arg(long)]
     emulate_collapse_features: bool,
 }
 
