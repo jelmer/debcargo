@@ -49,13 +49,13 @@ impl V {
 
 impl cmp::Ord for V {
     fn cmp(&self, other: &V) -> cmp::Ordering {
-        self.partial_cmp(other).unwrap()
+        self.mmp().cmp(&other.mmp())
     }
 }
 
 impl cmp::PartialOrd for V {
     fn partial_cmp(&self, other: &V) -> Option<cmp::Ordering> {
-        self.mmp().partial_cmp(&other.mmp())
+        Some(self.cmp(other))
     }
 }
 
