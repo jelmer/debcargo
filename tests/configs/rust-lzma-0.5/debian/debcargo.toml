@@ -1,0 +1,5 @@
+overlay ="."
+semver_suffix = true
+
+[packages.lib]
+depends = ["liblzma-dev"]

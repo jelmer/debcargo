@@ -2,4 +2,4 @@ overlay = "."
 semver_suffix = true
 
 [packages.lib]
-depends = ["libssl-dev"]
+depends = ["gfortran"]

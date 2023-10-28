@@ -1,0 +1,8 @@
+semver_suffix = true
+overlay = "."
+
+[source]
+build_depends = [
+    "cargo-c:native",
+]
+

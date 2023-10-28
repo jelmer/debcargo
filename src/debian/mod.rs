@@ -645,7 +645,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
             .iter()
             .map(|x| x.to_string());
         // note: please keep this in sync with build_order::dep_features
-        let (default_features, default_deps) = transitive_deps(&features_with_deps, "default");
+        let (default_features, default_deps) = transitive_deps(&features_with_deps, "default")?;
         //debcargo_info!("default_features: {:?}", default_features);
         //debcargo_info!("default_deps: {:?}", deb_deps(config, &default_deps)?);
         let extra_override_deps = package_field_for_feature(
@@ -993,7 +993,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
             // Generate tests for all features in this package
             for f in crate_features {
-                let (feature_deps, _) = transitive_deps(&features_with_deps, f);
+                let (feature_deps, _) = transitive_deps(&features_with_deps, f)?;
 
                 // args
                 let mut args = if f == "default" || feature_deps.contains(&"default") {

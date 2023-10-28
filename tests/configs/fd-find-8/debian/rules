@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+%:
+	dh $@ --buildsystem cargo
+export RUSTC_BOOTSTRAP := 1
+export PATH := $(CURDIR)/debian/debcargo_testing_bin:$(PATH)
+
+override_dh_dwz:
+	# Don't do anything. fails because of the
+	# https://github.com/rust-lang/rust/issues/66118

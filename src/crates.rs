@@ -706,16 +706,23 @@ impl CrateInfo {
 pub fn transitive_deps<'a>(
     features_with_deps: &'a CrateDepInfo,
     feature: &str,
-) -> (Vec<&'a str>, Vec<Dependency>) {
+) -> Result<(Vec<&'a str>, Vec<Dependency>)> {
     let mut all_features = Vec::new();
     let mut all_deps = Vec::new();
-    let (ff, dd) = features_with_deps.get(feature).unwrap();
-    all_features.extend(ff.clone());
-    all_deps.extend(dd.clone());
-    for f in ff {
-        let (ff1, dd1) = transitive_deps(features_with_deps, f);
-        all_features.extend(ff1);
-        all_deps.extend(dd1);
+    if let Some((ff, dd)) = features_with_deps.get(feature) {
+        all_features.extend(ff.clone());
+        all_deps.extend(dd.clone());
+        for f in ff {
+            let (ff1, dd1) = transitive_deps(features_with_deps, f)?;
+            all_features.extend(ff1);
+            all_deps.extend(dd1);
+        }
+    } else {
+        log::trace!("{features_with_deps:?}");
+        debcargo_bail!(
+            "requested feature '{}' not found in resolved map of features+dependencies",
+            feature
+        );
     }
-    (all_features, all_deps)
+    Ok((all_features, all_deps))
 }

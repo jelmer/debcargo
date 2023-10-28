@@ -373,9 +373,13 @@ pub fn debian_copyright(
     if let Some(ref license_file_name) = meta.license_file {
         let license_file = manifest_path.with_file_name(license_file_name);
         let mut text = Vec::new();
-        fs::File::open(license_file)?.read_to_end(&mut text)?;
         licenses.reserve(1);
-        let stext = String::from_utf8(text)?;
+        let stext = match fs::File::open(license_file).and_then(|mut f| f.read_to_end(&mut text)) {
+            Ok(_) => String::from_utf8(text)?,
+            Err(e) => {
+                format!("Failed to read license from {license_file_name} - {e:?}")
+            }
+        };
         licenses.push(License::new(
             "UNKNOWN-LICENSE; FIXME (overlay)".to_string(),
             stext,
