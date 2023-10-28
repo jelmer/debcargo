@@ -906,7 +906,7 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
                 }
             };
             let description_suffix = if feature.is_empty() {
-                format!("Rust crate {}", crate_name)
+                format!("Source code for Debianized Rust crate \"{}\"", crate_name)
             } else {
                 format!(
                     "This metapackage enables feature \"{}\" for the \
