@@ -707,10 +707,12 @@ fn prepare_debian_control<F: FnMut(&str) -> std::result::Result<std::fs::File, s
 
     if lib {
         // debian/tests/control
-        let all_features_test_broken = Some(&"@")
-            .into_iter()
-            .chain(features_with_deps.keys())
-            .any(|f| test_is_marked_broken(f).unwrap_or(false));
+        let all_features_test_broken = match test_is_marked_broken("@") {
+            Some(v) => v,
+            None => features_with_deps
+                .keys()
+                .any(|f| test_is_marked_broken(f).unwrap_or(false)),
+        };
         let all_features_test_depends = Some(&"@")
             .into_iter()
             .chain(features_with_deps.keys())
