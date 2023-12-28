@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::ffi::OsStr;
 use std::fmt;
@@ -16,15 +17,31 @@ use walkdir::WalkDir;
 
 pub const HINT_SUFFIX: &str = ".debcargo.hint";
 
-pub fn hint_file_for(file: &Path) -> Option<&Path> {
+#[cfg(unix)]
+pub fn hint_file_for(file: &Path) -> Option<Cow<'_, Path>> {
     let file = file.as_os_str().as_bytes();
     if file.len() >= HINT_SUFFIX.len()
         && &file[file.len() - HINT_SUFFIX.len()..] == HINT_SUFFIX.as_bytes()
     {
-        Some(Path::new(OsStr::from_bytes(
+        Some(Cow::Borrowed(Path::new(OsStr::from_bytes(
             &file[..file.len() - HINT_SUFFIX.len()],
-        )))
+        ))))
     } else {
+        None
+    }
+}
+
+#[cfg(not(unix))]
+pub fn hint_file_for(file: &Path) -> Option<Cow<'_, Path>> {
+    if let Some(file_str) = file.to_str() {
+        if file_str.ends_with(HINT_SUFFIX) {
+            let trimmed_path = &file_str[..file_str.len() - HINT_SUFFIX.len()];
+            Some(Cow::Owned(PathBuf::from(trimmed_path)))
+        } else {
+            None
+        }
+    } else {
+        // Handle the case where the path is not representable as a string
         None
     }
 }
@@ -51,7 +68,7 @@ pub fn lookup_fixmes(srcdir: &Path) -> Result<BTreeSet<PathBuf>, Error> {
     let fixmes = fixmes
         .iter()
         .filter(|f| match hint_file_for(f) {
-            Some(ff) => fixmes.contains(ff) || !ff.exists(),
+            Some(ff) => fixmes.contains(ff.as_ref()) || !ff.exists(),
             None => true,
         })
         .cloned()
