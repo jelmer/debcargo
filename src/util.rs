@@ -4,7 +4,9 @@ use std::fmt;
 use std::fs;
 use std::io::{BufRead, BufReader, Error};
 use std::iter::Iterator;
+#[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
+#[cfg(unix)]
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -70,12 +72,18 @@ pub fn copy_tree(oldtree: &Path, newtree: &Path) -> Result<(), Error> {
         let oldpath = entry.path();
         let newpath = newtree.join(oldpath.strip_prefix(oldtree).unwrap());
         let ftype = entry.file_type();
-        if ftype.is_dir() {
-            fs::create_dir(newpath)?;
-        } else if ftype.is_file() {
-            fs::copy(oldpath, newpath)?;
-        } else if ftype.is_symlink() {
-            symlink(fs::read_link(oldpath)?, newpath)?;
+        match ftype {
+            f if f.is_dir() => {
+                fs::create_dir(newpath)?;
+            }
+            f if f.is_file() => {
+                fs::copy(oldpath, newpath)?;
+            }
+            #[cfg(unix)]
+            f if f.is_symlink() => {
+                symlink(fs::read_link(oldpath)?, newpath)?;
+            }
+            _ => {}
         }
     }
     Ok(())
