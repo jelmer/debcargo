@@ -87,8 +87,11 @@ fn build_package_with_authors(authors: Vec<&str>) -> Package {
     };
     let toml_manifest: Rc<TomlManifest> =
         Rc::new(toml::from_str(&toml::to_string(&toml).unwrap()).unwrap());
-    let source_id = SourceId::for_path(Path::new("/path/to/mypackage")).unwrap();
+    #[cfg(unix)]
     let package_root = Path::new("/path/to/mypackage");
+    #[cfg(windows)]
+    let package_root = Path::new("C:\\path\\to\\mypackage");
+    let source_id = SourceId::for_path(&package_root).unwrap();
     let config = Config::default().unwrap();
     let manifest = TomlManifest::to_real_manifest(&toml_manifest, source_id, package_root, &config)
         .unwrap()
