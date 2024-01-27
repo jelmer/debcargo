@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io::{self, ErrorKind, Read, Seek, Write as IoWrite};
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -386,6 +387,7 @@ pub fn prepare_debian_folder(
     if testing_ignore_debpolv() {
         fs::create_dir_all(tempdir.path().join("debcargo_testing_bin"))?;
         let mut env_hack = file("debcargo_testing_bin/env")?;
+        #[cfg(unix)]
         env_hack.set_permissions(fs::Permissions::from_mode(0o777))?;
         // intercept calls to dh-cargo-built-using
         writeln!(
@@ -401,6 +403,7 @@ echo "debcargo testing: suppressing dh-cargo-built-using";;
     // debian/rules
     {
         let mut rules = file("rules")?;
+        #[cfg(unix)]
         rules.set_permissions(fs::Permissions::from_mode(0o777))?;
         if has_dev_depends || testing_ignore_debpolv() {
             // don't run any tests, we don't want extra B-D on dev-depends
